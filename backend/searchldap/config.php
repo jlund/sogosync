@@ -1,10 +1,11 @@
 <?php
 /***********************************************
-* File      :   debug.php
+* File      :   searchldap/config.php
 * Project   :   Z-Push
-* Descr     :   Debuging functions
+* Descr     :   configuration file for the
+*               SearchLDAP backend.
 *
-* Created   :   01.10.2007
+* Created   :   03.08.2010
 *
 * Copyright 2007 - 2010 Zarafa Deutschland GmbH
 *
@@ -41,50 +42,34 @@
 * Consult LICENSE file for details
 ************************************************/
 
-global $debugstr;
+// LDAP host and port
+define("LDAP_HOST", "ldap://127.0.0.1/");
+define("LDAP_PORT", "389");
 
-function debug($str) {
-    global $debugstr;
-    $debugstr .= "$str\n";
-}
+// Set USER and PASSWORD if not using anonymous bind
+define("ANONYMOUS_BIND", true);
+define("LDAP_BIND_USER", "cn=searchuser,dc=test,dc=net");
+define("LDAP_BIND_PASSWORD", "");
 
-function getDebugInfo() {
-    global $debugstr;
+// Search base & filter
+// the SEARCHVALUE string is substituded by the value inserted into the search field
+define("LDAP_SEARCH_BASE", "ou=global,dc=test,dc=net");
+define("LDAP_SEARCH_FILTER", "(|(cn=*SEARCHVALUE*)(mail=*SEARCHVALUE*))");
 
-    return $debugstr;
-}
-
-function debugLog($message) {
-    global $auth_user;
-    $user = (isset($auth_user))?"[". $auth_user ."] ":"";
-    @$fp = fopen(BASE_PATH . "/debug.txt","a");
-    @$date = strftime("%x %X");
-    @fwrite($fp, "$date [". getmypid() ."] ". $user . "$message\n");
-    @fclose($fp);
-}
-
-function zarafa_error_handler($errno, $errstr, $errfile, $errline, $errcontext) {
-    $bt = debug_backtrace();
-    switch ($errno) {
-        case 8192:      // E_DEPRECATED since PHP 5.3.0
-            // do not handle this message
-            break;
-
-        case E_NOTICE:
-        case E_WARNING:
-            debugLog("$errfile:$errline $errstr ($errno)");
-            break;
-
-        default:
-            debugLog("------------------------- ERROR BACKTRACE -------------------------");
-            debugLog("trace error: $errfile:$errline $errstr ($errno) - backtrace: ". (count($bt)-1) . " steps");
-            for($i = 1, $bt_length = count($bt); $i < $bt_length; $i++)
-                debugLog("trace: $i:". $bt[$i]['file']. ":" . $bt[$i]['line']. " - " . ((isset($bt[$i]['class']))? $bt[$i]['class'] . $bt[$i]['type']:""). $bt[$i]['function']. "()");
-            break;
-    }
-}
-
-error_reporting(E_ALL);
-set_error_handler("zarafa_error_handler");
-
+// LDAP field mapping.
+// values correspond to an inetOrgPerson class
+global $ldap_field_map;
+$ldap_field_map = array(
+                    SYNC_GAL_DISPLAYNAME    => 'cn',
+                    SYNC_GAL_PHONE          => 'telephonenumber',
+                    SYNC_GAL_OFFICE         => '',
+                    SYNC_GAL_TITLE          => 'title',
+                    SYNC_GAL_COMPANY        => 'ou',
+                    SYNC_GAL_ALIAS          => 'uid',
+                    SYNC_GAL_FIRSTNAME      => 'givenname',
+                    SYNC_GAL_LASTNAME       => 'sn',
+                    SYNC_GAL_HOMEPHONE      => 'homephone',
+                    SYNC_GAL_MOBILEPHONE    => 'mobile',
+                    SYNC_GAL_EMAILADDRESS   => 'mail',
+                );
 ?>

@@ -6,8 +6,38 @@
 *
 * Created   :   01.10.2007
 *
-* � Zarafa Deutschland GmbH, www.zarafaserver.de
-* This file is distributed under GPL v2.
+* Copyright 2007 - 2010 Zarafa Deutschland GmbH
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Affero General Public License, version 3,
+* as published by the Free Software Foundation with the following additional
+* term according to sec. 7:
+*
+* According to sec. 7 of the GNU Affero General Public License, version 3,
+* the terms of the AGPL are supplemented with the following terms:
+*
+* "Zarafa" is a registered trademark of Zarafa B.V.
+* "Z-Push" is a registered trademark of Zarafa Deutschland GmbH
+* The licensing of the Program under the AGPL does not imply a trademark license.
+* Therefore any rights, title and interest in our trademarks remain entirely with us.
+*
+* However, if you propagate an unmodified version of the Program you are
+* allowed to use the term "Z-Push" to indicate that you distribute the Program.
+* Furthermore you may use our trademarks where it is necessary to indicate
+* the intended purpose of a product or service provided you use it in accordance
+* with honest practices in industrial or commercial matters.
+* If you want to propagate modified versions of the Program under the name "Z-Push",
+* you may only do so if you have a written permission by Zarafa Deutschland GmbH
+* (to acquire a permission please contact Zarafa at trademark@zarafa.com).
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Affero General Public License for more details.
+*
+* You should have received a copy of the GNU Affero General Public License
+* along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*
 * Consult LICENSE file for details
 ************************************************/
     // Defines the default time zone
@@ -27,7 +57,7 @@
                         "/usr/share/php5/" . PATH_SEPARATOR .
                         "/usr/share/pear/");
 
-    define('STATE_DIR', 'state');
+    define('STATE_DIR', BASE_PATH.'/state');
 
     // Try to set unlimited timeout
     define('SCRIPT_TIMEOUT', 0);
@@ -37,13 +67,20 @@
 
     // Device Provisioning
     define('PROVISIONING', true);
-    
-    // This option allows the 'loose enforcement' of the provisioning policies for older 
+
+    // This option allows the 'loose enforcement' of the provisioning policies for older
     // devices which don't support provisioning (like WM 5 and HTC Android Mail) - dw2412 contribution
     // false (default) - Enforce provisioning for all devices
-    // true - allow older devices, but enforce policies on devices which support it  
-    define('LOOSE_PROVISIONING', false); 
-    
+    // true - allow older devices, but enforce policies on devices which support it
+    define('LOOSE_PROVISIONING', false);
+
+    // Default conflict preference
+    // Some devices allow to set if the server or PIM (mobile)
+    // should win in case of a synchronization conflict
+    //   SYNC_CONFLICT_OVERWRITE_SERVER - Server is overwritten, PIM wins
+    //   SYNC_CONFLICT_OVERWRITE_PIM    - PIM is overwritten, Server wins (default)
+    define('SYNC_CONFLICT_DEFAULT', SYNC_CONFLICT_OVERWRITE_PIM);
+
     // The data providers that we are using (see configuration below)
     $BACKEND_PROVIDER = "BackendICS";
 
@@ -73,6 +110,10 @@
     define('IMAP_DEFAULTFROM', '');
     // copy outgoing mail to this folder. If not set z-push will try the default folders
     define('IMAP_SENTFOLDER', '');
+    // forward messages inline (default off - as attachment)
+    define('IMAP_INLINE_FORWARD', false);
+    // use imap_mail() to send emails (default) - off uses mail()
+    define('IMAP_USE_IMAPMAIL', true);
 
 
     // ************************
@@ -85,5 +126,10 @@
     //  BackendVCDir settings
     // **********************
     define('VCARDDIR_DIR', '/home/%u/.kde/share/apps/kabc/stdvcf');
+
+    // Alternative backend to perform SEARCH requests (GAL search)
+    // if an empty value is used, the default search functionality of the main backend is used
+    // use 'SearchLDAP' to search in a LDAP directory (see backend/searchldap/config.php)
+    define('SEARCH_PROVIDER', '');
 
 ?>

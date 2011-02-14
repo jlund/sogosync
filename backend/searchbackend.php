@@ -1,10 +1,12 @@
 <?php
 /***********************************************
-* File      :   debug.php
+* File      :   searchbackend.php
 * Project   :   Z-Push
-* Descr     :   Debuging functions
+* Descr     :   The searchbackend can be used to
+*               implement an alternative way to
+*               use the GAL search funtionality.
 *
-* Created   :   01.10.2007
+* Created   :   03.08.2010
 *
 * Copyright 2007 - 2010 Zarafa Deutschland GmbH
 *
@@ -41,50 +43,30 @@
 * Consult LICENSE file for details
 ************************************************/
 
-global $debugstr;
+/*
+ * The SearchBackend is a stub to implement own search funtionality
+ * By default it just calls the getSearchResults of the initialized main backend
+ *
+ * If you wish to implement an alternative search method, you should extend this class
+ * like the SearchLDAP backend
+ */
 
-function debug($str) {
-    global $debugstr;
-    $debugstr .= "$str\n";
-}
+class SearchBackend {
+    var $_backend;
 
-function getDebugInfo() {
-    global $debugstr;
+    function initialize($backend) {
+        $this->backend = $backend;
+    }
 
-    return $debugstr;
-}
+    function getSearchResults($searchquery, $searchrange) {
+        if (isset($this->_backend))
+            return $this->_backend->getSearchResults($searchquery, $searchrange);
+        else
+            return false;
+    }
 
-function debugLog($message) {
-    global $auth_user;
-    $user = (isset($auth_user))?"[". $auth_user ."] ":"";
-    @$fp = fopen(BASE_PATH . "/debug.txt","a");
-    @$date = strftime("%x %X");
-    @fwrite($fp, "$date [". getmypid() ."] ". $user . "$message\n");
-    @fclose($fp);
-}
-
-function zarafa_error_handler($errno, $errstr, $errfile, $errline, $errcontext) {
-    $bt = debug_backtrace();
-    switch ($errno) {
-        case 8192:      // E_DEPRECATED since PHP 5.3.0
-            // do not handle this message
-            break;
-
-        case E_NOTICE:
-        case E_WARNING:
-            debugLog("$errfile:$errline $errstr ($errno)");
-            break;
-
-        default:
-            debugLog("------------------------- ERROR BACKTRACE -------------------------");
-            debugLog("trace error: $errfile:$errline $errstr ($errno) - backtrace: ". (count($bt)-1) . " steps");
-            for($i = 1, $bt_length = count($bt); $i < $bt_length; $i++)
-                debugLog("trace: $i:". $bt[$i]['file']. ":" . $bt[$i]['line']. " - " . ((isset($bt[$i]['class']))? $bt[$i]['class'] . $bt[$i]['type']:""). $bt[$i]['function']. "()");
-            break;
+    function disconnect() {
+        return true;
     }
 }
-
-error_reporting(E_ALL);
-set_error_handler("zarafa_error_handler");
-
 ?>

@@ -3,51 +3,81 @@
 /***********************************************
 * File      :   utils.php
 * Project   :   Z-Push
-* Descr     :   
+* Descr     :
 *
 * Created   :   03.04.2008
 *
-*  Zarafa Deutschland GmbH, www.zarafaserver.de
-* This file is distributed under GPL v2.
+* Copyright 2007 - 2010 Zarafa Deutschland GmbH
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Affero General Public License, version 3,
+* as published by the Free Software Foundation with the following additional
+* term according to sec. 7:
+*
+* According to sec. 7 of the GNU Affero General Public License, version 3,
+* the terms of the AGPL are supplemented with the following terms:
+*
+* "Zarafa" is a registered trademark of Zarafa B.V.
+* "Z-Push" is a registered trademark of Zarafa Deutschland GmbH
+* The licensing of the Program under the AGPL does not imply a trademark license.
+* Therefore any rights, title and interest in our trademarks remain entirely with us.
+*
+* However, if you propagate an unmodified version of the Program you are
+* allowed to use the term "Z-Push" to indicate that you distribute the Program.
+* Furthermore you may use our trademarks where it is necessary to indicate
+* the intended purpose of a product or service provided you use it in accordance
+* with honest practices in industrial or commercial matters.
+* If you want to propagate modified versions of the Program under the name "Z-Push",
+* you may only do so if you have a written permission by Zarafa Deutschland GmbH
+* (to acquire a permission please contact Zarafa at trademark@zarafa.com).
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU Affero General Public License for more details.
+*
+* You should have received a copy of the GNU Affero General Public License
+* along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*
 * Consult LICENSE file for details
 ************************************************/
 
-// saves information about folder data for a specific device    
+// saves information about folder data for a specific device
 function _saveFolderData($devid, $folders) {
     if (!is_array($folders) || empty ($folders))
         return false;
 
     $unique_folders = array ();
 
-    foreach ($folders as $folder) {    
+    foreach ($folders as $folder) {
         if (!isset($folder->type))
             continue;
-    	
+
         // don't save folder-ids for emails
         if ($folder->type == SYNC_FOLDER_TYPE_INBOX)
             continue;
 
-        // no folder from that type    or the default folder        
+        // no folder from that type    or the default folder
         if (!array_key_exists($folder->type, $unique_folders) || $folder->parentid == 0) {
             $unique_folders[$folder->type] = $folder->serverid;
         }
     }
-    
-    // Treo does initial sync for calendar and contacts too, so we need to fake 
+
+    // Treo does initial sync for calendar and contacts too, so we need to fake
     // these folders if they are not supported by the backend
-    if (!array_key_exists(SYNC_FOLDER_TYPE_APPOINTMENT, $unique_folders))     
+    if (!array_key_exists(SYNC_FOLDER_TYPE_APPOINTMENT, $unique_folders))
         $unique_folders[SYNC_FOLDER_TYPE_APPOINTMENT] = SYNC_FOLDER_TYPE_DUMMY;
-    if (!array_key_exists(SYNC_FOLDER_TYPE_CONTACT, $unique_folders))         
+    if (!array_key_exists(SYNC_FOLDER_TYPE_CONTACT, $unique_folders))
         $unique_folders[SYNC_FOLDER_TYPE_CONTACT] = SYNC_FOLDER_TYPE_DUMMY;
 
-    if (!file_put_contents(BASE_PATH.STATE_DIR."/compat-$devid", serialize($unique_folders))) {
+    if (!file_put_contents(STATE_DIR."/compat-$devid", serialize($unique_folders))) {
         debugLog("_saveFolderData: Data could not be saved!");
     }
 }
 
-// returns information about folder data for a specific device    
+// returns information about folder data for a specific device
 function _getFolderID($devid, $class) {
-    $filename = BASE_PATH.STATE_DIR."/compat-$devid";
+    $filename = STATE_DIR."/compat-$devid";
 
     if (file_exists($filename)) {
         $arr = unserialize(file_get_contents($filename));
@@ -66,21 +96,20 @@ function _getFolderID($devid, $class) {
  * Function which converts a hex entryid to a binary entryid.
  * @param string @data the hexadecimal string
  */
-function hex2bin($data)
-{
-    $len = strlen($data);
-    $newdata = "";
-
-    for($i = 0;$i < $len;$i += 2)
-    {
-        $newdata .= pack("C", hexdec(substr($data, $i, 2)));
-    } 
-    return $newdata;
+function hex2bin($data) {
+    return pack("H*", $data);
 }
 
 function utf8_to_windows1252($string, $option = "")
 {
+    //if the store supports unicode return the string without converting it
+    if (defined('STORE_SUPPORTS_UNICODE') && STORE_SUPPORTS_UNICODE == true) return $string;
+
     if (function_exists("iconv")){
+        // replace 0xA0 as it is considered an illegal character in UTF-8 / see Mantis #314
+        // we also replace correct encoded non-breaking spaces to simple spaces
+        $string = str_replace(chr(0xA0), chr(0x20), str_replace(chr(0xC2).chr(0xA0), chr(0x20), $string));
+
         return @iconv("UTF-8", "Windows-1252" . $option, $string);
     }else{
         return utf8_decode($string); // no euro support here
@@ -89,6 +118,9 @@ function utf8_to_windows1252($string, $option = "")
 
 function windows1252_to_utf8($string, $option = "")
 {
+    //if the store supports unicode return the string without converting it
+    if (defined('STORE_SUPPORTS_UNICODE') && STORE_SUPPORTS_UNICODE == true) return $string;
+
     if (function_exists("iconv")){
         return @iconv("Windows-1252", "UTF-8" . $option, $string);
     }else{
@@ -104,21 +136,21 @@ function u2wi($string) { return utf8_to_windows1252($string, "//TRANSLIT"); }
 
 /**
  * Truncate an UTF-8 encoded sting correctly
- * 
- * If it's not possible to truncate properly, an empty string is returned 
+ *
+ * If it's not possible to truncate properly, an empty string is returned
  *
  * @param string $string - the string
  * @param string $length - position where string should be cut
  * @return string truncated string
- */ 
+ */
 function utf8_truncate($string, $length) {
-    if (strlen($string) <= $length) 
+    if (strlen($string) <= $length)
         return $string;
-    
+
     while($length >= 0) {
         if ((ord($string[$length]) < 0x80) || (ord($string[$length]) >= 0xC0))
             return substr($string, 0, $length);
-        
+
         $length--;
     }
     return "";
@@ -137,17 +169,17 @@ function utf8_truncate($string, $length) {
  */
 function buildAddressString($street, $zip, $city, $state, $country) {
     $out = "";
-    
+
     if (isset($country) && $street != "") $out = $country;
-    
+
     $zcs = "";
     if (isset($zip) && $zip != "") $zcs = $zip;
     if (isset($city) && $city != "") $zcs .= (($zcs)?" ":"") . $city;
     if (isset($state) && $state != "") $zcs .= (($zcs)?" ":"") . $state;
     if ($zcs) $out = $zcs . "\r\n" . $out;
-    
+
     if (isset($street) && $street != "") $out = $street . (($out)?"\r\n\r\n". $out: "") ;
-    
+
     return ($out)?$out:null;
 }
 
@@ -159,11 +191,11 @@ function buildAddressString($street, $zip, $city, $state, $country) {
  */
 function checkMapiExtVersion($version = "") {
     // compare build number if requested
-    if (preg_match('/^\d+$/',$version) && strlen > 3) {
+    if (preg_match('/^\d+$/', $version) && strlen($version) > 3) {
         $vs = preg_split('/-/', phpversion("mapi"));
-        return ($version <= $vs[1]); 
+        return ($version <= $vs[1]);
     }
-    
+
     if (extension_loaded("mapi")){
         if (version_compare(phpversion("mapi"), $version) == -1){
             return false;
@@ -171,24 +203,27 @@ function checkMapiExtVersion($version = "") {
     }
     else
         return false;
-        
+
     return true;
 }
 
 /**
- * Parses and returns an ecoded vCal-Uid from an 
+ * Parses and returns an ecoded vCal-Uid from an
  * OL compatible GlobalObjectID
  *
  * @param string $olUid - an OL compatible GlobalObjectID
  * @return string the vCal-Uid if available in the olUid, else the original olUid as HEX
  */
 function getICalUidFromOLUid($olUid){
-    $icalUid = strtoupper(bin2hex($olUid));
-    if(($pos = stripos($olUid,"vCal-Uid"))) {
-    	$length = unpack("V", substr($olUid, $pos-4,4));
-    	$icalUid = substr($olUid, $pos+12, $length[1] -14);
+    //check if "vCal-Uid" is somewhere in outlookid case-insensitive
+    $icalUid = stristr($olUid, "vCal-Uid");
+    if ($icalUid !== false) {
+        //get the length of the ical id - go back 4 position from where "vCal-Uid" was found
+        $begin = unpack("V", substr($olUid, strlen($icalUid) * (-1) - 4, 4));
+        //remove "vCal-Uid" and packed "1" and use the ical id length
+        return substr($icalUid, 12, ($begin[1] - 13));
     }
-    return $icalUid;
+    return strtoupper(bin2hex($olUid));
 }
 
 /**
@@ -210,14 +245,14 @@ function getOLUidFromICalUid($icalUid) {
 	}
 	else
 	   return hex2bin($icalUid);
-} 
+}
 
 /**
- * Extracts the basedate of the GlobalObjectID and the RecurStartTime 
+ * Extracts the basedate of the GlobalObjectID and the RecurStartTime
  *
  * @param string $goid - OL compatible GlobalObjectID
- * @param long $recurStartTime - RecurStartTime 
- * @return long basedate 
+ * @param long $recurStartTime - RecurStartTime
+ * @return long basedate
  *
  */
 function extractBaseDate($goid, $recurStartTime) {
@@ -235,5 +270,49 @@ function extractBaseDate($goid, $recurStartTime) {
     }
     else
         return false;
+}
+
+
+/**
+ * Prints the Z-Push legal header to STDOUT
+ * Using this function breaks ActiveSync synchronization
+ *
+ * @param string $additionalMessage - additional message to be displayed
+ * @return
+ *
+ */
+function printZPushLegal($message = "", $additionalMessage = "") {
+    global $zpush_version;
+
+    if ($message)
+        $message = "<h3>". $message . "</h3>";
+    if ($additionalMessage)
+        $additionalMessage .= "<br>";
+
+    $zpush_legal = <<<END
+<html>
+<header>
+<title>Z-Push ActiveSync</title>
+</header>
+<body>
+<font face="verdana">
+<h2>Z-Push - Open Source ActiveSync</h2>
+<b>Version $zpush_version</b><br>
+$message $additionalMessage
+<br><br>
+More information about Z-Push can be found at:<br>
+<a href="http://z-push.sf.net/">Z-Push homepage</a><br>
+<a href="http://z-push.sf.net/download">Z-Push download page at BerliOS</a><br>
+<a href="http://z-push.sf.net/tracker">Z-Push Bugtracker and Roadmap</a><br>
+<br>
+All modifications to this sourcecode must be published and returned to the community.<br>
+Please see <a href="http://www.gnu.org/licenses/agpl-3.0.html">AGPLv3 License</a> for details.<br>
+</font face="verdana">
+</body>
+</html>
+END;
+
+    header("Content-type: text/html");
+    print $zpush_legal;
 }
 ?>
