@@ -82,7 +82,7 @@
     define('SYNC_CONFLICT_DEFAULT', SYNC_CONFLICT_OVERWRITE_PIM);
 
     // The data providers that we are using (see configuration below)
-    $BACKEND_PROVIDER = "BackendICS";
+    $BACKEND_PROVIDER = "BackendZarafa";
 
     // ************************
     //  BackendICS settings

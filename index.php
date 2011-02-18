@@ -46,12 +46,12 @@
 ob_start(false, 1048576);
 
 include_once('zpushdefs.php');
-include_once("config.php");
-include_once("proto.php");
-include_once("request.php");
-include_once("debug.php");
-include_once("compat.php");
-include_once("version.php");
+include_once('config.php');
+include_once('proto.php');
+include_once('request.php');
+include_once('debug.php');
+include_once('compat.php');
+include_once('version.php');
 
 // Attempt to set maximum execution time
 ini_set('max_execution_time', SCRIPT_TIMEOUT);
@@ -129,7 +129,7 @@ while($entry = readdir($backend_dir)) {
         continue;
 
     // do not load Zarafa backend if PHP-MAPI is unavailable
-    if (!function_exists("mapi_logon") && ($entry == "ics.php"))
+    if (!function_exists("mapi_logon") && ($entry == "zarafa"))
         continue;
 
     // do not load Kolab backend if not a Kolab system
@@ -143,6 +143,11 @@ while($entry = readdir($backend_dir)) {
 }
 
 // Initialize our backend
+if (!class_exists ($BACKEND_PROVIDER)) {
+    debugLog("Class '$BACKEND_PROVIDER' can not be loaded. Check configuration!");
+    return;
+}
+
 $backend = new $BACKEND_PROVIDER();
 
 if($backend->Logon($auth_user, $auth_domain, $auth_pw) == false) {

@@ -64,6 +64,7 @@ define('EXPORT_CONTENTS', 2);
 
 define('BACKEND_DISCARD_DATA', 1);
 
+// TODO: update signatures
 class ImportContentsChanges {
     function ImportMessageChange($id, $message) {}
 
