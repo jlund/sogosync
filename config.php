@@ -40,6 +40,10 @@
 *
 * Consult LICENSE file for details
 ************************************************/
+
+// **********************
+//  Default settings
+// **********************
     // Defines the default time zone
     if (function_exists("date_default_timezone_set")){
         date_default_timezone_set("Europe/Amsterdam");
@@ -65,6 +69,24 @@
     //Max size of attachments to display inline. Default is 1MB
     define('MAX_EMBEDDED_SIZE', 1048576);
 
+
+// **********************
+//  Logging settings
+// **********************
+    define('LOGFILEDIR', '/var/log/z-push/');
+    define('LOGFILE', LOGFILEDIR . "z-push.log");
+    define('LOGERRORFILE', LOGFILEDIR . "z-push-error.log");
+    define('LOGLEVEL', LOGLEVEL_INGO);
+
+    // to save WBXML data for special users, add the usernames to the array.
+    // The wbxml data will be saved into a dedicated file per user.
+    define('LOGUSERLEVEL', LOGLEVEL_WBXML);
+    $wbxmlLogUsers = array();
+
+
+// **********************
+//  Mobile settings
+// **********************
     // Device Provisioning
     define('PROVISIONING', true);
 
@@ -81,6 +103,9 @@
     //   SYNC_CONFLICT_OVERWRITE_PIM    - PIM is overwritten, Server wins (default)
     define('SYNC_CONFLICT_DEFAULT', SYNC_CONFLICT_OVERWRITE_PIM);
 
+// ************************
+//  Backend settings
+// ************************
     // The data providers that we are using (see configuration below)
     $BACKEND_PROVIDER = "BackendZarafa";
 

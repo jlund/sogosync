@@ -84,7 +84,7 @@ function icalTimezoneFix($ical) {
     $beginDaylight = substr($ical, $posDst , 8);
 
     if (($eventDate < $beginStandard) && ($eventDate < $beginDaylight) ) {
-        debugLog("icalTimezoneFix for event on $eventDate, standard:$beginStandard, daylight:$beginDaylight");
+        writeLog(LOGLEVEL_DEBUG,"icalTimezoneFix for event on $eventDate, standard:$beginStandard, daylight:$beginDaylight");
         $year = intval(date("Y")) - 1;
         $ical = substr_replace($ical, $year, (($beginStandard < $beginDaylight) ? $posDst : $posStd), strlen($year));
     }

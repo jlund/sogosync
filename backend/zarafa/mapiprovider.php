@@ -416,7 +416,7 @@ class MAPIProvider extends MAPIMapping{
                 }
                 else {
                    if (!isset($props[$goidtag]) || !isset($props[$recurStartTime]) || !isset($props[$timezonetag]))
-                       debugLog("Missing property to set correct basedate for exception");
+                       writeLog(LOGLEVEL_WARN, "Missing property to set correct basedate for exception");
                    else {
                        $basedate = extractBaseDate($props[$goidtag], $props[$recurStartTime]);
                        $message->meetingrequest->recurrenceid = $this->_getGMTTimeByTZ($basedate, $tz);
@@ -976,7 +976,7 @@ class MAPIProvider extends MAPIMapping{
                 //delete it also if it was removed on a mobile
                 $picprops = mapi_getprops($mapimessage, array($haspic));
                 if (isset($picprops[$haspic]) && $picprops[$haspic]) {
-                    debugLog("Contact already has a picture. Delete it");
+                    writeLog(LOGLEVEL_DEBUG, "Contact already has a picture. Delete it");
 
                     $attachtable = mapi_message_getattachmenttable($mapimessage);
                     mapi_table_restrict($attachtable, getContactPicRestriction());

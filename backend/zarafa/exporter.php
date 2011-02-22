@@ -70,7 +70,7 @@ class ExportChangesICS  {
         $folder = mapi_msgstore_openentry($this->_store, $entryid);
         if(!$folder) {
             $this->exporter = false;
-            debugLog("ExportChangesICS->Constructor: can not open folder:".bin2hex($folderid));
+            writeLog(LOGLEVEL_WARN, "ExportChangesICS->Constructor: can not open folder:".bin2hex($folderid));
             return;
         }
 
@@ -101,7 +101,7 @@ class ExportChangesICS  {
             // we check the change ID of the syncstate (0 at initial sync)
             // On subsequent syncs, we do want to receive delete events.
             if(strlen($syncstate) == 0 || bin2hex(substr($syncstate,4,4)) == "00000000") {
-                debugLog("synching inital data");
+                writeLog(LOGLEVEL_DEBUG, "synching inital data");
                 $exporterflags |= SYNC_NO_SOFT_DELETIONS | SYNC_NO_DELETIONS;
             }
         } else {
@@ -143,7 +143,7 @@ class ExportChangesICS  {
         }
 
         if ($this->exporter === false) {
-            debugLog("ExportChangesICS->Config failed. Exporter not available.");
+            writeLog(LOGLEVEL_WARN, "ExportChangesICS->Config failed. Exporter not available.");
             return false;
         }
 
@@ -152,10 +152,10 @@ class ExportChangesICS  {
         if($ret) {
             $changes = mapi_exportchanges_getchangecount($this->exporter);
             if($changes || !($flags & BACKEND_DISCARD_DATA))
-                debugLog("Exporter configured successfully. " . $changes . " changes ready to sync.");
+                writeLog(LOGLEVEL_INFO, "Exporter configured successfully. " . $changes . " changes ready to sync.");
         }
         else
-            debugLog("Exporter could not be configured: result: " . sprintf("%X", mapi_last_hresult()));
+            writeLog(LOGLEVEL_ERROR, "Exporter could not be configured: result: " . sprintf("%X", mapi_last_hresult()));
 
         return $ret;
     }
@@ -165,7 +165,7 @@ class ExportChangesICS  {
             return false;
 
         if(mapi_exportchanges_updatestate($this->exporter, $this->statestream) != true) {
-            debugLog("Unable to update state: " . sprintf("%X", mapi_last_hresult()));
+            writeLog(LOGLEVEL_WARN, "Unable to update state: " . sprintf("%X", mapi_last_hresult()));
             return false;
         }
 

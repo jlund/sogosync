@@ -42,7 +42,8 @@
 ************************************************/
 include_once('debug.php');
 
-define('WBXML_DEBUG', false);
+// WBXML debug mode is now configured in config.php
+// set the level to LOGLEVEL_WBXML
 
 define('WBXML_SWITCH_PAGE',     0x00);
 define('WBXML_END',             0x01);
@@ -96,6 +97,9 @@ class WBXMLDecoder {
     var $logStack = array();
 
     function WBXMLDecoder($input, $dtd) {
+        // make sure WBXML_DEBUG is defined. It should be at this point
+        if (!defined('WBXML_DEBUG')) define('WBXML_DEBUG', false);
+
         $this->in = $input;
         $this->dtd = $dtd;
 
@@ -154,8 +158,8 @@ class WBXMLDecoder {
         if($element[EN_TYPE] == EN_TYPE_STARTTAG && $element[EN_TAG] == $tag)
             return $element;
         else {
-            debug("Unmatched tag $tag:");
-            debug(print_r($element,true));
+            writeLog(LOGLEVEL_WBXMLSTACK, "Unmatched tag $tag:");
+            writeLog(LOGLEVEL_WBXMLSTACK, print_r($element,true));
             $this->ungetElement($element);
         }
 
@@ -169,12 +173,12 @@ class WBXMLDecoder {
         if($element[EN_TYPE] == EN_TYPE_ENDTAG)
             return $element;
         else {
-            debug("Unmatched end tag:");
-            debug(print_r($element,true));
+            writeLog(LOGLEVEL_WBXMLSTACK, "Unmatched end tag:");
+            writeLog(LOGLEVEL_WBXMLSTACK, print_r($element,true));
             $bt = debug_backtrace();
             $c = count($bt);
-            debugLog(print_r($bt,true));
-            debug("From " . $bt[$c-2]["file"] . ":" . $bt[$c-2]["line"]);
+            writeLog(LOGLEVEL_WBXML, print_r($bt,true));
+            writeLog(LOGLEVEL_WBXMLSTACK, "From " . $bt[$c-2]["file"] . ":" . $bt[$c-2]["line"]);
             $this->ungetElement($element);
         }
 
@@ -189,8 +193,8 @@ class WBXMLDecoder {
             return $element[EN_CONTENT];
         }
         else {
-            debug("Unmatched content:");
-            debug(print_r($element, true));
+            writeLog(LOGLEVEL_WBXMLSTACK, "Unmatched content:");
+            writeLog(LOGLEVEL_WBXMLSTACK, print_r($element, true));
             $this->ungetElement($element);
         }
 
@@ -222,18 +226,18 @@ class WBXMLDecoder {
         switch($el[EN_TYPE]) {
             case EN_TYPE_STARTTAG:
                 if($el[EN_FLAGS] & EN_FLAGS_CONTENT) {
-                    debugLog("I " . $spaces . " <". $el[EN_TAG] . ">");
+                    writeLog(LOGLEVEL_WBXML,"I " . $spaces . " <". $el[EN_TAG] . ">");
                     array_push($this->logStack, $el[EN_TAG]);
                 } else
-                    debugLog("I " . $spaces . " <" . $el[EN_TAG] . "/>");
+                    writeLog(LOGLEVEL_WBXML,"I " . $spaces . " <" . $el[EN_TAG] . "/>");
 
                 break;
             case EN_TYPE_ENDTAG:
                 $tag = array_pop($this->logStack);
-                debugLog("I " . $spaces . "</" . $tag . ">");
+                writeLog(LOGLEVEL_WBXML,"I " . $spaces . "</" . $tag . ">");
                 break;
             case EN_TYPE_CONTENT:
-                debugLog("I " . $spaces . " " . $el[EN_CONTENT]);
+                writeLog(LOGLEVEL_WBXML,"I " . $spaces . " " . $el[EN_CONTENT]);
                 break;
         }
     }
@@ -343,7 +347,7 @@ class WBXMLDecoder {
 
     function ungetElement($element) {
         if($this->ungetbuffer)
-            debugLog("Double unget!");
+            writeLog(LOGLEVEL_WBXML,"Double unget!");
 
         $this->ungetbuffer = $element;
     }
@@ -732,10 +736,10 @@ class WBXMLEncoder {
 
         $spaces = str_repeat(" ", count($this->logStack));
         if($nocontent)
-            debugLog("O " . $spaces . " <$tag/>");
+            writeLog(LOGLEVEL_WBXML,"O " . $spaces . " <$tag/>");
         else {
             array_push($this->logStack, $tag);
-            debugLog("O " . $spaces . " <$tag>");
+            writeLog(LOGLEVEL_WBXML,"O " . $spaces . " <$tag>");
         }
     }
 
@@ -745,7 +749,7 @@ class WBXMLEncoder {
 
         $spaces = str_repeat(" ", count($this->logStack));
         $tag = array_pop($this->logStack);
-        debugLog("O " . $spaces . "</$tag>");
+        writeLog(LOGLEVEL_WBXML,"O " . $spaces . "</$tag>");
     }
 
     function logContent($content) {
@@ -753,6 +757,6 @@ class WBXMLEncoder {
             return;
 
         $spaces = str_repeat(" ", count($this->logStack));
-        debugLog("O " . $spaces . $content);
+        writeLog(LOGLEVEL_WBXML,"O " . $spaces . $content);
     }
 }

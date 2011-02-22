@@ -62,15 +62,12 @@ $output = fopen("php://output", "w+");
 
 // The script must always be called with authorisation info
 if(!isset($_SERVER['PHP_AUTH_PW'])) {
-    debugLog("Start");
-    debugLog("Z-Push version: $zpush_version");
-    debugLog("Client IP: ". $_SERVER['REMOTE_ADDR']);
+    writeLog(LOGLEVEL_INFO, "-------- start --- Z-Push version: $zpush_version --- Client IP: ". $_SERVER['REMOTE_ADDR']);
     header("WWW-Authenticate: Basic realm=\"ZPush\"");
     header("HTTP/1.1 401 Unauthorized");
     printZPushLegal("Access denied. Please send authorisation information");
-    debugLog("Access denied: no password sent.");
-    debugLog("end");
-    debugLog("--------");
+    writeLog(LOGLEVEL_WARN, "Access denied: no password sent.");
+    writeLog(LOGLEVEL_INFO, "-------- end");
     return;
 }
 
@@ -86,9 +83,9 @@ if($pos === false){
 }
 $auth_pw = $_SERVER['PHP_AUTH_PW'];
 
-debugLog("Start");
-debugLog("Z-Push version: $zpush_version");
-debugLog("Client IP: ". $_SERVER['REMOTE_ADDR']);
+
+writeLog(LOGLEVEL_INFO, "-------- start --- Z-Push version: $zpush_version --- Client IP: ". $_SERVER['REMOTE_ADDR']);
+
 
 $cmd = $user = $devid = $devtype = "";
 
@@ -113,12 +110,12 @@ if($_SERVER["REQUEST_METHOD"] == "POST") {
 // Get the request headers so we can get the AS headers
 $requestheaders = array_change_key_case(apache_request_headers(), CASE_LOWER);
 
-global $protocolversion, $policykey, $useragent;
+global $protocolversion, $policykey, $useragent, $devid;
 $protocolversion = (isset($requestheaders["ms-asprotocolversion"]))? $requestheaders["ms-asprotocolversion"] : "1.0";
 $policykey = (isset($requestheaders["x-ms-policykey"]))? $requestheaders["x-ms-policykey"] : 0;
 $useragent = (isset($requestheaders["user-agent"]))? $requestheaders["user-agent"] : "unknown";
 
-debugLog("Client supports version " . $protocolversion);
+writeLog(LOGLEVEL_DEBUG, "Client supports version " . $protocolversion);
 
 // Load our backend driver
 $backend_dir = opendir(BASE_PATH . "/backend");
@@ -144,7 +141,7 @@ while($entry = readdir($backend_dir)) {
 
 // Initialize our backend
 if (!class_exists ($BACKEND_PROVIDER)) {
-    debugLog("Class '$BACKEND_PROVIDER' can not be loaded. Check configuration!");
+    writeLog(LOGLEVEL_FATAL, "Class '$BACKEND_PROVIDER' can not be loaded. Check configuration!");
     return;
 }
 
@@ -154,9 +151,8 @@ if($backend->Logon($auth_user, $auth_domain, $auth_pw) == false) {
     header("HTTP/1.1 401 Unauthorized");
     header("WWW-Authenticate: Basic realm=\"ZPush\"");
     printZPushLegal("Access denied. Username or password incorrect.");
-    debugLog("Access denied: backend logon failed.");
-    debugLog("end");
-    debugLog("--------");
+    writeLog(LOGLEVEL_WARN, "Access denied: backend logon failed.");
+    writeLog(LOGLEVEL_INFO, "-------- end");
     return;
 }
 
@@ -166,9 +162,8 @@ if($backend->Setup($user, $devid, $protocolversion) == false) {
     header("HTTP/1.1 401 Unauthorized");
     header("WWW-Authenticate: Basic realm=\"ZPush\"");
     printZPushLegal("Access denied or user '$user' unknown.");
-    debugLog("Access denied: backend setup failed.");
-    debugLog("end");
-    debugLog("--------");
+    writeLog(LOGLEVEL_WARN, "Access denied: backend setup failed.");
+    writeLog(LOGLEVEL_INFO, "-------- end");
     return;
 }
 
@@ -183,9 +178,8 @@ if (PROVISIONING === true && $_SERVER["REQUEST_METHOD"] == 'POST' && $cmd != 'Pi
     header("MS-ASProtocolVersions: 1.0,2.0,2.1,2.5");
     header("MS-ASProtocolCommands: Sync,SendMail,SmartForward,SmartReply,GetAttachment,GetHierarchy,CreateCollection,DeleteCollection,MoveCollection,FolderSync,FolderCreate,FolderDelete,FolderUpdate,MoveItems,GetItemEstimate,MeetingResponse,Provision,ResolveRecipients,ValidateCert,Search,Ping");
     header("Cache-Control: private");
-    debugLog("POST cmd $cmd denied: Retry after sending a PROVISION command");
-    debugLog("end");
-    debugLog("--------");
+    writeLog(LOGLEVEL_INFO, "POST cmd $cmd denied: Retry after sending a PROVISION command");
+    writeLog(LOGLEVEL_INFO, "-------- end");
     return;
 }
 
@@ -195,11 +189,11 @@ switch($_SERVER["REQUEST_METHOD"]) {
         header("MS-Server-ActiveSync: 6.5.7638.1");
         header("MS-ASProtocolVersions: 1.0,2.0,2.1,2.5");
         header("MS-ASProtocolCommands: Sync,SendMail,SmartForward,SmartReply,GetAttachment,GetHierarchy,CreateCollection,DeleteCollection,MoveCollection,FolderSync,FolderCreate,FolderDelete,FolderUpdate,MoveItems,GetItemEstimate,MeetingResponse,ResolveRecipients,ValidateCert,Provision,Search,Ping");
-        debugLog("Options request");
+        writeLog(LOGLEVEL_INFO, "Options request");
         break;
     case 'POST':
         header("MS-Server-ActiveSync: 6.5.7638.1");
-        debugLog("POST cmd: $cmd");
+        writeLog(LOGLEVEL_INFO, "POST cmd: $cmd");
         // Do the actual request
         if(!HandleRequest($backend, $cmd, $devid, $protocolversion)) {
             // Request failed. Try to output some kind of error information. We can only do this if
@@ -210,7 +204,7 @@ switch($_SERVER["REQUEST_METHOD"]) {
         }
         break;
     case 'GET':
-        debugLog("GET request from agent: ". $useragent);
+        writeLog(LOGLEVEL_INFO, "GET request from agent: ". $useragent);
         printZPushLegal("GET not supported", "This is the z-push location and can only be accessed by Microsoft ActiveSync-capable devices.");
         break;
 }
@@ -234,6 +228,5 @@ print $data;
 // destruct backend after all data is on the stream
 $backend->Logoff();
 
-debugLog("end");
-debugLog("--------");
+writeLog(LOGLEVEL_INFO, "-------- end");
 ?>

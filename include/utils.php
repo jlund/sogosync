@@ -71,7 +71,7 @@ function _saveFolderData($devid, $folders) {
         $unique_folders[SYNC_FOLDER_TYPE_CONTACT] = SYNC_FOLDER_TYPE_DUMMY;
 
     if (!file_put_contents(STATE_DIR."/compat-$devid", serialize($unique_folders))) {
-        debugLog("_saveFolderData: Data could not be saved!");
+        writeLog(LOGLEVEL_WARN, "_saveFolderData: Data could not be saved!");
     }
 }
 

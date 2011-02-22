@@ -928,9 +928,9 @@ class Mail_RFC822 {
      * @param  string  debug message
      * @return boolean always false as there was an error
      * @access private
-     */   
+     */
     function raiseError($message) {
-        debugLog("z_RFC822 error: ". $message);
+        writeLog(LOGLEVEL_ERROR, "z_RFC822 error: ". $message);
         return false;
-    }   
+    }
 }

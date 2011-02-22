@@ -59,8 +59,8 @@ class ImportContentsChangesStream {
 
         // prevent sending the same object twice in one request
         if (in_array($id, $this->_seenObjects)) {
-        	debugLog("Object $id discarded! Object already sent in this request.");
-        	return true;
+            writeLog(LOGLEVEL_DEBUG, "Object $id discarded! Object already sent in this request.");
+            return true;
         }
 
         $this->_seenObjects[] = $id;

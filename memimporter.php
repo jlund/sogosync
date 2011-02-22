@@ -101,7 +101,7 @@ class ImportHierarchyChangesMem extends ImportHierarchyChanges {
             $this->foldercache[$folder->serverid]->parentid == $folder->parentid &&
             $this->foldercache[$folder->serverid]->type == $folder->type
            ) {
-            debugLog("Change for folder '".$folder->displayname."' will not be sent as modification is not relevant");
+            writeLog(LOGLEVEL_DEBUG,"Change for folder '".$folder->displayname."' will not be sent as modification is not relevant");
             return true;
     	}
 

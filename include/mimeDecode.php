@@ -913,7 +913,7 @@ class Mail_mimeDecode
      * @access private
      */
     function raiseError($message) {
-        debugLog("mimeDecode error: ". $message);
+        writeLog(LOGLEVEL_ERROR, "mimeDecode error: ". $message);
         return false;
     }
 } // End of class

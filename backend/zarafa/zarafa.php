@@ -98,7 +98,7 @@ class BackendZarafa {
         $this->_session = mapi_logon_zarafa($user, $pass, MAPI_SERVER);
 
         if($this->_session === false) {
-            debugLog("logon failed for user $user");
+            writeLog(LOGLEVEL_WARN, "logon failed for user $user");
             $this->_defaultstore = false;
             return false;
         }
@@ -108,11 +108,11 @@ class BackendZarafa {
         $this->_provisioning->initialize($this);
 
         if($this->_defaultstore === false) {
-            debugLog("user $user has no default store");
+            writeLog(LOGLEVEL_ERROR, "user $user has no default store");
             return false;
         }
 
-        debugLog("User $user logged on");
+        writeLog(LOGLEVEL_INFO, "User $user logged on");
         $this->_isUnicodeStore();
         return true;
     }
@@ -144,7 +144,7 @@ class BackendZarafa {
         foreach($this->_importedFolders as $folderid) {
             $entryid = mapi_msgstore_entryidfromsourcekey($this->_defaultstore, hex2bin($folderid));
             if($rootprops[PR_IPM_APPOINTMENT_ENTRYID] == $entryid) {
-                debugLog("Update freebusy for ". $folderid);
+                writeLog(LOGLEVEL_DEBUG, "Update freebusy for ". $folderid);
                 $calendar = mapi_msgstore_openentry($this->_defaultstore, $entryid);
 
                 $pub = new FreeBusyPublish($this->_session, $this->_defaultstore, $calendar, $storeprops[PR_USER_ENTRYID]);
@@ -294,7 +294,7 @@ class BackendZarafa {
 
     function SendMail($rfc822, $forward = false, $reply = false, $parent = false) {
         if (WBXML_DEBUG == true)
-            debugLog("SendMail: forward: $forward   reply: $reply   parent: $parent\n" . $rfc822);
+            writeLog(LOGLEVEL_WBXML, "SendMail: forward: $forward   reply: $reply   parent: $parent\n" . $rfc822);
 
         $mimeParams = array('decode_headers' => true,
                             'decode_bodies' => true,
@@ -307,14 +307,14 @@ class BackendZarafa {
         // Open the outbox and create the message there
         $storeprops = mapi_getprops($this->_defaultstore, array(PR_IPM_OUTBOX_ENTRYID, PR_IPM_SENTMAIL_ENTRYID));
         if(!isset($storeprops[PR_IPM_OUTBOX_ENTRYID])) {
-            debugLog("Outbox not found to create message");
+            writeLog(LOGLEVEL_ERROR, "Outbox not found to create message");
             return false;
         }
 
         $outbox = mapi_msgstore_openentry($this->_defaultstore, $storeprops[PR_IPM_OUTBOX_ENTRYID]);
         if(!$outbox) {
             // TODO: this should throw a hard error, stop all further syncs and notify the administrator
-            debugLog("Unable to open outbox");
+            writeLog(LOGLEVEL_ERROR, "Unable to open outbox");
             return false;
         }
 
@@ -419,7 +419,7 @@ class BackendZarafa {
                         }
                         mapi_setprops($mapimessage, $mapiprops);
                     }
-                    else debugLog("TNEF: Mapi props array was empty");
+                    else writeLog(LOGLEVEL_WARN, "TNEF: Mapi props array was empty");
                 }
                 // iCalendar
                 elseif($part->ctype_primary == "text" && $part->ctype_secondary == "calendar") {
@@ -429,7 +429,7 @@ class BackendZarafa {
 
                     // iPhone sends a second ICS which we ignore if we can
                     if (!isset($mapiprops[PR_MESSAGE_CLASS]) && strlen(trim($body)) == 0) {
-                        debugLog("Secondary iPhone response is being ignored!! Mail dropped!");
+                        writeLog(LOGLEVEL_WARN, "Secondary iPhone response is being ignored!! Mail dropped!");
                         return true;
                     }
 
@@ -441,7 +441,7 @@ class BackendZarafa {
                         //see icalTimezoneFix function in compat.php for more information
                         $part->body = icalTimezoneFix($part->body);
                         $this->_storeAttachment($mapimessage, $part);
-                        debugLog("Sending ICS file as attachment");
+                        writeLog(LOGLEVEL_INFO, "Sending ICS file as attachment");
                     }
                 }
                 // any other type, store as attachment
@@ -454,7 +454,7 @@ class BackendZarafa {
 
         // some devices only transmit a html body
         if (strlen($body) == 0 && strlen($body_html)>0) {
-            debugLog("only html body sent, transformed into plain text");
+            writeLog(LOGLEVEL_INFO, "only html body sent, transformed into plain text");
             $body = strip_tags($body_html);
         }
 
@@ -532,7 +532,7 @@ class BackendZarafa {
             }
             else {
                 // TODO: this should throw a hard error (status code?). This message can NEVER be forwarded
-                debugLog("Unable to open item with id $orig for forward/reply");
+                writeLog(LOGLEVEL_WARN, "Unable to open item with id $orig for forward/reply");
             }
         }
 
@@ -603,14 +603,14 @@ class BackendZarafa {
         $entryid = mapi_msgstore_entryidfromsourcekey($this->_defaultstore, $foldersourcekey, $messagesourcekey);
         if(!$entryid) {
             // TODO: this should trigger a folder resync (status)
-            debugLog("Unknown ID passed to Fetch");
+            writeLog(LOGLEVEL_WARN, "Unknown ID passed to Fetch");
             return false;
         }
 
         $message = mapi_msgstore_openentry($this->_defaultstore, $entryid);
         if(!$message) {
             // TODO: this should trigger a folder resync (status)
-            debugLog("Unable to open message for Fetch command");
+            writeLog(LOGLEVEL_WARN, "Unable to open message for Fetch command");
             return false;
         }
 
@@ -635,25 +635,25 @@ class BackendZarafa {
         // TODO: errors must trigger status codes
         $entryid = mapi_msgstore_entryidfromsourcekey($this->_defaultstore, $foldersourcekey, $sourcekey);
         if(!$entryid) {
-            debugLog("Attachment requested for non-existing item $attname");
+            writeLog(LOGLEVEL_WARN, "Attachment requested for non-existing item $attname");
             return false;
         }
 
         $message = mapi_msgstore_openentry($this->_defaultstore, $entryid);
         if(!$message) {
-            debugLog("Unable to open item for attachment data for " . bin2hex($entryid));
+            writeLog(LOGLEVEL_WARN, "Unable to open item for attachment data for " . bin2hex($entryid));
             return false;
         }
 
         $attach = mapi_message_openattach($message, $attachnum);
         if(!$attach) {
-            debugLog("Unable to open attachment number $attachnum");
+            writeLog(LOGLEVEL_WARN, "Unable to open attachment number $attachnum");
             return false;
         }
 
         $stream = mapi_openpropertytostream($attach, PR_ATTACH_DATA_BIN);
         if(!$stream) {
-            debugLog("Unable to open attachment data stream");
+            writeLog(LOGLEVEL_WARN, "Unable to open attachment data stream");
             return false;
         }
 
@@ -674,19 +674,19 @@ class BackendZarafa {
 
         // TODO: trigger status codes
         if(!$mapimessage) {
-            debugLog("Unable to open request message for response");
+            writeLog(LOGLEVEL_WARN, "Unable to open request message for response");
             return false;
         }
 
         $meetingrequest = new Meetingrequest($this->_defaultstore, $mapimessage);
 
         if(!$meetingrequest->isMeetingRequest()) {
-            debugLog("Attempt to respond to non-meeting request");
+            writeLog(LOGLEVEL_WARN, "Attempt to respond to non-meeting request");
             return false;
         }
 
         if($meetingrequest->isLocalOrganiser()) {
-            debugLog("Attempt to response to meeting request that we organized");
+            writeLog(LOGLEVEL_WARN, "Attempt to response to meeting request that we organized");
             return false;
         }
 
@@ -716,7 +716,7 @@ class BackendZarafa {
 
         // on recurring items, the MeetingRequest class responds with a wrong entryid
         if ($requestid == $calendarid) {
-            debugLog("returned calender id is the same as the requestid - re-searching");
+            writeLog(LOGLEVEL_DEBUG, "returned calender id is the same as the requestid - re-searching");
             $goidprop = GetPropIDFromString($this->_defaultstore, "PT_BINARY:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x3");
 
             $messageprops = mapi_getprops($mapimessage, Array($goidprop, PR_OWNER_APPT_ID));
@@ -732,7 +732,7 @@ class BackendZarafa {
                    $newitem = mapi_msgstore_openentry($this->_defaultstore, $items[0]);
                    $newprops = mapi_getprops($newitem, array(PR_SOURCE_KEY));
                    $calendarid = bin2hex($newprops[PR_SOURCE_KEY]);
-                   debugLog("found other calendar entryid");
+                   writeLog(LOGLEVEL_DEBUG, "found other calendar entryid");
                 }
         }
 
@@ -904,7 +904,7 @@ class BackendZarafa {
     function _isUnicodeStore() {
         $supportmask = mapi_getprops($this->_defaultstore, array(PR_STORE_SUPPORT_MASK));
         if (isset($supportmask[PR_STORE_SUPPORT_MASK]) && ($supportmask[PR_STORE_SUPPORT_MASK] & STORE_UNICODE_OK)) {
-            debugLog("Store supports properties containing Unicode characters.");
+            writeLog(LOGLEVEL_DEBUG, "Store supports properties containing Unicode characters.");
             define('STORE_SUPPORTS_UNICODE', true);
             //setlocale to UTF-8 in order to support properties containing Unicode characters
             setlocale(LC_CTYPE, "en_US.UTF-8");

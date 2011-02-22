@@ -41,26 +41,73 @@
 * Consult LICENSE file for details
 ************************************************/
 
-global $debugstr;
+if (!defined('LOGUSERLEVEL'))
+    define('LOGUSERLEVEL', LOGLEVEL_OFF);
 
-function debug($str) {
-    global $debugstr;
-    $debugstr .= "$str\n";
+if (!defined('LOGLEVEL'))
+    define('LOGLEVEL', LOGLEVEL_OFF);
+
+function writeLog($loglevel, $message) {
+    global $auth_user, $devid, $wbxmlLogUsers;
+
+    if (!defined('WBXML_DEBUG') && isset($auth_user)) {
+        // define the WBXML_DEBUG mode on user basis depending on the configurations
+        if (LOGLEVEL >= LOGLEVEL_WBXML || (LOGUSERLEVEL >= LOGLEVEL_WBXML && in_array($auth_user, $wbxmlLogUsers)))
+            define('WBXML_DEBUG', true);
+        else
+            define('WBXML_DEBUG', false);
+    }
+
+    $user = (isset($auth_user))?"[". $auth_user ."] ":"";
+    // log the device id if the global loglevel is set to log devid or the user is in the $wbxmlLogUsers and has the right log level
+    if (isset($devid) && $devid != "" && ($loglevel >= LOGLEVEL_DEVICEID || (LOGUSERLEVEL >= LOGLEVEL_DEVICEID && in_array($auth_user, $wbxmlLogUsers)))) {
+        $user .= "[". $devid ."] ";
+    }
+
+    @$date = strftime("%x %X");
+    $data = "$date [". getmypid() ."] ". $user .getLogLevelString($loglevel) . " $message\n";
+
+    if ($loglevel <= LOGLEVEL) {
+        @file_put_contents(LOGFILE, $data, FILE_APPEND);
+    }
+    if ($loglevel <= LOGUSERLEVEL && in_array($auth_user, $wbxmlLogUsers)) {
+        // only use plain old a-z characters for the generic log file
+        @file_put_contents(LOGFILEDIR . "/". preg_replace('/[^a-z]/', '', strtolower($auth_user)). ".log", $data, FILE_APPEND);
+    }
+    if (($loglevel & LOGLEVEL_FATAL) || ($loglevel & LOGLEVEL_ERROR)) {
+        @file_put_contents(LOGERRORFILE, $data, FILE_APPEND);
+    }
+
+    if ($loglevel & LOGLEVEL_WBXMLSTACK) {
+        // debugstr holds wbxml debug info
+        global $debugstr;
+        if (!isset($debugstr))
+            $debugstr = "";
+        $debugstr .= "$message\n";
+    }
 }
 
+
+// WBXML STACK
+// expose wbxml debug information to the client
 function getDebugInfo() {
     global $debugstr;
-
-    return $debugstr;
+    return (isset($debugstr))? $debugstr : "not available";
 }
 
-function debugLog($message) {
-    global $auth_user;
-    $user = (isset($auth_user))?"[". $auth_user ."] ":"";
-    @$fp = fopen(BASE_PATH . "/debug.txt","a");
-    @$date = strftime("%x %X");
-    @fwrite($fp, "$date [". getmypid() ."] ". $user . "$message\n");
-    @fclose($fp);
+
+function getLogLevelString($loglevel) {
+    switch($loglevel) {
+        case LOGLEVEL_OFF:   return ""; break;
+        case LOGLEVEL_FATAL: return "[FATAL]"; break;
+        case LOGLEVEL_ERROR: return "[ERROR]"; break;
+        case LOGLEVEL_WARN:  return "[WARN] "; break;
+        case LOGLEVEL_INFO:  return "[INFO] "; break;
+        case LOGLEVEL_DEBUG: return "[DEBUG]"; break;
+        case LOGLEVEL_WBXML: return "[WBXML]"; break;
+        case LOGLEVEL_DEVICEID: return "[DEVICEID]"; break;
+        case LOGLEVEL_WBXMLSTACK: return "[WBXMLSTACK]"; break;
+    }
 }
 
 function zarafa_error_handler($errno, $errstr, $errfile, $errline, $errcontext) {
@@ -72,17 +119,23 @@ function zarafa_error_handler($errno, $errstr, $errfile, $errline, $errcontext) 
 
         case E_NOTICE:
         case E_WARNING:
-            debugLog("$errfile:$errline $errstr ($errno)");
+            writeLog(LOGLEVEL_WARN, "$errfile:$errline $errstr ($errno)");
             break;
 
         default:
-            debugLog("------------------------- ERROR BACKTRACE -------------------------");
-            debugLog("trace error: $errfile:$errline $errstr ($errno) - backtrace: ". (count($bt)-1) . " steps");
+            writeLog(LOGLEVEL_ERROR, "trace error: $errfile:$errline $errstr ($errno) - backtrace: ". (count($bt)-1) . " steps");
             for($i = 1, $bt_length = count($bt); $i < $bt_length; $i++)
-                debugLog("trace: $i:". $bt[$i]['file']. ":" . $bt[$i]['line']. " - " . ((isset($bt[$i]['class']))? $bt[$i]['class'] . $bt[$i]['type']:""). $bt[$i]['function']. "()");
+                writeLog(LOGLEVEL_ERROR, "trace: $i:". $bt[$i]['file']. ":" . $bt[$i]['line']. " - " . ((isset($bt[$i]['class']))? $bt[$i]['class'] . $bt[$i]['type']:""). $bt[$i]['function']. "()");
             break;
     }
 }
+
+// deprecated
+// backwards compatible
+function debugLog($message) {
+    writeLog(LOGLEVEL_DEBUG, $message);
+}
+
 
 error_reporting(E_ALL);
 set_error_handler("zarafa_error_handler");

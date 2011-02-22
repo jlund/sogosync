@@ -168,7 +168,7 @@ class PHPHierarchyWrapper {
            !isset($folderprops[PR_ENTRYID]) ||
            !isset($folderprops[PR_PARENT_SOURCE_KEY]) ||
            !isset($storeprops[PR_IPM_SUBTREE_ENTRYID])) {
-            debugLog("Missing properties on folder");
+            writeLog(LOGLEVEL_ERROR, "Missing properties on folder");
             return false;
         }
 

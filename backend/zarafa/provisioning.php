@@ -139,7 +139,7 @@ class Provisioning {
             return $policykey;
         }
         else
-            debugLog("ERROR: user store not available for policykey update");
+            writeLog(LOGLEVEL_ERROR, "ERROR: user store not available for policykey update");
 
         return false;
     }
@@ -148,7 +148,7 @@ class Provisioning {
 
     function getPolicyKey ($user, $pass, $devid) {
         if($this->_session === false) {
-            debugLog("logon failed for user $user");
+            writeLog(LOGLEVEL_WARN, "logon failed for user $user");
             return false;
         }
 
@@ -183,7 +183,7 @@ class Provisioning {
     function getDeviceRWStatus($user, $pass, $devid) {
 
         if($this->_session === false) {
-            debugLog("logon failed for user $user");
+            writeLog(LOGLEVEL_WARN, "logon failed for user $user");
             return false;
         }
 
@@ -212,7 +212,7 @@ class Provisioning {
 
     function setDeviceRWStatus($user, $pass, $devid, $status) {
         if($this->_session === false) {
-            debugLog("Set rw status: logon failed for user $user");
+            writeLog(LOGLEVEL_WARN, "Set rw status: logon failed for user $user");
             return false;
         }
 
@@ -230,7 +230,7 @@ class Provisioning {
                     if ($status == SYNC_PROVISION_RWSTATUS_WIPED)
                         $devicesprops[0x6887101E][$ak] = time();
 
-                    debugLog("RemoteWipe ".(($status == SYNC_PROVISION_RWSTATUS_WIPED)?'executed':'sent').": Device '". $devid ."' of '". $user ."' requested by '". $devicesprops[0x6886101E][$ak] ."' at ". strftime("%Y-%m-%d %H:%M", $devicesprops[0x6885101E][$ak]));
+                    writeLog(LOGLEVEL_INFO, "RemoteWipe ".(($status == SYNC_PROVISION_RWSTATUS_WIPED)?'executed':'sent').": Device '". $devid ."' of '". $user ."' requested by '". $devicesprops[0x6886101E][$ak] ."' at ". strftime("%Y-%m-%d %H:%M", $devicesprops[0x6885101E][$ak]));
                     mapi_setprops($defaultstore, array(0x68841003 => $devicesprops[0x68841003], 0x6887101E =>$devicesprops[0x6887101E]));
                     return true;
                 }
@@ -258,12 +258,12 @@ class Provisioning {
                 }
                 else {
                     // TODO: what should happen?
-                    debugLog("setLastSyncTime: No device found.");
+                    writeLog(LOGLEVEL_WARN, "setLastSyncTime: No device found.");
                 }
             }
             else {
                 // TODO: what should happen?
-                debugLog("setLastSyncTime: No devices found");
+                writeLog(LOGLEVEL_WARN, "setLastSyncTime: No devices found");
             }
         }
     }

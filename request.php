@@ -234,7 +234,8 @@ function HandleFolderSync($backend, $protocolversion) {
     if (!$sfolderstate) {
         $foldercache = array();
         if ($sfolderstate === false)
-            debugLog("Error: FolderChacheState for state 's". $synckey ."' not found. Reinitializing...");
+            // TODO: return status
+            writeLog(LOGLEVEL_WARN, "Error: FolderChacheState for state 's". $synckey ."' not found. Reinitializing...");
     }
     else {
     	$foldercache = unserialize($sfolderstate);
@@ -412,7 +413,7 @@ function HandleSync($backend, $protocolversion, $devid) {
             return false;
 
         $collection["class"] = $decoder->getElementContent();
-        debugLog("Sync folder:{$collection["class"]}");
+        writeLog(LOGLEVEL_DEBUG, "Sync folder: {$collection["class"]}");
 
         if(!$decoder->getElementEndTag())
             return false;
@@ -620,7 +621,7 @@ function HandleSync($backend, $protocolversion, $devid) {
                     return false;
             }
 
-            debugLog("Processed $nchanges incoming changes");
+            writeLog(LOGLEVEL_INFO, "Processed $nchanges incoming changes");
 
             // Save the updated state, which is used for the exporter later
             $collection["syncstate"] = $importer->getState();
@@ -723,7 +724,8 @@ function HandleSync($backend, $protocolversion, $devid) {
                             $encoder->endTag();
                             $encoder->endTag();
                         } else {
-                            debugLog("unable to fetch $id");
+                            // TODO: add status!
+                            writeLog(LOGLEVEL_WARN, "unable to fetch $id");
                         }
                     }
                     $encoder->endTag();
@@ -752,7 +754,7 @@ function HandleSync($backend, $protocolversion, $devid) {
                         $n++;
 
                         if($n >= $collection["maxitems"]) {
-                        	debugLog("Exported maxItems of messages: ". $collection["maxitems"] . " - more available");
+                        	writeLog(LOGLEVEL_DEBUG, "Exported maxItems of messages: ". $collection["maxitems"] . " - more available");
                             break;
                         }
 
@@ -776,7 +778,7 @@ function HandleSync($backend, $protocolversion, $devid) {
                         $state = "";
 
                     if (isset($state)) $statemachine->setSyncState($collection["newsynckey"], $state);
-                    else debugLog("error saving " . $collection["newsynckey"] . " - no state information available");
+                    else writeLog(LOGLEVEL_ERROR, "error saving " . $collection["newsynckey"] . " - no state information available");
                 }
             }
         }
@@ -915,7 +917,7 @@ function HandlePing($backend, $devid) {
     global $user, $auth_pw;
     $timeout = 5;
 
-    debugLog("Ping received");
+    writeLog(LOGLEVEL_INFO, "Ping received");
 
     $decoder = new WBXMLDecoder($input, $zpushdtd);
     $encoder = new WBXMLEncoder($output, $zpushdtd);
@@ -932,7 +934,7 @@ function HandlePing($backend, $devid) {
     }
 
     if($decoder->getElementStartTag(SYNC_PING_PING)) {
-        debugLog("Ping init");
+        writeLog(LOGLEVEL_DEBUG, "Ping init");
         if($decoder->getElementStartTag(SYNC_PING_LIFETIME)) {
             $lifetime = $decoder->getElementContent();
             $decoder->getElementEndTag();
@@ -965,13 +967,13 @@ function HandlePing($backend, $devid) {
                 foreach ($saved_collections as $saved_col) {
                     if ($saved_col["serverid"] == $collection["serverid"] && $saved_col["class"] == $collection["class"]) {
                         $collection["state"] = $saved_col["state"];
-                        debugLog("reusing saved state for ". $collection["class"]);
+                        writeLog(LOGLEVEL_DEBUG, "reusing saved state for ". $collection["class"]);
                         break;
                     }
                 }
 
                 if ($collection["state"] == "")
-                    debugLog("empty state for ". $collection["class"]);
+                    writeLog(LOGLEVEL_DEBUG, "empty state for ". $collection["class"]);
 
                 // Create start state for this collection
                 $exporter = $backend->GetExporter($collection["serverid"]);
@@ -993,7 +995,7 @@ function HandlePing($backend, $devid) {
     $changes = array();
     $dataavailable = false;
 
-    debugLog("Waiting for changes... (lifetime $lifetime)");
+    writeLog(LOGLEVEL_DEBUG, "Waiting for changes... (lifetime $lifetime)");
     // Wait for something to happen
     for($n=0;$n<$lifetime / $timeout; $n++ ) {
         //check the remote wipe status
@@ -1023,7 +1025,7 @@ function HandlePing($backend, $devid) {
             if ($ret === false ) {
                 // force "ping" to stop
                 $n = $lifetime / $timeout;
-                debugLog("Ping error: Exporter can not be configured. Waiting 30 seconds before ping is retried.");
+                writeLog(LOGLEVEL_WARN, "Ping error: Exporter can not be configured. Waiting 30 seconds before ping is retried.");
                 sleep(30);
                 break;
             }
@@ -1043,7 +1045,7 @@ function HandlePing($backend, $devid) {
         }
 
         if($dataavailable) {
-            debugLog("Found change");
+            writeLog(LOGLEVEL_INFO, "Found change");
             break;
         }
 
@@ -1283,7 +1285,7 @@ function HandleFolderCreate($backend, $protocolversion) {
         if (($sid = array_search($serverid, $seenfolders)) !== false) {
             unset($seenfolders[$sid]);
             $seenfolders = array_values($seenfolders);
-            debugLog("deleted from seenfolders: ". $serverid);
+            writeLog(LOGLEVEL_DEBUG, "deleted from seenfolders: ". $serverid);
         }
     }
 
@@ -1483,7 +1485,7 @@ function HandleProvision($backend, $devid, $protocolversion) {
     //in case the send one does not match the one already in backend. If it matches, we
     //just return the already defined key. (This helps at least the RoadSync 5.0 Client to sync)
     if ($backend->CheckPolicy($policykey,$devid) == SYNC_PROVISION_STATUS_SUCCESS) {
-        debugLog("Policykey is OK! Will not generate a new one!");
+        writeLog(LOGLEVEL_INFO, "Policykey is OK! Will not generate a new one!");
     }
     else {
         if (!$phase2) {
@@ -1526,7 +1528,7 @@ function HandleProvision($backend, $devid, $protocolversion) {
                     $encoder->content('<wap-provisioningdoc><characteristic type="SecurityPolicy"><parm name="4131" value="1"/><parm name="4133" value="1"/></characteristic></wap-provisioningdoc>');
                 }
                 else {
-                    debugLog("Wrong policy type");
+                    writeLog(LOGLEVEL_WARN, "Wrong policy type");
                     return false;
                 }
 
@@ -1600,7 +1602,7 @@ function HandleSearch($backend, $devid, $protocolversion) {
 
 
     if (strtoupper($searchname) != "GAL") {
-        debugLog("Searchtype $searchname is not supported");
+        writeLog(LOGLEVEL_WARN, "Searchtype $searchname is not supported");
         return false;
     }
 
@@ -1785,7 +1787,7 @@ function HandleRequest($backend, $cmd, $devid, $protocolversion) {
             break;
 
         default:
-            debugLog("unknown command - not implemented");
+            writeLog(LOGLEVEL_WARN, "unknown command - not implemented");
             $status = false;
             break;
     }

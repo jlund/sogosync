@@ -60,14 +60,15 @@ class ImportContentsChangesICS {
         $entryid = mapi_msgstore_entryidfromsourcekey($store, $folderid);
         if(!$entryid) {
             // Folder not found
-            debugLog("Folder not found: " . bin2hex($folderid));
+            // TODO: status
+            writeLog(LOGLEVEL_wARN, "Folder not found: " . bin2hex($folderid));
             $this->importer = false;
             return;
         }
 
         $folder = mapi_msgstore_openentry($store, $entryid);
         if(!$folder) {
-            debugLog("Unable to open folder: " . sprintf("%x", mapi_last_hresult()));
+            writeLog(LOGLEVEL_WARN, "Unable to open folder: " . sprintf("%x", mapi_last_hresult()));
             $this->importer = false;
             return;
         }
@@ -93,7 +94,8 @@ class ImportContentsChangesICS {
 
     function LoadConflicts($mclass, $filtertype, $state) {
         if (!isset($this->_session) || !isset($this->_store) || !isset($this->_folderid)) {
-            debugLog("Warning: can not load changes for conflict detections. Session, store or folder information not available");
+            // TODO: trigger resync? data could be lost!! TEST!
+            writeLog(LOGLEVEL_ERROR, "Warning: can not load changes for conflict detections. Session, store or folder information not available");
             return false;
         }
 
@@ -120,14 +122,14 @@ class ImportContentsChangesICS {
             // check for conflicts
             if($this->_memChanges->isChanged($id)) {
                 if ($this->_flags & SYNC_CONFLICT_OVERWRITE_PIM) {
-                    debugLog("Conflict detected. Data from PIM will be dropped! Server overwrites PIM.");
+                    writeLog(LOGLEVEL_INFO, "Conflict detected. Data from PIM will be dropped! Server overwrites PIM.");
                     return false;
                 }
                 else
-                   debugLog("Conflict detected. Data from Server will be dropped! PIM overwrites server.");
+                   writeLog(LOGLEVEL_INFO, "Conflict detected. Data from Server will be dropped! PIM overwrites server.");
             }
             if($this->_memChanges->isDeleted($id)) {
-                debugLog("Conflict detected. Data from PIM will be dropped! Object was deleted on server.");
+                writeLog(LOGLEVEL_INFO, "Conflict detected. Data from PIM will be dropped! Object was deleted on server.");
                 return false;
             }
         }
@@ -142,7 +144,7 @@ class ImportContentsChangesICS {
 
             $sourcekeyprops = mapi_getprops($mapimessage, array (PR_SOURCE_KEY));
         } else {
-            debugLog("Unable to update object $id:" . sprintf("%x", mapi_last_hresult()));
+            writeLog(LOGLEVEL_WARN, "Unable to update object $id:" . sprintf("%x", mapi_last_hresult()));
             return false;
         }
 
@@ -153,7 +155,7 @@ class ImportContentsChangesICS {
     function ImportMessageDeletion($objid) {
         // check for conflicts
         if($this->_memChanges->isChanged($objid)) {
-           debugLog("Conflict detected. Data from Server will be dropped! PIM deleted object.");
+           writeLog(LOGLEVEL_INFO, "Conflict detected. Data from Server will be dropped! PIM deleted object.");
         }
         // do a 'soft' delete so people can un-delete if necessary
         mapi_importcontentschanges_importmessagedeletion($this->importer, 1, array(hex2bin($objid)));
@@ -164,7 +166,7 @@ class ImportContentsChangesICS {
         $readstate = array ( "sourcekey" => hex2bin($id), "flags" => $flags);
         $ret = mapi_importcontentschanges_importperuserreadstatechange($this->importer, array ($readstate) );
         if($ret == false)
-            debugLog("Unable to set read state: " . sprintf("%x", mapi_last_hresult()));
+            writeLog(LOGLEVEL_WARN, "Unable to set read state: " . sprintf("%x", mapi_last_hresult()));
     }
 
     // Import a move of a message. This occurs when a user moves an item to another folder. Normally,
@@ -177,68 +179,68 @@ class ImportContentsChangesICS {
     function ImportMessageMove($id, $newfolder) {
         if (strtolower($newfolder) == strtolower(bin2hex($this->_folderid)) ) {
             //TODO: status value 4
-            debugLog("Source and destination are equal");
+            writeLog(LOGLEVEL_WARN, "Source and destination are equal");
             return false;
         }
         // Get the entryid of the message we're moving
         $entryid = mapi_msgstore_entryidfromsourcekey($this->_store, $this->_folderid, hex2bin($id));
         if(!$entryid) {
-            debugLog("Unable to resolve source message id");
+            writeLog(LOGLEVEL_WARN, "Unable to resolve source message id");
             return false;
         }
 
         //open the source message
         $srcmessage = mapi_msgstore_openentry($this->_store, $entryid);
         if (!$srcmessage) {
-            debugLog("Unable to open source message:".sprintf("%x", mapi_last_hresult()));
+            writeLog(LOGLEVEL_WARN, "Unable to open source message:".sprintf("%x", mapi_last_hresult()));
             return false;
         }
         $dstentryid = mapi_msgstore_entryidfromsourcekey($this->_store, hex2bin($newfolder));
         if(!$dstentryid) {
-            debugLog("Unable to resolve destination folder");
+            writeLog(LOGLEVEL_WARN, "Unable to resolve destination folder");
             return false;
         }
 
         $dstfolder = mapi_msgstore_openentry($this->_store, $dstentryid);
         if(!$dstfolder) {
-            debugLog("Unable to open destination folder");
+            writeLog(LOGLEVEL_WARN, "Unable to open destination folder");
             return false;
         }
 
         $newmessage = mapi_folder_createmessage($dstfolder);
         if (!$newmessage) {
-            debugLog("Unable to create message in destination folder:".sprintf("%x", mapi_last_hresult()));
+            writeLog(LOGLEVEL_WARN, "Unable to create message in destination folder:".sprintf("%x", mapi_last_hresult()));
             return false;
         }
         // Copy message
         mapi_copyto($srcmessage, array(), array(), $newmessage);
         if (mapi_last_hresult()){
-            debugLog("copy to failed:".sprintf("%x", mapi_last_hresult()));
+            writeLog(LOGLEVEL_WARN, "copy to failed:".sprintf("%x", mapi_last_hresult()));
             return false;
         }
 
         $srcfolderentryid = mapi_msgstore_entryidfromsourcekey($this->_store, $this->_folderid);
         if(!$srcfolderentryid) {
-            debugLog("Unable to resolve source folder");
+            writeLog(LOGLEVEL_WARN, "Unable to resolve source folder");
             return false;
         }
 
         $srcfolder = mapi_msgstore_openentry($this->_store, $srcfolderentryid);
         if (!$srcfolder) {
-            debugLog("Unable to open source folder:".sprintf("%x", mapi_last_hresult()));
+            writeLog(LOGLEVEL_WARN, "Unable to open source folder:".sprintf("%x", mapi_last_hresult()));
             return false;
         }
 
         // Save changes
         mapi_savechanges($newmessage);
         if (mapi_last_hresult()){
-            debugLog("mapi_savechanges failed:".sprintf("%x", mapi_last_hresult()));
+            writeLog(LOGLEVEL_WARN, "mapi_savechanges failed:".sprintf("%x", mapi_last_hresult()));
             return false;
         }
 
         // Delete the old message
         if (!mapi_folder_deletemessages($srcfolder, array($entryid))) {
-            debugLog("Failed to delete source message. Possible duplicates");
+            writeLog(LOGLEVEL_WARN, "Failed to delete source message. Possible duplicates");
         }
 
         $sourcekeyprops = mapi_getprops($newmessage, array (PR_SOURCE_KEY));
@@ -252,9 +254,9 @@ class ImportContentsChangesICS {
             return false;
 
         if (function_exists("mapi_importcontentschanges_updatestate")) {
-            debugLog("using mapi_importcontentschanges_updatestate");
+            writeLog(LOGLEVEL_DEBUG, "using mapi_importcontentschanges_updatestate");
             if(mapi_importcontentschanges_updatestate($this->importer, $this->statestream) != true) {
-                debugLog("Unable to update state: " . sprintf("%X", mapi_last_hresult()));
+                writeLog(LOGLEVEL_WARN, "Unable to update state: " . sprintf("%X", mapi_last_hresult()));
                 return false;
             }
         }
@@ -325,7 +327,7 @@ class ImportHierarchyChangesICS  {
 
         // 'type' is ignored because you can only create email (standard) folders
         mapi_importhierarchychanges_importfolderchange($this->importer, array ( PR_SOURCE_KEY => hex2bin($id), PR_PARENT_SOURCE_KEY => hex2bin($parent), PR_DISPLAY_NAME => $displayname) );
-        debugLog("Imported changes for folder:$id");
+        writeLog(LOGLEVEL_DEBUG, "Imported changes for folder:$id");
         return $id;
     }
 
