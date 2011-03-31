@@ -46,12 +46,22 @@
 ob_start(false, 1048576);
 
 include_once('zpushdefs.php');
+include_once('zpushdtd.php');
 include_once('config.php');
-include_once('proto.php');
-include_once('request.php');
+include_once('streamer.php');
+include_once('syncobjects.php');
 include_once('debug.php');
 include_once('compat.php');
 include_once('version.php');
+include_once('interfaces.php');
+include_once('memimporter.php');
+include_once('request.php');
+include_once('backend.php');
+include_once('searchbackend.php');
+include_once('wbxml.php');
+include_once('statemachine.php');
+include_once('streamimporter.php');
+include_once('include/utils.php');
 
 // Attempt to set maximum execution time
 ini_set('max_execution_time', SCRIPT_TIMEOUT);
@@ -60,9 +70,22 @@ set_time_limit(SCRIPT_TIMEOUT);
 $input = fopen("php://input", "r");
 $output = fopen("php://output", "w+");
 
+$cmd = $user = $devid = $devtype = "-";
+
+// Parse the standard GET parameters
+if(isset($_GET["Cmd"]))
+    $cmd = $_GET["Cmd"];
+if(isset($_GET["User"]))
+    $user = $_GET["User"];
+if(isset($_GET["DeviceId"]))
+    $devid = $_GET["DeviceId"];
+if(isset($_GET["DeviceType"]))
+    $devtype = $_GET["DeviceType"];
+
+writeLog(LOGLEVEL_INFO, "-------- start version='$zpush_version' method='".$_SERVER["REQUEST_METHOD"]."' from='". $_SERVER['REMOTE_ADDR']. "' cmd='$cmd' user='$user' deviceid='$devid' devicetype='$devtype'");
+
 // The script must always be called with authorisation info
 if(!isset($_SERVER['PHP_AUTH_PW'])) {
-    writeLog(LOGLEVEL_INFO, "-------- start --- Z-Push version: $zpush_version --- Client IP: ". $_SERVER['REMOTE_ADDR']);
     header("WWW-Authenticate: Basic realm=\"ZPush\"");
     header("HTTP/1.1 401 Unauthorized");
     printZPushLegal("Access denied. Please send authorisation information");
@@ -84,22 +107,8 @@ if($pos === false){
 $auth_pw = $_SERVER['PHP_AUTH_PW'];
 
 
-writeLog(LOGLEVEL_INFO, "-------- start --- Z-Push version: $zpush_version --- Client IP: ". $_SERVER['REMOTE_ADDR']);
-
-
-$cmd = $user = $devid = $devtype = "";
-
-// Parse the standard GET parameters
-if(isset($_GET["Cmd"]))
-    $cmd = $_GET["Cmd"];
-if(isset($_GET["User"]))
-    $user = $_GET["User"];
-if(isset($_GET["DeviceId"]))
-    $devid = $_GET["DeviceId"];
-if(isset($_GET["DeviceType"]))
-    $devtype = $_GET["DeviceType"];
-
 // The GET parameters are required
+// TODO fix error message as $user, $devid and $devtype are always set
 if($_SERVER["REQUEST_METHOD"] == "POST") {
     if(!isset($user) || !isset($devid) || !isset($devtype)) {
         print("Your device requested the Z-Push URL without the required GET parameters");
@@ -117,7 +126,7 @@ $useragent = (isset($requestheaders["user-agent"]))? $requestheaders["user-agent
 
 writeLog(LOGLEVEL_DEBUG, "Client supports version " . $protocolversion);
 
-// Load our backend driver
+// Load our backend drivers
 $backend_dir = opendir(BASE_PATH . "/backend");
 while($entry = readdir($backend_dir)) {
     $subdirfile = BASE_PATH . "/backend/" . $entry . "/" . $entry . ".php";
@@ -136,6 +145,7 @@ while($entry = readdir($backend_dir)) {
     if (is_file($subdirfile))
         $entry = $entry . "/" . $entry . ".php";
 
+    writeLog(LOGLEVEL_DEBUG, "including backend file: " . $entry);
     include_once(BASE_PATH . "/backend/" . $entry);
 }
 
@@ -178,7 +188,7 @@ if (PROVISIONING === true && $_SERVER["REQUEST_METHOD"] == 'POST' && $cmd != 'Pi
     header("MS-ASProtocolVersions: 1.0,2.0,2.1,2.5");
     header("MS-ASProtocolCommands: Sync,SendMail,SmartForward,SmartReply,GetAttachment,GetHierarchy,CreateCollection,DeleteCollection,MoveCollection,FolderSync,FolderCreate,FolderDelete,FolderUpdate,MoveItems,GetItemEstimate,MeetingResponse,Provision,ResolveRecipients,ValidateCert,Search,Ping");
     header("Cache-Control: private");
-    writeLog(LOGLEVEL_INFO, "POST cmd $cmd denied: Retry after sending a PROVISION command");
+    writeLog(LOGLEVEL_INFO, "Denied: Retry after sending PROVISION command");
     writeLog(LOGLEVEL_INFO, "-------- end");
     return;
 }
@@ -189,11 +199,11 @@ switch($_SERVER["REQUEST_METHOD"]) {
         header("MS-Server-ActiveSync: 6.5.7638.1");
         header("MS-ASProtocolVersions: 1.0,2.0,2.1,2.5");
         header("MS-ASProtocolCommands: Sync,SendMail,SmartForward,SmartReply,GetAttachment,GetHierarchy,CreateCollection,DeleteCollection,MoveCollection,FolderSync,FolderCreate,FolderDelete,FolderUpdate,MoveItems,GetItemEstimate,MeetingResponse,ResolveRecipients,ValidateCert,Provision,Search,Ping");
-        writeLog(LOGLEVEL_INFO, "Options request");
+        writeLog(LOGLEVEL_DEBUG, "Options request");
         break;
     case 'POST':
         header("MS-Server-ActiveSync: 6.5.7638.1");
-        writeLog(LOGLEVEL_INFO, "POST cmd: $cmd");
+        writeLog(LOGLEVEL_DEBUG, "POST cmd: $cmd");
         // Do the actual request
         if(!HandleRequest($backend, $cmd, $devid, $protocolversion)) {
             // Request failed. Try to output some kind of error information. We can only do this if
@@ -204,7 +214,7 @@ switch($_SERVER["REQUEST_METHOD"]) {
         }
         break;
     case 'GET':
-        writeLog(LOGLEVEL_INFO, "GET request from agent: ". $useragent);
+        writeLog(LOGLEVEL_INFO, "User-agent: ". $useragent);
         printZPushLegal("GET not supported", "This is the z-push location and can only be accessed by Microsoft ActiveSync-capable devices.");
         break;
 }

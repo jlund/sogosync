@@ -12,7 +12,7 @@
 *
 * Created   :   01.10.2011
 *
-* Copyright 2007 - 2010 Zarafa Deutschland GmbH
+* Copyright 2007 - 2011 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -67,30 +67,41 @@ include_once('z_ical.php');
 include_once('mapiutils.php');
 include_once('mapiprovider.php');
 include_once('mapiphpwrapper.php');
-include_once('provisioning.php');
+include_once('zprovisioning.php');
 include_once('importer.php');
 include_once('exporter.php');
 
 
-// backwards compatibility
-class BackendICS extends BackendZarafa{ }
+class BackendZarafa extends Backend {
+    protected $_session;
+    protected $_user;
+    protected $_devid;
+    protected $_importedFolders;
 
-class BackendZarafa {
-    var $_session;
-    var $_user;
-    var $_devid;
-    var $_importedFolders;
-    var $_provisioning;
-
-    function BackendZarafa() {
+    /**
+     * Constructor of the Zarafa Backend
+     *
+     * @access public
+     */
+    public function BackendZarafa() {
         $this->_session = false;
         $this->_user = false;
         $this->_devid = false;
         $this->_importedFolders = array();
-        $this->_provisioning = new Provisioning();
+        $this->_provisioning = new ZProvisioning();
     }
 
-    function Logon($user, $domain, $pass) {
+    /**
+     * Authenticates the user with the configured Zarafa server
+     *
+     * @param string        $username
+     * @param string        $domain
+     * @param string        $password
+     *
+     * @access public
+     * @return boolean
+     */
+    public function Logon($user, $domain, $pass) {
         $pos = strpos($user, "\\");
         if($pos)
             $user = substr($user, $pos+1);
@@ -105,26 +116,47 @@ class BackendZarafa {
 
         // Get/open default store
         $this->_defaultstore = $this->_openDefaultMessageStore($this->_session);
-        $this->_provisioning->initialize($this);
 
         if($this->_defaultstore === false) {
+            // TODO set HTTP status code if available
             writeLog(LOGLEVEL_ERROR, "user $user has no default store");
             return false;
         }
 
         writeLog(LOGLEVEL_INFO, "User $user logged on");
+
+        // check if this is a Zarafa 7 store with unicode support
         $this->_isUnicodeStore();
         return true;
     }
 
-    function Setup($user, $devid) {
+    /**
+     * Setup of the backend
+     *
+     * @param string        $user
+     * @param string        $devid
+     * @param string        $protocolversion
+     *
+     * @access public
+     * @return boolean
+     */
+    public function Setup($user, $devid, $protocolversion) {
         $this->_user = $user;
         $this->_devid = $devid;
+        $this->_protocolversion = $protocolversion;
 
+        $this->_provisioning->initialize($this, $devid);
         return true;
     }
 
-    function Logoff() {
+    /**
+     * Logs off
+     * Free/Busy information is updated for modified calendars
+     *
+     * @access public
+     * @return boolean
+     */
+    public function Logoff() {
         global $cmd;
 
         // TODO: remove setLastSyncTime --> statistic function?
@@ -155,34 +187,17 @@ class BackendZarafa {
         return true;
     }
 
-    // TODO: refactor request for Provisioning?
-    // TODO: implement abstracted policies
-    // TODO: refactor get/setDeviceStatus (last sync, remotewipe etc) -> Provisioning class
-
-    function CheckPolicy($policykey, $devid) {
-        return $this->_provisioning->CheckPolicy($policykey, $devid);
-    }
-    function generatePolicyKey() {
-        return $this->_provisioning->generatePolicyKey();
-    }
-    function setPolicyKey($policykey, $devid) {
-        return $this->_provisioning->setPolicyKey($policykey, $devid);
-    }
-    function getPolicyKey ($user, $pass, $devid) {
-        return $this->_provisioning->getPolicyKey ($user, $pass, $devid);
-    }
-    function getDeviceRWStatus($user, $pass, $devid) {
-        return $this->_provisioning->getDeviceRWStatus($user, $pass, $devid);
-    }
-    function setDeviceRWStatus($user, $pass, $devid, $status) {
-        return $this->_provisioning->setDeviceRWStatus($user, $pass, $devid, $status);
-    }
-    function setLastSyncTime() {
-        return $this->_provisioning->setLastSyncTime();
-    }
-
-
-    function getSearchResults($searchquery, $searchrange){
+    /**
+     * Searches the GAB of Zarafa
+     * Can be overwitten globally by configuring a SearchBackend
+     *
+     * @param string        $searchquery
+     * @param string        $searchrange
+     *
+     * @access public
+     * @return array
+     */
+    public function getSearchResults($searchquery, $searchrange){
         // only return users from who the displayName or the username starts with $name
         //TODO: use PR_ANR for this restriction instead of PR_DISPLAY_NAME and PR_ACCOUNT
         $addrbook = mapi_openaddressbook($this->_session);
@@ -251,25 +266,16 @@ class BackendZarafa {
         return $items;
     }
 
-
-    // TODO: GetContentsImporter + GetHierarchyImporter => GetImporter()
-     function GetHierarchyImporter() {
-        return new ImportHierarchyChangesICS($this->_defaultstore);
-    }
-
-    function GetContentsImporter($folderid) {
-        $this->_importedFolders[] = $folderid;
-        return new ImportContentsChangesICS($this->_session, $this->_defaultstore, hex2bin($folderid));
-    }
-
-    function GetExporter($folderid = false) {
-        if($folderid !== false)
-            return new ExportChangesICS($this->_session, $this->_defaultstore, hex2bin($folderid));
-        else
-            return new ExportChangesICS($this->_session, $this->_defaultstore);
-    }
-
-    function GetHierarchy() {
+    /**
+     * Returns an array of SyncFolder types with the entire folder hierarchy
+     * on the server (the array itself is flat, but refers to parents via the 'parent' property
+     *
+     * provides AS 1.0 compatibility
+     *
+     * @access public
+     * @return array SYNC_FOLDER
+     */
+    public function GetHierarchy() {
         $folders = array();
         $importer = false;
         $himp= new PHPHierarchyWrapper($this->_defaultstore, $importer);
@@ -292,7 +298,53 @@ class BackendZarafa {
         return $folders;
     }
 
-    function SendMail($rfc822, $forward = false, $reply = false, $parent = false) {
+    /**
+     * Returns the importer to process changes from the mobile
+     * If no $folderid is given, hierarchy importer is expected
+     *
+     * @param string        $folderid (opt)
+     *
+     * @access public
+     * @return object(ImportChanges)
+     */
+    public function GetImporter($folderid = false) {
+        if($folderid !== false) {
+            $this->_importedFolders[] = $folderid;
+            return new ImportChangesICS($this->_session, $this->_defaultstore, hex2bin($folderid));
+        }
+        else
+            return new ImportChangesICS($this->_session, $this->_defaultstore);
+    }
+
+    /**
+     * Returns the exporter to send changes to the mobile
+     * If no $folderid is given, hierarchy exporter is expected
+     *
+     * @param string        $folderid (opt)
+     *
+     * @access public
+     * @return object(ExportChanges)
+     */
+    public function GetExporter($folderid = false) {
+        if($folderid !== false)
+            return new ExportChangesICS($this->_session, $this->_defaultstore, hex2bin($folderid));
+        else
+            return new ExportChangesICS($this->_session, $this->_defaultstore);
+    }
+
+    /**
+     * Sends an e-mail
+     * This messages needs to be saved into the 'sent items' folder
+     *
+     * @param string        $rfc822     raw mail submitted by the mobile
+     * @param string        $forward    id of the message to be attached below $rfc822
+     * @param string        $reply      id of the message to be attached below $rfc822
+     * @param string        $parent     id of the folder containing $forward or $reply
+     *
+     * @access public
+     * @return boolean
+     */
+    public function SendMail($rfc822, $forward = false, $reply = false, $parent = false) {
         if (WBXML_DEBUG == true)
             writeLog(LOGLEVEL_WBXML, "SendMail: forward: $forward   reply: $reply   parent: $parent\n" . $rfc822);
 
@@ -591,7 +643,17 @@ class BackendZarafa {
         return true;
     }
 
-    function Fetch($folderid, $id, $mimesupport = 0) {
+    /**
+     * Returns all available data of a single message
+     *
+     * @param string        $folderid
+     * @param string        $id
+     * @param string        $mimesupport flag
+     *
+     * @access public
+     * @return object(SyncObject)
+     */
+    public function Fetch($folderid, $id, $mimesupport = 0) {
         $foldersourcekey = hex2bin($folderid);
         $messagesourcekey = hex2bin($id);
 
@@ -617,13 +679,26 @@ class BackendZarafa {
         return $importer->_getMessage($message, 1024*1024, $mimesupport); // Get 1MB of body size
     }
 
-    function GetWasteBasket() {
+    /**
+     * Returns the waste basket
+     *
+     * @access public
+     * @return string
+     */
+    public function GetWasteBasket() {
         // TODO: implement GetWasteBasket() for deletion operations on WM
         return false;
     }
 
-
-    function GetAttachmentData($attname) {
+    /**
+     * Returns the content of the named attachment
+     * data is written directly (with print $data;)
+     *
+     * @param string        $attname
+     * @access public
+     * @return boolean
+     */
+    public function GetAttachmentData($attname) {
         list($folderid, $id, $attachnum) = explode(":", $attname);
 
         if(!isset($id) || !isset($attachnum))
@@ -667,7 +742,19 @@ class BackendZarafa {
         return true;
     }
 
-    function MeetingResponse($requestid, $folderid, $response, &$calendarid) {
+    /**
+     * Processes a response to a meeting request.
+     * CalendarID is a reference and has to be set if a new calendar item is created
+     *
+     * @param string        $requestid      id of the object containing the request
+     * @param string        $folderid       id of the parent folder of $requestid
+     * @param string        $response
+     * @param string        &$calendarid    reference of the created/updated calendar obj
+     *
+     * @access public
+     * @return boolean
+     */
+    public function MeetingResponse($requestid, $folderid, $response, &$calendarid) {
         // Use standard meeting response code to process meeting request
         $reqentryid = mapi_msgstore_entryidfromsourcekey($this->_defaultstore, hex2bin($folderid), hex2bin($requestid));
         $mapimessage = mapi_msgstore_openentry($this->_defaultstore, $reqentryid);
@@ -745,11 +832,37 @@ class BackendZarafa {
         return true;
     }
 
-    // ----------------------------------------------------------
+    /**----------------------------------------------------------------------------------------------------------
+     * Getter
+     */
+
+    /**
+     * Getter for session
+     *
+     * @access public
+     * @return MAPISession
+     */
+    public function _getSession() {
+        return $this->_session;
+    }
+
+    /**
+     * Getter for Defaultstore
+     *
+     * @access public
+     * @return MAPISession
+     */
+    public function _getDefaultstore() {
+        return $this->_openDefaultMessageStore($this->_session);
+    }
+
+    /**----------------------------------------------------------------------------------------------------------
+     * Private methods
+     */
 
     // TODO: in generall all necessary stores might be opened (public, shared folders etc.)
     // Open the store marked with PR_DEFAULT_STORE = TRUE
-    function _openDefaultMessageStore($session)
+    protected function _openDefaultMessageStore($session)
     {
         // Find the default store
         $storestables = mapi_getmsgstorestable($session);
@@ -775,7 +888,7 @@ class BackendZarafa {
     }
 
     // Adds all folders in $mapifolder to $list, recursively
-    function _getFoldersRecursive($mapifolder, $parent, &$list) {
+    protected function _getFoldersRecursive($mapifolder, $parent, &$list) {
         $hierarchytable = mapi_folder_gethierarchytable($mapifolder);
         $folderprops = mapi_getprops($mapifolder, array(PR_ENTRYID));
         if(!$hierarchytable)
@@ -801,7 +914,7 @@ class BackendZarafa {
 
     // TODO: _storeAttachment() should go into MAPIutils
     // gets attachment from a parsed email and stores it to MAPI
-    function _storeAttachment($mapimessage, $part) {
+    protected function _storeAttachment($mapimessage, $part) {
         // attachment
         $attach = mapi_message_createattach($mapimessage);
 
@@ -847,7 +960,7 @@ class BackendZarafa {
 
     // TODO: handleRecurringItem() should go into MAPIutils
     //handles recurring item for meeting request
-    function _handleRecurringItem(&$mapimessage, &$mapiprops) {
+    protected function _handleRecurringItem(&$mapimessage, &$mapiprops) {
         $props = array();
         //set isRecurring flag to true
         $props[0] = "PT_BOOLEAN:{00062002-0000-0000-C000-000000000046}:0x8223";
@@ -883,7 +996,7 @@ class BackendZarafa {
         $mapiprops[$props[8]] = true;
     }
 
-    function _getSearchRestriction($query) {
+    protected function _getSearchRestriction($query) {
         return array(RES_AND,
                     array(
                         array(RES_OR,
@@ -901,7 +1014,7 @@ class BackendZarafa {
     }
 
 
-    function _isUnicodeStore() {
+    protected function _isUnicodeStore() {
         $supportmask = mapi_getprops($this->_defaultstore, array(PR_STORE_SUPPORT_MASK));
         if (isset($supportmask[PR_STORE_SUPPORT_MASK]) && ($supportmask[PR_STORE_SUPPORT_MASK] & STORE_UNICODE_OK)) {
             writeLog(LOGLEVEL_DEBUG, "Store supports properties containing Unicode characters.");
@@ -911,5 +1024,10 @@ class BackendZarafa {
         }
     }
 }
+
+/**
+ * DEPRECATED legacy class
+ */
+class BackendICS extends BackendZarafa {}
 
 ?>

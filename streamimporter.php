@@ -42,7 +42,7 @@
 ************************************************/
 
 // We don't support caching changes for messages
-class ImportContentsChangesStream {
+class ImportContentsChangesStream implements IImportChanges {
     var $_encoder;
     var $_type;
     var $_seenObjects;
@@ -52,6 +52,10 @@ class ImportContentsChangesStream {
         $this->_type = $type;
         $this->_seenObjects = array();
     }
+
+    public function Config($state, $flags = 0) { return true; }
+    public function GetState() { return false;}
+    public function LoadConflicts($mclass, $filtertype, $state) { return true; }
 
     function ImportMessageChange($id, $message) {
         if(strtolower(get_class($message)) != $this->_type)
@@ -108,24 +112,22 @@ class ImportContentsChangesStream {
         return true;
     }
 
-    function ImportMessageMove($message) {
-        return true;
-    }
-};
-
-class ImportHierarchyChangesStream {
-
-    function ImportHierarchyChangesStream() {
+    // TODO implement here
+    function ImportMessageMove($id, $newfolder) {
         return true;
     }
 
-    function ImportFolderChange($folder) {
+
+    /**
+     * Implemented interface, but never used
+     */
+    public function ImportFolderChange($folder) {
+        return true;
+    }
+    public function ImportFolderDeletion($id, $parent) {
         return true;
     }
 
-    function ImportFolderDeletion($folder) {
-        return true;
-    }
-};
+}
 
 ?>

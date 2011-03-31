@@ -1,6 +1,6 @@
 <?php
 /***********************************************
-* File      :   proto.php
+* File      :   syncobjects.php
 * Project   :   Z-Push
 * Descr     :   WBXML entities that can be parsed
 *               directly (as a stream) from WBXML.
@@ -45,7 +45,6 @@
 * Consult LICENSE file for details
 ************************************************/
 
-include_once("streamer.php");
 
 class SyncFolder extends Streamer {
     var $serverid;

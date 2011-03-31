@@ -1,5 +1,4 @@
 <?php
-
 /***********************************************
 * File      :   utils.php
 * Project   :   Z-Push
@@ -7,7 +6,7 @@
 *
 * Created   :   03.04.2008
 *
-* Copyright 2007 - 2010 Zarafa Deutschland GmbH
+* Copyright 2007 - 2011 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -314,5 +313,73 @@ END;
 
     header("Content-type: text/html");
     print $zpush_legal;
+}
+
+
+/**
+ * Converts SYNC_FILTERTYPE into a timestamp
+ *
+ * @param int       Filtertype
+ *
+ * @return long
+ */
+function getCutOffDate($restrict) {
+    switch($restrict) {
+        case SYNC_FILTERTYPE_1DAY:
+            $back = 60 * 60 * 24;
+            break;
+        case SYNC_FILTERTYPE_3DAYS:
+            $back = 60 * 60 * 24 * 3;
+            break;
+        case SYNC_FILTERTYPE_1WEEK:
+            $back = 60 * 60 * 24 * 7;
+            break;
+        case SYNC_FILTERTYPE_2WEEKS:
+            $back = 60 * 60 * 24 * 14;
+            break;
+        case SYNC_FILTERTYPE_1MONTH:
+            $back = 60 * 60 * 24 * 31;
+            break;
+        case SYNC_FILTERTYPE_3MONTHS:
+            $back = 60 * 60 * 24 * 31 * 3;
+            break;
+        case SYNC_FILTERTYPE_6MONTHS:
+            $back = 60 * 60 * 24 * 31 * 6;
+            break;
+        default:
+            break;
+    }
+
+    if(isset($back)) {
+        $date = time() - $back;
+        return $date;
+    } else
+        return 0; // unlimited
+}
+
+
+/**
+ * Converts SYNC_TRUNCATION into bytes
+ *
+ * @param int       SYNC_TRUNCATION
+ *
+ * @return long
+ */
+function getTruncSize($truncation) {
+    switch($truncation) {
+        case SYNC_TRUNCATION_HEADERS:
+            return 0;
+        case SYNC_TRUNCATION_512B:
+            return 512;
+        case SYNC_TRUNCATION_1K:
+            return 1024;
+        case SYNC_TRUNCATION_5K:
+            return 5*1024;
+        case SYNC_TRUNCATION_SEVEN:
+        case SYNC_TRUNCATION_ALL:
+            return 1024*1024; // We'll limit to 1MB anyway
+        default:
+            return 1024; // Default to 1Kb
+    }
 }
 ?>

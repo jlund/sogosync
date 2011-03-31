@@ -76,7 +76,7 @@
     define('LOGFILEDIR', '/var/log/z-push/');
     define('LOGFILE', LOGFILEDIR . "z-push.log");
     define('LOGERRORFILE', LOGFILEDIR . "z-push-error.log");
-    define('LOGLEVEL', LOGLEVEL_INGO);
+    define('LOGLEVEL', LOGLEVEL_INFO);
 
     // to save WBXML data for special users, add the usernames to the array.
     // The wbxml data will be saved into a dedicated file per user.
@@ -110,7 +110,7 @@
     $BACKEND_PROVIDER = "BackendZarafa";
 
     // ************************
-    //  BackendICS settings
+    //  BackendZarafa settings
     // ************************
 
     // Defines the server to which we want to connect

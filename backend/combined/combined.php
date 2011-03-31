@@ -2,13 +2,13 @@
 /***********************************************
 * File      :   backend/combined/combined.php
 * Project   :   Z-Push
-* Descr     :   A SearchBackend implementation to
-*               query an ldap server for user
-*               information.
+* Descr     :   Combines several backends. Each type of message
+*               (Emails, Contacts, Calendar, Tasks) can be handled by
+*               a separate backend.
 *
 * Created   :   29.11.2010
 *
-* Copyright 2007 - 2010 Zarafa Deutschland GmbH
+* Copyright 2007 - 2011 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -43,24 +43,28 @@
 * Consult LICENSE file for details
 ************************************************/
 
-//include the backend's own config file
+//include the CombinedBackend's own config file
 require_once("backend/combined/config.php");
 
-//the ExportHierarchyChangesCombined class is returned from GetExporter for hierarchy changes.
-//it combines the hierarchy changes from all backends and prepends all folderids with the backendid
+
+/**
+ * the ExportHierarchyChangesCombined class is returned from GetExporter for hierarchy changes.
+ * It combines the hierarchy changes from all backends and prepends all folderids with the backendid
+ */
 
 class ExportHierarchyChangesCombined{
-    var $_backend;
-    var $_syncstates;
-    var $_exporters;
-    var $_importer;
-    var $_importwraps;
-    function ExportHierarchyChangesCombined(&$backend) {
+    private $_backend;
+    private $_syncstates;
+    private $_exporters;
+    private $_importer;
+    private $_importwraps;
+
+    public function ExportHierarchyChangesCombined(&$backend) {
         writeLog(LOGLEVEL_DEBUG, 'ExportHierarchyChangesCombined constructed');
         $this->_backend =& $backend;
     }
 
-    function Config(&$importer, $folderid, $restrict, $syncstate, $flags, $truncation) {
+    public function Config(&$importer, $folderid, $restrict, $syncstate, $flags, $truncation) {
         writeLog(LOGLEVEL_DEBUG, 'ExportHierarchyChangesCombined::Config(...)');
         if($folderid){
             return false;
@@ -86,7 +90,8 @@ class ExportHierarchyChangesCombined{
         }
         writeLog(LOGLEVEL_DEBUG, 'ExportHierarchyChangesCombined::Config complete');
     }
-    function GetChangeCount() {
+
+    public function GetChangeCount() {
         writeLog(LOGLEVEL_DEBUG, 'ExportHierarchyChangesCombined::GetChangeCount()');
         $c = 0;
         foreach($this->_exporters as $i => $e){
@@ -94,7 +99,8 @@ class ExportHierarchyChangesCombined{
         }
         return $c;
     }
-    function Synchronize() {
+
+    public function Synchronize() {
         writeLog(LOGLEVEL_DEBUG, 'ExportHierarchyChangesCombined::Synchronize()');
         foreach($this->_exporters as $i => $e){
             if(!empty($this->_backend->_config['backends'][$i]['subfolder']) && !isset($this->_syncstates[$i])){
@@ -110,7 +116,8 @@ class ExportHierarchyChangesCombined{
         }
         return true;
     }
-    function GetState() {
+
+    public function GetState() {
         writeLog(LOGLEVEL_DEBUG, 'ExportHierarchyChangesCombined::GetState()');
         foreach($this->_exporters as $i => $e){
             $this->_syncstates[$i] = $this->_exporters[$i]->GetState();
@@ -119,24 +126,31 @@ class ExportHierarchyChangesCombined{
     }
 }
 
-//the ImportHierarchyChangesCombined class is returned from GetHierarchyImporter.
-//it forwards all hierarchy changes to the right backend
+
+/**
+ * The ImportHierarchyChangesCombined class is returned from GetHierarchyImporter.
+ * It forwards all hierarchy changes to the right backend
+ */
 
 class ImportHierarchyChangesCombined{
-    var $_backend;
-    var $_syncstates = array();
+    private $_backend;
+    private $_syncstates = array();
 
-    function ImportHierarchyChangesCombined(&$backend) {
+    public function ImportHierarchyChangesCombined(&$backend) {
         $this->_backend =& $backend;
     }
-    function Config($state) {
+
+    public function Config($state) {
         writeLog(LOGLEVEL_DEBUG, 'ImportHierarchyChangesCombined::Config(...)');
         $this->_syncstates = unserialize($state);
         if(!is_array($this->_syncstates))
             $this->_syncstates = array();
     }
-    function ImportFolderChange($id, $parent, $displayname, $type) {
-        writeLog(LOGLEVEL_DEBUG, 'ImportHierarchyChangesCombined::ImportFolderChange('.$id.', '.$parent.', '.$displayname.', '.$type.')');
+
+    public function ImportFolderChange($folder) {
+        $id = $folder->serverid;
+        $parent = $folder->parentid;
+        writeLog(LOGLEVEL_DEBUG, 'ImportHierarchyChangesCombined::ImportFolderChange('.$id.', '.$parent.', '.$folder->displayname.', '.$folder->type.')');
         if($parent == '0'){
             if($id){
                 $backendid = $this->_backend->GetBackendId($id);
@@ -164,11 +178,12 @@ class ImportHierarchyChangesCombined{
             $state = '';
         }
         $importer->Config($state);
-        $res = $importer->ImportFolderChange($id, $parent, $displayname, $type);
+        $res = $importer->ImportFolderChange($folder);
         $this->_syncstates[$backendid] = $importer->GetState();
         return $backendid.$this->_backend->_config['delimiter'].$res;
     }
-    function ImportFolderDeletion($id, $parent) {
+
+    public function ImportFolderDeletion($id, $parent) {
         writeLog(LOGLEVEL_DEBUG, 'ImportHierarchyChangesCombined::ImportFolderDeletion('.$id.', '.$parent.')');
         $backendid = $this->_backend->GetBackendId($id);
         if(!empty($this->_backend->_config['backends'][$backendid]['subfolder']) && $id == $backendid.$this->_backend->_config['delimiter'].'0'){
@@ -189,27 +204,31 @@ class ImportHierarchyChangesCombined{
         $this->_syncstates[$backendid] = $importer->GetState();
         return $res;
     }
-    function GetState(){
+
+    public function GetState(){
         return serialize($this->_syncstates);
     }
 }
 
-//the ImportHierarchyChangesCombinedWrap class wraps the importer given in ExportHierarchyChangesCombined::Config.
-//it prepends the backendid to all folderids and checks foldertypes.
+
+/**
+ * The ImportHierarchyChangesCombinedWrap class wraps the importer given in ExportHierarchyChangesCombined::Config.
+ * It prepends the backendid to all folderids and checks foldertypes.
+ */
 
 class ImportHierarchyChangesCombinedWrap {
-    var $_ihc;
-    var $_backend;
-    var $_backendid;
+    private $_ihc;
+    private $_backend;
+    private $_backendid;
 
-    function ImportHierarchyChangesCombinedWrap($backendid, &$backend, &$ihc) {
+    public function ImportHierarchyChangesCombinedWrap($backendid, &$backend, &$ihc) {
         writeLog(LOGLEVEL_DEBUG, 'ImportHierarchyChangesCombinedWrap::ImportHierarchyChangesCombinedWrap('.$backendid.',...)');
         $this->_backendid = $backendid;
         $this->_backend =& $backend;
         $this->_ihc = &$ihc;
     }
 
-    function ImportFolderChange($folder) {
+    public function ImportFolderChange($folder) {
         $folder->serverid = $this->_backendid.$this->_backend->_config['delimiter'].$folder->serverid;
         if($folder->parentid != '0' || !empty($this->_backend->_config['backends'][$this->_backendid]['subfolder'])){
             $folder->parentid = $this->_backendid.$this->_backend->_config['delimiter'].$folder->parentid;
@@ -227,14 +246,17 @@ class ImportHierarchyChangesCombinedWrap {
         return $this->_ihc->ImportFolderChange($folder);
     }
 
-    function ImportFolderDeletion($id) {
+    public function ImportFolderDeletion($id) {
         writeLog(LOGLEVEL_DEBUG, 'ImportHierarchyChangesCombinedWrap::ImportFolderDeletion('.$id.')');
         return $this->_ihc->ImportFolderDeletion($this->_backendid.$this->_delimiter.$id);
     }
 }
 
-//the ImportContentsChangesCombinedWrap class wraps the importer given in GetContentsImporter.
-//it allows to check and change the folderid on ImportMessageMove.
+
+/**
+ * The ImportContentsChangesCombinedWrap class wraps the importer given in GetContentsImporter.
+ * It allows to check and change the folderid on ImportMessageMove.
+ */
 
 class ImportContentsChangesCombinedWrap{
     var $_icc;
@@ -276,11 +298,14 @@ class ImportContentsChangesCombinedWrap{
     }
 }
 
-class BackendCombined {
-    var $_config;
-    var $_backends;
 
-    function BackendCombined(){
+
+class BackendCombined extends Backend{
+    private $_config;
+    private $_backends;
+
+    public function BackendCombined() {
+        parent::Backend();
         global $BackendCombined_config;
         $this->_config = $BackendCombined_config;
         foreach ($this->_config['backends'] as $i => $b){
@@ -289,8 +314,18 @@ class BackendCombined {
         writeLog(LOGLEVEL_INFO, 'Combined '.count($this->_backends). ' backends loaded.');
     }
 
-    // try to logon on each backend
-    function Logon($username, $domain, $password) {
+    /**
+     * Authenticates the user on each backend
+     *
+     * @param string        $username
+     * @param string        $domain
+     * @param string        $password
+     *
+     * @access public
+     * @return boolean
+     */
+    public function Logon($username, $domain, $password) {
+        // TODO check if status exceptions have to be catched
         writeLog(LOGLEVEL_DEBUG, 'Combined::Logon('.$username.', '.$domain.',***)');
         if(!is_array($this->_backends)){
             return false;
@@ -320,8 +355,18 @@ class BackendCombined {
         return true;
     }
 
-    //try to setup each backend
-    function Setup($user, $devid, $protocolversion){
+    /**
+     * Try to setup each backend
+     *
+     * @param string        $user
+     * @param string        $devid
+     * @param string        $protocolversion
+     *
+     * @access public
+     * @return boolean
+     */
+    public function Setup($user, $devid, $protocolversion){
+        // TODO check if status exceptions have to be catched
         writeLog(LOGLEVEL_DEBUG, 'Combined::Setup('.$user.', '.$devid.', '.$protocolversion.')');
         if(!is_array($this->_backends)){
             return false;
@@ -340,35 +385,29 @@ class BackendCombined {
         return true;
     }
 
-    function Logoff() {
+    /**
+     * Logs off each backend
+     *
+     * @access public
+     * @return boolean
+     */
+    public function Logoff() {
         foreach ($this->_backends as $i => $b){
             $this->_backends[$i]->Logoff();
         }
         return true;
     }
 
-    // get the contents importer from the folder in a backend
-    // the importer is wrapped to check foldernames in the ImportMessageMove function
-    function GetContentsImporter($folderid){
-        writeLog(LOGLEVEL_DEBUG, 'Combined::GetContentsImporter('.$folderid.')');
-        $backend = $this->GetBackend($folderid);
-        if($backend === false)
-            return false;
-        $importer = $backend->GetContentsImporter($this->GetBackendFolder($folderid));
-        if($importer){
-            return new ImportContentsChangesCombinedWrap($this->GetBackendFolder($folderid), &$this, &$importer);
-        }
-        return false;
-    }
-
-    //return our own hierarchy importer which send each change to the right backend
-    function GetHierarchyImporter(){
-        writeLog(LOGLEVEL_DEBUG, 'Combined::GetHierarchyImporter()');
-        return new ImportHierarchyChangesCombined($this);
-    }
-
-    //get hierarchy from all backends combined
-    function GetHierarchy(){
+    /**
+     * Returns an array of SyncFolder types with the entire folder hierarchy
+     * from all backends combined
+     *
+     * provides AS 1.0 compatibility
+     *
+     * @access public
+     * @return array SYNC_FOLDER
+     */
+    public function GetHierarchy(){
         writeLog(LOGLEVEL_DEBUG, 'Combined::GetHierarchy()');
         $ha = array();
         foreach ($this->_backends as $i => $b){
@@ -397,8 +436,46 @@ class BackendCombined {
         return $ha;
     }
 
-    //return exporter from right backend for contents exporter and our own exporter for hierarchy exporter
-    function GetExporter($folderid = false){
+    /**
+     * Returns the importer to process changes from the mobile
+     *
+     * @param string        $folderid (opt)
+     *
+     * @access public
+     * @return object(ImportChanges)
+     */
+    public function GetImporter($folderid = false) {
+        if($folderid !== false) {
+            writeLog(LOGLEVEL_DEBUG, 'Combined::GetImporter() -> ImportContentChangesCombined:('.$folderid.')');
+
+            // get the contents importer from the folder in a backend
+            // the importer is wrapped to check foldernames in the ImportMessageMove function
+            $backend = $this->GetBackend($folderid);
+            if($backend === false)
+                return false;
+            $importer = $backend->GetContentsImporter($this->GetBackendFolder($folderid));
+            if($importer){
+                return new ImportContentsChangesCombinedWrap($this->GetBackendFolder($folderid), &$this, &$importer);
+            }
+            return false;
+        }
+        else {
+            writeLog(LOGLEVEL_DEBUG, 'Combined::GetImporter() -> ImportHierarchyChangesCombined()');
+            //return our own hierarchy importer which send each change to the right backend
+            return new ImportHierarchyChangesCombined($this);
+        }
+    }
+
+    /**
+     * Returns the exporter to send changes to the mobile
+     * the exporter from right backend for contents exporter and our own exporter for hierarchy exporter
+     *
+     * @param string        $folderid (opt)
+     *
+     * @access public
+     * @return object(ExportChanges)
+     */
+    public function GetExporter($folderid = false){
         writeLog(LOGLEVEL_DEBUG, 'Combined::GetExporter('.$folderid.')');
         if($folderid){
             $backend = $this->GetBackend($folderid);
@@ -409,8 +486,53 @@ class BackendCombined {
         return new ExportHierarchyChangesCombined(&$this);
     }
 
-    //if the wastebasket is set to one backend, return the wastebasket of that backend
-    //else return the first waste basket we can find
+    //
+    /**
+     * Sends an e-mail with the first backend returning true
+     *
+     * @param string        $rfc822     raw mail submitted by the mobile
+     * @param string        $forward    id of the message to be attached below $rfc822
+     * @param string        $reply      id of the message to be attached below $rfc822
+     * @param string        $parent     id of the folder containing $forward or $reply
+     *
+     * @access public
+     * @return boolean
+     */
+    public function SendMail($rfc822, $forward = false, $reply = false, $parent = false) {
+        foreach ($this->_backends as $i => $b){
+            if($this->_backends[$i]->SendMail($rfc822, $forward, $reply, $parent) == true){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns all available data of a single message from the right backend
+     *
+     * @param string        $folderid
+     * @param string        $id
+     * @param string        $mimesupport flag
+     *
+     * @access public
+     * @return object(SyncObject)
+     */
+    public function Fetch($folderid, $id, $mimesupport = 0){
+        writeLog(LOGLEVEL_DEBUG, 'Combined::Fetch('.$folderid.', '.$id.')');
+        $backend = $this->GetBackend($folderid);
+        if($backend == false)
+            return false;
+        return $backend->Fetch($this->GetBackendFolder($folderid), $id, $mimesupport);
+    }
+
+    /**
+     * Returns the waste basket
+     * If the wastebasket is set to one backend, return the wastebasket of that backend
+     * else return the first waste basket we can find
+     *
+     * @access public
+     * @return string
+     */
     function GetWasteBasket(){
         writeLog(LOGLEVEL_DEBUG, 'Combined::GetWasteBasket()');
         if(isset($this->_config['folderbackend'][SYNC_FOLDER_TYPE_WASTEBASKET])){
@@ -429,17 +551,16 @@ class BackendCombined {
         return false;
     }
 
-    //forward to right backend
-    function Fetch($folderid, $id){
-        writeLog(LOGLEVEL_DEBUG, 'Combined::Fetch('.$folderid.', '.$id.')');
-        $backend = $this->GetBackend($folderid);
-        if($backend == false)
-            return false;
-        return $backend->Fetch($this->GetBackendFolder($folderid), $id);
-    }
-
-    //there is no way to tell which backend the attachment is from, so we try them all
-    function GetAttachmentData($attname){
+    /**
+     * Returns the content of the named attachment.
+     * There is no way to tell which backend the attachment is from, so we try them all
+     *
+     * @param string        $attname
+     *
+     * @access public
+     * @return boolean
+     */
+    public function GetAttachmentData($attname){
         writeLog(LOGLEVEL_DEBUG, 'Combined::GetAttachmentData('.$attname.')');
         foreach ($this->_backends as $i => $b){
             if($this->_backends[$i]->GetAttachmentData($attname) == true){
@@ -449,24 +570,38 @@ class BackendCombined {
         return false;
     }
 
-    //send mail with the first backend returning true
-    function SendMail($rfc822, $forward = false, $reply = false, $parent = false) {
-        foreach ($this->_backends as $i => $b){
-            if($this->_backends[$i]->SendMail($rfc822, $forward, $reply, $parent) == true){
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function MeetingResponse($requestid, $folderid, $error, &$calendarid) {
+    /**
+     * Processes a response to a meeting request.
+     *
+     * @param string        $requestid      id of the object containing the request
+     * @param string        $folderid       id of the parent folder of $requestid
+     * @param string        $response
+     * @param string        &$calendarid    reference of the created/updated calendar obj
+     *
+     * @access public
+     * @return boolean
+     */
+    public function MeetingResponse($requestid, $folderid, $error, &$calendarid) {
         $backend = $this->GetBackend($folderid);
         if($backend === false)
             return false;
         return $backend->MeetingResponse($requestid, $this->GetBackendFolder($folderid), $error, $calendarid);
     }
 
-    function GetBackend($folderid){
+
+    /**----------------------------------------------------------------------------------------------------------
+     * internal CombinedBackend methods
+     */
+
+    /**
+     * Finds the correct backend for a folder
+     *
+     * @param string        $folderid       combinedid of the folder
+     *
+     * @access private
+     * @return object
+     */
+    private function GetBackend($folderid){
         $pos = strpos($folderid, $this->_config['delimiter']);
         if($pos === false)
             return false;
@@ -476,103 +611,36 @@ class BackendCombined {
         return $this->_backends[$id];
     }
 
-    function GetBackendFolder($folderid){
+    /**
+     * Returns an understandable folderid for the backend
+     *
+     * @param string        $folderid       combinedid of the folder
+     *
+     * @access private
+     * @return string
+     */
+    private function GetBackendFolder($folderid){
         $pos = strpos($folderid, $this->_config['delimiter']);
         if($pos === false)
             return false;
         return substr($folderid,$pos + strlen($this->_config['delimiter']));
     }
 
-    function GetBackendId($folderid){
+    /**
+     * Returns backend id for a folder
+     *
+     * @param string        $folderid       combinedid of the folder
+     *
+     * @access private
+     * @return object
+     */
+    private function GetBackendId($folderid){
         $pos = strpos($folderid, $this->_config['delimiter']);
         if($pos === false)
             return false;
         return substr($folderid,0,$pos);
     }
 
-    /**
-     * Checks if the sent policykey matches the latest policykey on the server
-     *
-     * @param string $policykey
-     * @param string $devid
-     *
-     * @return status flag
-     */
-    function CheckPolicy($policykey, $devid) {
-        global $user, $auth_pw;
-
-        $status = SYNC_PROVISION_STATUS_SUCCESS;
-
-        $user_policykey = $this->getPolicyKey($user, $auth_pw, $devid);
-
-        if ($user_policykey != $policykey) {
-            $status = SYNC_PROVISION_STATUS_POLKEYMISM;
-        }
-
-        if (!$policykey) $policykey = $user_policykey;
-        return $status;
-    }
-
-    /**
-     * Return a policy key for given user with a given device id.
-     * If there is no combination user-deviceid available, a new key
-     * should be generated.
-     *
-     * @param string $user
-     * @param string $pass
-     * @param string $devid
-     *
-     * @return unknown
-     */
-    function getPolicyKey($user, $pass, $devid) {
-        return false;
-    }
-
-    /**
-     * Generate a random policy key. Right now it's a 10-digit number.
-     *
-     * @return unknown
-     */
-    function generatePolicyKey(){
-        return mt_rand(1000000000, 9999999999);
-    }
-
-    /**
-     * Set a new policy key for the given device id.
-     *
-     * @param string $policykey
-     * @param string $devid
-     * @return unknown
-     */
-    function setPolicyKey($policykey, $devid) {
-        return false;
-    }
-
-    /**
-     * Return a device wipe status
-     *
-     * @param string $user
-     * @param string $pass
-     * @param string $devid
-     * @return int
-     */
-    function getDeviceRWStatus($user, $pass, $devid) {
-        return false;
-    }
-
-    /**
-     * Set a new rw status for the device
-     *
-     * @param string $user
-     * @param string $pass
-     * @param string $devid
-     * @param string $status
-     *
-     * @return boolean
-     */
-    function setDeviceRWStatus($user, $pass, $devid, $status) {
-        return false;
-    }
 }
 
 ?>

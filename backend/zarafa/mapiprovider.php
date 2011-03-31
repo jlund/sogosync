@@ -55,7 +55,7 @@ class MAPIProvider extends MAPIMapping{
     function _getMessage($mapimessage, $truncflag, $mimesupport = 0) {
         // Gets the Sync object from a MAPI object according to its message class
 
-        $truncsize = $this->getTruncSize($truncflag);
+        $truncsize = getTruncSize($truncflag);
         $props = mapi_getprops($mapimessage, array(PR_MESSAGE_CLASS));
         if(isset($props[PR_MESSAGE_CLASS]))
             $messageclass = $props[PR_MESSAGE_CLASS];
@@ -566,23 +566,7 @@ class MAPIProvider extends MAPIMapping{
     }
 
 
-    function getTruncSize($truncation) {
-        switch($truncation) {
-            case SYNC_TRUNCATION_HEADERS:
-                return 0;
-            case SYNC_TRUNCATION_512B:
-                return 512;
-            case SYNC_TRUNCATION_1K:
-                return 1024;
-            case SYNC_TRUNCATION_5K:
-                return 5*1024;
-            case SYNC_TRUNCATION_SEVEN:
-            case SYNC_TRUNCATION_ALL:
-                return 1024*1024; // We'll limit to 1MB anyway
-            default:
-                return 1024; // Default to 1Kb
-        }
-    }
+
 
 
 

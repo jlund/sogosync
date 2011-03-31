@@ -52,7 +52,7 @@
  * The ZPush_tnef class will accept TNEF streams with data about
  * recipients and attachments, but the information will be ignored.
  *
- * Created on 21.06.2008 by Manfred
+ * Created on 21.06.2008 by Manfred Kutas <m.kutas@zarafa.com>
  *
  * For more information on tnef refer to:
  * http://msdn.microsoft.com/en-us/library/ms530652(EXCHG.10).aspx
@@ -96,11 +96,11 @@ class ZPush_tnef{
 
         //mapping between Microsoft Mail IPM classes and those in MAPI
         $aClassMap = array(
-            "IPM.Microsoft Schedule.MtgReq"        => "IPM.Schedule.Meeting.Request",
+            "IPM.Microsoft Schedule.MtgReq"      => "IPM.Schedule.Meeting.Request",
             "IPM.Microsoft Schedule.MtgRespP"    => "IPM.Schedule.Meeting.Resp.Pos",
             "IPM.Microsoft Schedule.MtgRespN"    => "IPM.Schedule.Meeting.Resp.Neg",
             "IPM.Microsoft Schedule.MtgRespA"    => "IPM.Schedule.Meeting.Resp.Tent",
-            "IPM.Microsoft Schedule.MtgCncl"    => "IPM.Schedule.Meeting.Canceled",
+            "IPM.Microsoft Schedule.MtgCncl"     => "IPM.Schedule.Meeting.Canceled",
             "IPM.Microsoft Mail.Non-Delivery"    => "Report.IPM.Note.NDR",
             "IPM.Microsoft Mail.Read Receipt"    => "Report.IPM.Note.IPNRN",
             "IPM.Microsoft Mail.Note"            => "IPM.Note",

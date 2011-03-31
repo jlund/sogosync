@@ -58,19 +58,21 @@ function writeLog($loglevel, $message) {
             define('WBXML_DEBUG', false);
     }
 
-    $user = (isset($auth_user))?"[". $auth_user ."] ":"";
+    $user = (isset($auth_user))?" [". $auth_user ."]":"";
     // log the device id if the global loglevel is set to log devid or the user is in the $wbxmlLogUsers and has the right log level
-    if (isset($devid) && $devid != "" && ($loglevel >= LOGLEVEL_DEVICEID || (LOGUSERLEVEL >= LOGLEVEL_DEVICEID && in_array($auth_user, $wbxmlLogUsers)))) {
-        $user .= "[". $devid ."] ";
+    if (isset($devid) && $devid != "" && (LOGLEVEL >= LOGLEVEL_DEVICEID || (LOGUSERLEVEL >= LOGLEVEL_DEVICEID && in_array($auth_user, $wbxmlLogUsers)))) {
+        $user .= " [". $devid ."]";
     }
 
     @$date = strftime("%x %X");
-    $data = "$date [". getmypid() ."] ". $user .getLogLevelString($loglevel) . " $message\n";
+    $data = "$date [". str_pad(getmypid(),5," ",STR_PAD_LEFT) ."] ". getLogLevelString($loglevel, (LOGLEVEL > LOGLEVEL_INFO)) . $user . " $message\n";
 
     if ($loglevel <= LOGLEVEL) {
         @file_put_contents(LOGFILE, $data, FILE_APPEND);
     }
     if ($loglevel <= LOGUSERLEVEL && in_array($auth_user, $wbxmlLogUsers)) {
+        // padd level for better reading
+        $data = str_replace(getLogLevelString($loglevel), getLogLevelString($loglevel,true), $data);
         // only use plain old a-z characters for the generic log file
         @file_put_contents(LOGFILEDIR . "/". preg_replace('/[^a-z]/', '', strtolower($auth_user)). ".log", $data, FILE_APPEND);
     }
@@ -96,13 +98,15 @@ function getDebugInfo() {
 }
 
 
-function getLogLevelString($loglevel) {
+function getLogLevelString($loglevel, $pad = false) {
+    if ($pad) $s = " ";
+    else      $s = "";
     switch($loglevel) {
         case LOGLEVEL_OFF:   return ""; break;
         case LOGLEVEL_FATAL: return "[FATAL]"; break;
         case LOGLEVEL_ERROR: return "[ERROR]"; break;
-        case LOGLEVEL_WARN:  return "[WARN] "; break;
-        case LOGLEVEL_INFO:  return "[INFO] "; break;
+        case LOGLEVEL_WARN:  return "[".$s."WARN]"; break;
+        case LOGLEVEL_INFO:  return "[".$s."INFO]"; break;
         case LOGLEVEL_DEBUG: return "[DEBUG]"; break;
         case LOGLEVEL_WBXML: return "[WBXML]"; break;
         case LOGLEVEL_DEVICEID: return "[DEVICEID]"; break;
@@ -124,8 +128,12 @@ function zarafa_error_handler($errno, $errstr, $errfile, $errline, $errcontext) 
 
         default:
             writeLog(LOGLEVEL_ERROR, "trace error: $errfile:$errline $errstr ($errno) - backtrace: ". (count($bt)-1) . " steps");
-            for($i = 1, $bt_length = count($bt); $i < $bt_length; $i++)
-                writeLog(LOGLEVEL_ERROR, "trace: $i:". $bt[$i]['file']. ":" . $bt[$i]['line']. " - " . ((isset($bt[$i]['class']))? $bt[$i]['class'] . $bt[$i]['type']:""). $bt[$i]['function']. "()");
+            for($i = 1, $bt_length = count($bt); $i < $bt_length; $i++) {
+                $file = $line = "unknown";
+                if (isset($bt[$i]['file'])) $file = $bt[$i]['file'];
+                if (isset($bt[$i]['line'])) $line = $bt[$i]['line'];
+                writeLog(LOGLEVEL_ERROR, "trace: $i:". $file . ":" . $line. " - " . ((isset($bt[$i]['class']))? $bt[$i]['class'] . $bt[$i]['type']:""). $bt[$i]['function']. "()");
+            }
             break;
     }
 }

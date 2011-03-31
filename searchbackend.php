@@ -8,7 +8,7 @@
 *
 * Created   :   03.08.2010
 *
-* Copyright 2007 - 2010 Zarafa Deutschland GmbH
+* Copyright 2007 - 2011 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -43,7 +43,7 @@
 * Consult LICENSE file for details
 ************************************************/
 
-/*
+/**
  * The SearchBackend is a stub to implement own search funtionality
  * By default it just calls the getSearchResults of the initialized main backend
  *
@@ -52,20 +52,44 @@
  */
 
 class SearchBackend {
-    var $_backend;
+    protected $_backend;
 
-    function initialize($backend) {
+    /**
+     * Initializes the backend to perform the search
+     *
+     * @param object        $backend
+     *
+     * @access public
+     * @return
+     */
+    public function initialize($backend) {
         $this->backend = $backend;
     }
 
-    function getSearchResults($searchquery, $searchrange) {
+    /**
+     * Queries the backend to search
+     * By default, the getSearchResults() of the main backend is called
+     *
+     * @param string        $searchquery        string to be searched for
+     * @param string        $searchrange        specified searchrange
+     *
+     * @access public
+     * @return array        search results
+     */
+    public function getSearchResults($searchquery, $searchrange) {
         if (isset($this->_backend))
             return $this->_backend->getSearchResults($searchquery, $searchrange);
         else
             return false;
     }
 
-    function disconnect() {
+    /**
+     * Disconnects from the current search engine
+     *
+     * @access public
+     * @return boolean
+     */
+    public function disconnect() {
         return true;
     }
 }

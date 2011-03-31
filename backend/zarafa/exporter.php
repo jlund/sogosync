@@ -47,14 +47,27 @@
 * Consult LICENSE file for details
 ************************************************/
 
-// This is our ICS exporter which requests the actual exporter from ICS and makes sure
-// that the ImportProxies are used.
-class ExportChangesICS  {
+
+/**
+ * This is our ICS exporter which requests the actual exporter from ICS and makes sure
+ * that the ImportProxies are used.
+ */
+
+class ExportChangesICS implements IExportChanges{
     var $_folderid;
     var $_store;
     var $_session;
 
-    function ExportChangesICS($session, $store, $folderid = false) {
+    /**
+     * Constructor
+     *
+     * @param mapisession       $session
+     * @param mapistore         $store
+     * @param string            $folderid (opt)
+     *
+     * @access public
+     */
+    public function ExportChangesICS($session, $store, $folderid = false) {
         // Open a hierarchy or a contents exporter depending on whether a folderid was specified
         $this->_session = $session;
         $this->_folderid = $folderid;
@@ -67,9 +80,22 @@ class ExportChangesICS  {
             $entryid = $storeprops[PR_IPM_SUBTREE_ENTRYID];
         }
 
+        // Folder available ?
+        if(!$entryid) {
+            // TODO: throw exception with status
+            if ($folderid)
+                writeLog(LOGLEVEL_WARN, "ExportChangesICS->Constructor: Folder not found: " . bin2hex($folderid));
+            else
+                writeLog(LOGLEVEL_WARN, "ExportChangesICS->Constructor: Store root not found");
+
+            $this->importer = false;
+            return;
+        }
+
         $folder = mapi_msgstore_openentry($this->_store, $entryid);
         if(!$folder) {
             $this->exporter = false;
+            // TODO: return status if available
             writeLog(LOGLEVEL_WARN, "ExportChangesICS->Constructor: can not open folder:".bin2hex($folderid));
             return;
         }
@@ -82,7 +108,20 @@ class ExportChangesICS  {
         }
     }
 
-    function Config(&$importer, $mclass, $restrict, $syncstate, $flags, $truncation) {
+    /**
+     * Configures the exporter
+     *
+     * @param object        $importer
+     * @param string        $mclass
+     * @param int           $restrict       FilterType
+     * @param string        $syncstate
+     * @param int           $flags
+     * @param int           $truncation     bytes
+     *
+     * @access public
+     * @return boolean
+     */
+    public function Config(&$importer, $mclass, $restrict, $syncstate, $flags, $truncation) {
         // Because we're using ICS, we need to wrap the given importer to make it suitable to pass
         // to ICS. We do this in two steps: first, wrap the importer with our own PHP importer class
         // which removes all MAPI dependency, and then wrap that class with a C++ wrapper so we can
@@ -93,6 +132,7 @@ class ExportChangesICS  {
         if($this->_folderid) {
             // PHP wrapper
             $phpwrapper = new PHPContentsWrapper($this->_session, $this->_store, $this->_folderid, $importer, $truncation);
+
             // ICS c++ wrapper
             $mapiimporter = mapi_wrap_importcontentschanges($phpwrapper);
             $exporterflags |= SYNC_NORMAL | SYNC_READ_STATE;
@@ -121,13 +161,12 @@ class ExportChangesICS  {
 
         $this->statestream = $stream;
 
-        // TODO: apply only restriction if a restiction is set!
         switch($mclass) {
             case "Email":
-                $restriction = $this->_getEmailRestriction($this->_getCutOffDate($restrict));
+                $restriction = $this->_getEmailRestriction(getCutOffDate($restrict));
                 break;
             case "Calendar":
-                $restriction = $this->_getCalendarRestriction($this->_getCutOffDate($restrict));
+                $restriction = $this->_getCalendarRestriction(getCutOffDate($restrict));
                 break;
             default:
             case "Contacts":
@@ -143,6 +182,7 @@ class ExportChangesICS  {
         }
 
         if ($this->exporter === false) {
+            // TODO: throw exception with status
             writeLog(LOGLEVEL_WARN, "ExportChangesICS->Config failed. Exporter not available.");
             return false;
         }
@@ -155,16 +195,27 @@ class ExportChangesICS  {
                 writeLog(LOGLEVEL_INFO, "Exporter configured successfully. " . $changes . " changes ready to sync.");
         }
         else
+            // TODO: throw exception with status
             writeLog(LOGLEVEL_ERROR, "Exporter could not be configured: result: " . sprintf("%X", mapi_last_hresult()));
 
         return $ret;
     }
 
-    function GetState() {
-        if(!isset($this->statestream) || $this->exporter === false)
+    /**
+     * Reads the current state from the Exporter
+     *
+     * @access public
+     * @return string
+     */
+    public function GetState() {
+        if(!isset($this->statestream) || $this->exporter === false) {
+            // TODO: throw status?
+            writeLog(LOGLEVEL_WARN, "Error getting state from Exporter. Not initialized.");
             return false;
+        }
 
         if(mapi_exportchanges_updatestate($this->exporter, $this->statestream) != true) {
+            // TODO: throw status?
             writeLog(LOGLEVEL_WARN, "Unable to update state: " . sprintf("%X", mapi_last_hresult()));
             return false;
         }
@@ -183,57 +234,48 @@ class ExportChangesICS  {
         return $state;
     }
 
-     function GetChangeCount() {
+    /**
+     * Returns the amount of changes to be exported
+     *
+     * @access public
+     * @return int
+     */
+     public function GetChangeCount() {
         if ($this->exporter)
             return mapi_exportchanges_getchangecount($this->exporter);
         else
             return 0;
     }
 
-    function Synchronize() {
+    /**
+     * Synchronizes a change
+     *
+     * @access public
+     * @return array
+     */
+    public function Synchronize() {
         if ($this->exporter) {
             return mapi_exportchanges_synchronize($this->exporter);
         }else
            return false;
     }
 
-    // ----------------------------------------------------------------------------------------------
+    /**----------------------------------------------------------------------------------------------------------
+     * private methods
+     */
+    // TODO: refactor to  mapiutils?
 
-    function _getCutOffDate($restrict) {
-        switch($restrict) {
-            case SYNC_FILTERTYPE_1DAY:
-                $back = 60 * 60 * 24;
-                break;
-            case SYNC_FILTERTYPE_3DAYS:
-                $back = 60 * 60 * 24 * 3;
-                break;
-            case SYNC_FILTERTYPE_1WEEK:
-                $back = 60 * 60 * 24 * 7;
-                break;
-            case SYNC_FILTERTYPE_2WEEKS:
-                $back = 60 * 60 * 24 * 14;
-                break;
-            case SYNC_FILTERTYPE_1MONTH:
-                $back = 60 * 60 * 24 * 31;
-                break;
-            case SYNC_FILTERTYPE_3MONTHS:
-                $back = 60 * 60 * 24 * 31 * 3;
-                break;
-            case SYNC_FILTERTYPE_6MONTHS:
-                $back = 60 * 60 * 24 * 31 * 6;
-                break;
-            default:
-                break;
-        }
 
-        if(isset($back)) {
-            $date = time() - $back;
-            return $date;
-        } else
-            return 0; // unlimited
-    }
-
-    function _getEmailRestriction($timestamp) {
+    /**
+     * Create a MAPI restriction to use within an email folder which will
+    // return all messages since since $timestamp
+     *
+     * @param long       $timestamp     Timestamp since when to include messages
+     *
+     * @access private
+     * @return array
+     */
+    private function _getEmailRestriction($timestamp) {
         $restriction = array ( RES_PROPERTY,
                           array (    RELOP => RELOP_GE,
                                     ULPROPTAG => PR_MESSAGE_DELIVERY_TIME,
@@ -244,13 +286,28 @@ class ExportChangesICS  {
         return $restriction;
     }
 
-    function _getPropIDFromString($stringprop) {
+    /**
+     * MAPI returns the propertyid from the propertystring
+     *
+     * @param string       Mapi property string
+     *
+     * @access private
+     * @return string
+     */
+    private function _getPropIDFromString($stringprop) {
         return GetPropIDFromString($this->_store, $stringprop);
     }
 
-    // Create a MAPI restriction to use in the calendar which will
+    /**
+     * Create a MAPI restriction to use in the calendar which will
     // return all future calendar items, plus those since $timestamp
-    function _getCalendarRestriction($timestamp) {
+     *
+     * @param long       $timestamp     Timestamp since when to include messages
+     *
+     * @access private
+     * @return array
+     */
+    private function _getCalendarRestriction($timestamp) {
         // This is our viewing window
         $start = $timestamp;
         $end = 0x7fffffff; // infinite end

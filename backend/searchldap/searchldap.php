@@ -8,7 +8,7 @@
 *
 * Created   :   03.08.2010
 *
-* Copyright 2007 - 2010 Zarafa Deutschland GmbH
+* Copyright 2007 - 2011 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -45,13 +45,23 @@
 
 require_once("backend/searchldap/config.php");
 
-class SearchLDAP {
-    var $_backend;
-    var $_connection;
+class SearchLDAP extends SearchBackend {
+    private $_connection;
 
-    // connect to the LDAP server using the values from the configuration
-    function initialize($backend) {
+    //
+
+    /**
+     * Initializes the backend to perform the search
+     * Connects to the LDAP server using the values from the configuration
+     *
+     * @param object        $backend
+     *
+     * @access public
+     * @return
+     */
+    public function initialize($backend) {
         if (!function_exists("ldap_connect")) {
+            // TODO throw status exception
             writeLog(LOGLEVEL_FATAL, "SearchLDAP: php-ldap is not installed. Search aborted.");
             return false;
         }
@@ -65,6 +75,7 @@ class SearchLDAP {
         // Authenticate
         if (constant('ANONYMOUS_BIND') === true) {
             if(! @ldap_bind($this->_connection)) {
+                // TODO throw status exception
                 writeLog(LOGLEVEL_ERROR, "SearchLDAP: Could not bind anonymously to server! Search aborted.");
                 $this->_connection = false;
                 return false;
@@ -72,12 +83,14 @@ class SearchLDAP {
         }
         else if (constant('LDAP_BIND_USER') != "") {
             if(! @ldap_bind($this->_connection, LDAP_BIND_USER, LDAP_BIND_PASSWORD)) {
+                // TODO throw status exception
                 writeLog(LOGLEVEL_ERROR, "SearchLDAP: Could not bind to server with user '".LDAP_BIND_USER."' and given password! Search aborted.");
                 $this->_connection = false;
                 return false;
             }
         }
         else {
+            // TODO throw status exception
             writeLog(LOGLEVEL_ERROR, "SearchLDAP: neither anonymous nor default bind enabled. Other options not implemented.");
             // it would be possible to use the users login and password to authenticate on the LDAP server
             // the main $backend has to keep these values so they could be used here
@@ -86,8 +99,16 @@ class SearchLDAP {
         }
     }
 
-    // perfom the search on the LDAP server
-    function getSearchResults($searchquery, $searchrange) {
+    /**
+     * Queries the LDAP backend
+     *
+     * @param string        $searchquery        string to be searched for
+     * @param string        $searchrange        specified searchrange
+     *
+     * @access public
+     * @return array        search results
+     */
+    public function getSearchResults($searchquery, $searchrange) {
         global $ldap_field_map;
         if (isset($this->_connection) && $this->_connection !== false) {
             $searchfilter = str_replace("SEARCHVALUE", $searchquery, LDAP_SEARCH_FILTER);
@@ -137,7 +158,13 @@ class SearchLDAP {
             return false;
     }
 
-    function disconnect() {
+    /**
+     * Disconnects from LDAP
+     *
+     * @access public
+     * @return boolean
+     */
+    public function disconnect() {
         if ($this->_connection)
             @ldap_close($this->_connection);
 

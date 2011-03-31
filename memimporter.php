@@ -41,14 +41,27 @@
 * Consult LICENSE file for details
 ************************************************/
 
-class ImportContentsChangesMem extends ImportContentsChanges {
-    var $_changes;
-    var $_deletions;
+class ImportChangesMem implements IImportChanges {
+    // TODO instance variables should be private -> Refactor to StreamImporter
+    public $_changes;
+    public $_deletions;
+    private $_foldercache;
+    public $_count;
 
-    function ImportContentsChangesMem() {
+    function ImportChangesMem($foldercache = array()) {
         $this->_changes = array();
         $this->_deletions = array();
+        $this->_foldercache = $foldercache;
+        $this->_count = 0;
     }
+
+    /**
+     * Implement interface but never used
+     */
+    public function Config($state, $flags = 0) { return true; }
+    public function GetState() { return false;}
+    public function LoadConflicts($mclass, $filtertype, $state) { return true; }
+
 
     function ImportMessageChange($id, $message) {
         $this->_changes[] = $id;
@@ -60,9 +73,9 @@ class ImportContentsChangesMem extends ImportContentsChanges {
         return true;
     }
 
-    function ImportMessageReadFlag($message) { return true; }
+    function ImportMessageReadFlag($id, $flags) { return true; }
 
-    function ImportMessageMove($message) { return true; }
+    function ImportMessageMove($id, $newfolder) { return true; }
 
     function isChanged($id) {
         return in_array($id, $this->_changes);
@@ -72,53 +85,33 @@ class ImportContentsChangesMem extends ImportContentsChanges {
         return in_array($id, $this->_deletions);
     }
 
-};
-
-// This simply collects all changes so that they can be retrieved later, for
-// statistics gathering for example
-class ImportHierarchyChangesMem extends ImportHierarchyChanges {
-    var $changed;
-    var $deleted;
-    var $count;
-    var $foldercache;
-
-    function ImportHierarchyChangesMem($foldercache) {
-    	$this->foldercache = $foldercache;
-        $this->changed = array();
-        $this->deleted = array();
-        $this->count = 0;
-
-        return true;
-    }
-
     function ImportFolderChange($folder) {
-    	// The HierarchyExporter exports all kinds of changes.
+    	// The Zarafa HierarchyExporter exports all kinds of changes.
     	// Frequently these changes are not relevant for the mobiles,
     	// as something changes but the relevant displayname and parentid
     	// stay the same. These changes will be dropped and not sent
-    	if (array_key_exists($folder->serverid, $this->foldercache) &&
-    	    $this->foldercache[$folder->serverid]->displayname == $folder->displayname &&
-            $this->foldercache[$folder->serverid]->parentid == $folder->parentid &&
-            $this->foldercache[$folder->serverid]->type == $folder->type
+    	if (array_key_exists($folder->serverid, $this->_foldercache) &&
+    	    $this->_foldercache[$folder->serverid]->displayname == $folder->displayname &&
+            $this->_foldercache[$folder->serverid]->parentid == $folder->parentid &&
+            $this->_foldercache[$folder->serverid]->type == $folder->type
            ) {
             writeLog(LOGLEVEL_DEBUG,"Change for folder '".$folder->displayname."' will not be sent as modification is not relevant");
             return true;
     	}
 
-        array_push($this->changed, $folder);
-        $this->count++;
+        array_push($this->_changes, $folder);
+        $this->_count++;
         // temporarily add/update the folder to the cache so changes are not sent twice
-        $this->foldercache[$folder->serverid] = $folder;
+        $this->_foldercache[$folder->serverid] = $folder;
         return true;
     }
 
-    function ImportFolderDeletion($id) {
-        array_push($this->deleted, $id);
-
-        $this->count++;
+    function ImportFolderDeletion($id, $parent = false) {
+        array_push($this->_deletions, $id);
+        $this->_count++;
 
         return true;
     }
-};
+}
 
 ?>

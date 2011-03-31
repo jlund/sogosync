@@ -12,7 +12,7 @@
 *
 * Created   :   01.10.2007
 *
-* Copyright 2007 - 2010 Zarafa Deutschland GmbH
+* Copyright 2007 - 2011 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -47,11 +47,18 @@
 * Consult LICENSE file for details
 ************************************************/
 
-include_once('proto.php');
-include_once('backend.php');
+/**----------------------------------------------------------------------------------------------------------
+ * DIFF ENGINE
+ */
 
-
-
+/**
+ * Differential mechanism
+ *
+ * @param array        $old
+ * @param array        $new
+ *
+ * @return array
+ */
 function GetDiff($old, $new) {
     $changes = array();
 
@@ -126,15 +133,27 @@ function GetDiff($old, $new) {
     return $changes;
 }
 
+/**
+ * Comparing function for differential engine
+ *
+ * @param array        $a
+ * @param array        $b
+ *
+ * @return boolean
+ */
 function RowCmp($a, $b) {
     return $a["id"] < $b["id"] ? 1 : -1;
 }
 
+
+/**
+ * Differential engine
+ */
 class DiffState {
-    var $_syncstate;
+    protected $_syncstate;
 
     // Update the state to reflect changes
-    function updateState($type, $change) {
+    protected function updateState($type, $change) {
         // Change can be a change or an add
         if($type == "change") {
             for($i=0; $i < count($this->_syncstate); $i++) {
@@ -169,7 +188,7 @@ class DiffState {
     // - Deleted here and changed there
     //
     // Any other combination of operations can be done (e.g. change flags & move or move & delete)
-    function isConflict($type, $folderid, $id) {
+    protected function isConflict($type, $folderid, $id) {
         $stat = $this->_backend->StatMessage($folderid, $id);
 
         if(!$stat) {
@@ -201,32 +220,76 @@ class DiffState {
         }
     }
 
-    function GetState() {
+    public function GetState() {
         return serialize($this->_syncstate);
     }
 
 }
 
-class ImportContentsChangesDiff extends DiffState {
-    var $_user;
-    var $_folderid;
 
-    function ImportContentsChangesDiff($backend, $folderid) {
+
+/**----------------------------------------------------------------------------------------------------------
+ * IMPORTER & EXPORTER
+ */
+
+class ImportChangesDiff extends DiffState implements IImportChanges {
+    private $_user;
+    private $_folderid;
+
+    /**
+     * Constructor
+     *
+     * @param object        $backend
+     * @param string        $folderid
+     *
+     * @access public
+     */
+    public function ImportChangesDiff($backend, $folderid = false) {
         $this->_backend = $backend;
         $this->_folderid = $folderid;
     }
 
-    function Config($state, $flags = 0) {
+    /**
+     * Initializes the importer
+     *
+     * @param string        $state
+     * @param int           $flags
+     *
+     * @access public
+     * @return boolean status flag
+     */
+    public function Config($state, $flags = 0) {
         $this->_syncstate = unserialize($state);
         $this->_flags = $flags;
+        return true;
     }
 
-    function LoadConflicts($mclass, $filtertype, $state) {
+    /**
+     * Would load objects which are expected to be exported with this state
+     * The DiffBackend implements conflict detection on the fly
+     *
+     * @param string    $mclass         class of objects
+     * @param int       $restrict       FilterType
+     * @param string    $state
+     *
+     * @access public
+     * @return string
+     */
+    public function LoadConflicts($mclass, $filtertype, $state) {
         // changes are detected on the fly
         return true;
     }
 
-    function ImportMessageChange($id, $message) {
+    /**
+     * Imports a single message
+     *
+     * @param string        $id
+     * @param SyncObject    $message
+     *
+     * @access public
+     * @return boolean/string - failure / id of message
+     */
+    public function ImportMessageChange($id, $message) {
         //do nothing if it is in a dummy folder
         if ($this->_folderid == SYNC_FOLDER_TYPE_DUMMY)
             return false;
@@ -258,8 +321,16 @@ class ImportContentsChangesDiff extends DiffState {
         return $stat["id"];
     }
 
-    // Import a deletion. This may conflict if the local object has been modified.
-    function ImportMessageDeletion($id) {
+    /**
+     * Imports a deletion. This may conflict if the local object has been modified
+     *
+     * @param string        $id
+     * @param SyncObject    $message
+     *
+     * @access public
+     * @return boolean
+     */
+    public function ImportMessageDeletion($id) {
         //do nothing if it is in a dummy folder
         if ($this->_folderid == SYNC_FOLDER_TYPE_DUMMY)
             return true;
@@ -282,8 +353,17 @@ class ImportContentsChangesDiff extends DiffState {
         return true;
     }
 
-    // Import a change in 'read' flags .. This can never conflict
-    function ImportMessageReadFlag($id, $flags) {
+    /**
+     * Imports a change in 'read' flag
+     * This can never conflict
+     *
+     * @param string        $id
+     * @param int           $flags - read/unread
+     *
+     * @access public
+     * @return boolean
+     */
+    public function ImportMessageReadFlag($id, $flags) {
         //do nothing if it is a dummy folder
         if ($this->_folderid == SYNC_FOLDER_TYPE_DUMMY)
             return true;
@@ -299,26 +379,37 @@ class ImportContentsChangesDiff extends DiffState {
         return true;
     }
 
-    function ImportMessageMove($id, $newfolder) {
+    /**
+     * Imports a move of a message. This occurs when a user moves an item to another folder
+     *
+     * @param string        $id
+     * @param int           $flags - read/unread
+     *
+     * @access public
+     * @return boolean
+     */
+    public function ImportMessageMove($id, $newfolder) {
         // don't move messages from or to a dummy folder (GetHierarchy compatibility)
         if ($this->_folderid == SYNC_FOLDER_TYPE_DUMMY || $newfolder == SYNC_FOLDER_TYPE_DUMMY)
             return true;
         return $this->_backend->MoveMessage($this->_folderid, $id, $newfolder);
     }
-};
 
-class ImportHierarchyChangesDiff extends DiffState {
-    var $_user;
 
-    function ImportHierarchyChangesDiff($backend) {
-        $this->_backend = $backend;
-    }
+    /**
+     * Imports a change on a folder
+     *
+     * @param object        $folder     SyncFolder
+     *
+     * @access public
+     * @return string       id of the folder
+     */
+    public function ImportFolderChange($folder) {
+        $id = $folder->serverid;
+        $parent = $folder->parentid;
+        $displayname = $folder->displayname;
+        $type = $folder->type;
 
-    function Config($state) {
-        $this->_syncstate = unserialize($state);
-    }
-
-    function ImportFolderChange($id, $parent, $displayname, $type) {
         //do nothing if it is a dummy folder
         if ($parent == SYNC_FOLDER_TYPE_DUMMY)
             return false;
@@ -340,7 +431,16 @@ class ImportHierarchyChangesDiff extends DiffState {
         return $stat["id"];
     }
 
-    function ImportFolderDeletion($id, $parent) {
+    /**
+     * Imports a folder deletion
+     *
+     * @param string        $id
+     * @param string        $parent id
+     *
+     * @access public
+     * @return int          SYNC_FOLDERHIERARCHY_STATUS
+     */
+    public function ImportFolderDeletion($id, $parent) {
         //do nothing if it is a dummy folder
         if ($parent == SYNC_FOLDER_TYPE_DUMMY)
             return false;
@@ -356,19 +456,42 @@ class ImportHierarchyChangesDiff extends DiffState {
     }
 };
 
-class ExportChangesDiff extends DiffState {
-    var $_importer;
-    var $_folderid;
-    var $_restrict;
-    var $_flags;
-    var $_user;
 
-    function ExportChangesDiff($backend, $folderid) {
+class ExportChangesDiff extends DiffState implements IExportChanges{
+    private $_importer;
+    private $_folderid;
+    private $_restrict;
+    private $_flags;
+    private $_user;
+
+    /**
+     * Constructor
+     *
+     * @param object        $backend
+     * @param string        $folderid
+     *
+     * @access public
+     */
+    public function ExportChangesDiff($backend, $folderid) {
         $this->_backend = $backend;
         $this->_folderid = $folderid;
     }
 
-    function Config(&$importer, $folderid, $restrict, $syncstate, $flags, $truncation) {
+    /**
+     * Configures the exporter
+     *
+     * @param object        $importer
+     * @param string        $mclass
+     * @param int           $restrict       FilterType
+     * @param string        $syncstate
+     * @param int           $flags
+     * @param int           $truncation     bytes
+     *
+     * @access public
+     * @return boolean
+     */
+    // TODO: test alterping, as footprint changed .. mclass was $folderid (which doesn't make sense here)
+    public function Config(&$importer, $mclass, $restrict, $syncstate, $flags, $truncation) {
         $this->_importer = &$importer;
         $this->_restrict = $restrict;
         $this->_syncstate = unserialize($syncstate);
@@ -378,11 +501,11 @@ class ExportChangesDiff extends DiffState {
         $this->_changes = array();
         $this->_step = 0;
 
-        $cutoffdate = $this->getCutOffDate($restrict);
+        $cutoffdate = getCutOffDate($restrict);
 
         if($this->_folderid) {
             // Get the changes since the last sync
-            writeLog(LOGLEVEL_INFO, "Initializing message diff engine");
+            writeLog(LOGLEVEL_DEBUG, "Initializing message diff engine");
 
             if(!isset($this->_syncstate) || !$this->_syncstate)
                 $this->_syncstate = array();
@@ -393,7 +516,7 @@ class ExportChangesDiff extends DiffState {
             if ($this->_folderid != SYNC_FOLDER_TYPE_DUMMY) {
 
                 // on ping: check if backend supports alternative PING mechanism & use it
-                if ($folderid === false && $this->_flags == BACKEND_DISCARD_DATA && $this->_backend->AlterPing()) {
+                if ($mclass === false && $this->_flags == BACKEND_DISCARD_DATA && $this->_backend->AlterPing()) {
                     $this->_changes = $this->_backend->AlterPingChanges($this->_folderid, $this->_syncstate);
                 }
                 else {
@@ -408,7 +531,7 @@ class ExportChangesDiff extends DiffState {
 
             writeLog(LOGLEVEL_INFO, "Found " . count($this->_changes) . " message changes");
         } else {
-            writeLog(LOGLEVEL_INFO, "Initializing folder diff engine");
+            writeLog(LOGLEVEL_DEBUG, "Initializing folder diff engine");
 
             $folderlist = $this->_backend->GetFolderList();
             if($folderlist === false)
@@ -423,11 +546,23 @@ class ExportChangesDiff extends DiffState {
         }
     }
 
-    function GetChangeCount() {
+    /**
+     * Returns the amount of changes to be exported
+     *
+     * @access public
+     * @return int
+     */
+    public function GetChangeCount() {
         return count($this->_changes);
     }
 
-    function Synchronize() {
+    /**
+     * Synchronizes a change
+     *
+     * @access public
+     * @return array
+     */
+    public function Synchronize() {
         $progress = array();
 
         // Get one of our stored changes and send it to the importer, store the new state if
@@ -470,7 +605,7 @@ class ExportChangesDiff extends DiffState {
 
                 switch($change["type"]) {
                     case "change":
-                        $truncsize = $this->getTruncSize($this->_truncation);
+                        $truncsize = getTruncSize($this->_truncation);
 
                         // Note: because 'parseMessage' and 'statMessage' are two seperate
                         // calls, we have a chance that the message has changed between both
@@ -514,77 +649,39 @@ class ExportChangesDiff extends DiffState {
         }
     }
 
-    // -----------------------------------------------------------------------
-
-    function getCutOffDate($restrict) {
-        switch($restrict) {
-            case SYNC_FILTERTYPE_1DAY:
-                $back = 60 * 60 * 24;
-                break;
-            case SYNC_FILTERTYPE_3DAYS:
-                $back = 60 * 60 * 24 * 3;
-                break;
-            case SYNC_FILTERTYPE_1WEEK:
-                $back = 60 * 60 * 24 * 7;
-                break;
-            case SYNC_FILTERTYPE_2WEEKS:
-                $back = 60 * 60 * 24 * 14;
-                break;
-            case SYNC_FILTERTYPE_1MONTH:
-                $back = 60 * 60 * 24 * 31;
-                break;
-            case SYNC_FILTERTYPE_3MONTHS:
-                $back = 60 * 60 * 24 * 31 * 3;
-                break;
-            case SYNC_FILTERTYPE_6MONTHS:
-                $back = 60 * 60 * 24 * 31 * 6;
-                break;
-            default:
-                break;
-        }
-
-        if(isset($back)) {
-            $date = time() - $back;
-            return $date;
-        } else
-            return 0; // unlimited
-    }
-
-    function getTruncSize($truncation) {
-        switch($truncation) {
-            case SYNC_TRUNCATION_HEADERS:
-                return 0;
-            case SYNC_TRUNCATION_512B:
-                return 512;
-            case SYNC_TRUNCATION_1K:
-                return 1024;
-            case SYNC_TRUNCATION_5K:
-                return 5*1024;
-            case SYNC_TRUNCATION_SEVEN:
-            case SYNC_TRUNCATION_ALL:
-                return 1024*1024; // We'll limit to 1MB anyway
-            default:
-                return 1024; // Default to 1Kb
-        }
-    }
-
 };
 
-class BackendDiff {
-    var $_user;
-    var $_devid;
-    var $_protocolversion;
 
-    function Logon($username, $domain, $password) {
-        return true;
+
+/**----------------------------------------------------------------------------------------------------------
+ * DIFFBACKEND
+ */
+
+abstract class BackendDiff extends Backend {
+    protected $_user;
+    protected $_devid;
+    protected $_protocolversion;
+
+    /**
+     * Constructor
+     *
+     * @access public
+     */
+    public function DiffBackend() {
+        parent::Backend();
     }
 
-        // completing protocol
-    function Logoff() {
-        return true;
-    }
-
-    function Setup($user, $devid, $protocolversion) {
+    /**
+     * Initializes the backend
+     *
+     * @param string        $user
+     * @param string        $devid
+     * @param string        $protocolversion
+     *
+     * @access public
+     * @return boolean
+     */
+    public function Setup($user, $devid, $protocolversion) {
         $this->_user = $user;
         $this->_devid = $devid;
         $this->_protocolversion = $protocolversion;
@@ -592,18 +689,15 @@ class BackendDiff {
         return true;
     }
 
-    function GetHierarchyImporter() {
-        return new ImportHierarchyChangesDiff($this);
-    }
-
-    function GetContentsImporter($folderid) {
-        return new ImportContentsChangesDiff($this, $folderid);
-    }
-
-    function GetExporter($folderid = false) {
-        return new ExportChangesDiff($this, $folderid);
-    }
-
+    /**
+     * Returns an array of SyncFolder types with the entire folder hierarchy
+     * on the server (the array itself is flat, but refers to parents via the 'parent' property
+     *
+     * provides AS 1.0 compatibility
+     *
+     * @access public
+     * @return array SYNC_FOLDER
+     */
     function GetHierarchy() {
         $folders = array();
 
@@ -615,172 +709,250 @@ class BackendDiff {
         return $folders;
     }
 
-    function Fetch($folderid, $id, $mimesupport = 0) {
+    /**
+     * Returns the importer to process changes from the mobile
+     * If no $folderid is given, hierarchy importer is expected
+     *
+     * @param string        $folderid (opt)
+     *
+     * @access public
+     * @return object(ImportChanges)
+     */
+    public function GetImporter($folderid = false) {
+        return new ImportChangesDiff($this, $folderid);
+    }
+
+    /**
+     * Returns the exporter to send changes to the mobile
+     * If no $folderid is given, hierarchy exporter is expected
+     *
+     * @param string        $folderid (opt)
+     *
+     * @access public
+     * @return object(ExportChanges)
+     */
+    public function GetExporter($folderid = false) {
+        return new ExportChangesDiff($this, $folderid);
+    }
+
+    /**
+     * Returns all available data of a single message
+     *
+     * @param string        $folderid
+     * @param string        $id
+     * @param string        $mimesupport flag
+     *
+     * @access public
+     * @return object(SyncObject)
+     */
+    public function Fetch($folderid, $id, $mimesupport = 0) {
         return $this->GetMessage($folderid, $id, 1024*1024, $mimesupport); // Forces entire message (up to 1Mb)
     }
 
-    function GetAttachmentData($attname) {
+    /**
+     * Processes a response to a meeting request.
+     * CalendarID is a reference and has to be set if a new calendar item is created
+     *
+     * @param string        $requestid      id of the object containing the request
+     * @param string        $folderid       id of the parent folder of $requestid
+     * @param string        $response
+     * @param string        &$calendarid    reference of the created/updated calendar obj
+     *
+     * @access public
+     * @return boolean      status
+     */
+    public function MeetingResponse($requestid, $folderid, $error, &$calendarid) {
         return false;
     }
 
-    function SendMail($rfc822, $forward = false, $reply = false, $parent = false) {
-        return true;
-    }
-
-    function GetWasteBasket() {
-        return false;
-    }
-
-    function GetMessageList($folderid, $cutoffdate) {
-        return array();
-    }
-
-    function StatMessage($folderid, $id) {
-        return false;
-    }
-
-    function GetMessage($folderid, $id, $truncsize, $mimesupport = 0) {
-        return false;
-    }
-
-    function DeleteMessage($folderid, $id) {
-        return false;
-    }
-
-    function SetReadFlag($folderid, $id, $flags) {
-        return false;
-    }
-
-    function ChangeMessage($folderid, $id, $message) {
-        return false;
-    }
-
-    function MoveMessage($folderid, $id, $newfolderid) {
-        return false;
-    }
-
-    function MeetingResponse($requestid, $folderid, $error, &$calendarid) {
-        return false;
-    }
-
-    function getTruncSize($truncation) {
-        switch($truncation) {
-            case SYNC_TRUNCATION_HEADERS:
-                return 0;
-            case SYNC_TRUNCATION_512B:
-                return 512;
-            case SYNC_TRUNCATION_1K:
-                return 1024;
-            case SYNC_TRUNCATION_5K:
-                return 5*1024;
-            case SYNC_TRUNCATION_ALL:
-                return 1024*1024; // We'll limit to 1MB anyway
-            default:
-                return 1024; // Default to 1Kb
-        }
-    }
+    /**----------------------------------------------------------------------------------------------------------
+     * protected DiffBackend methods
+     *
+     * Need to be implemented in the actual diff backend
+     */
 
     /**
-     * Returns array of items which contain contact information
+     * Returns a list (array) of folders, each entry being an associative array
+     * with the same entries as StatFolder(). This method should return stable information; ie
+     * if nothing has changed, the items in the array must be exactly the same. The order of
+     * the items within the array is not important though.
      *
-     * @param string $searchquery
-     *
+     * @access protected
      * @return array
      */
-    function getSearchResults($searchquery) {
-        return false;
-    }
+    public abstract function GetFolderList();
 
     /**
-     * Checks if the sent policykey matches the latest policykey on the server
+     * Returns an actual SyncFolder object with all the properties set. Folders
+     * are pretty simple, having only a type, a name, a parent and a server ID.
      *
-     * @param string $policykey
-     * @param string $devid
+     * @param string        $id           id of the folder
      *
-     * @return status flag
+     * @access public
+     * @return object   SyncFolder with information
      */
-    function CheckPolicy($policykey, $devid) {
-        global $user, $auth_pw;
-
-        $status = SYNC_PROVISION_STATUS_SUCCESS;
-
-        $user_policykey = $this->getPolicyKey($user, $auth_pw, $devid);
-
-        if ($user_policykey != $policykey) {
-            $status = SYNC_PROVISION_STATUS_POLKEYMISM;
-        }
-
-        if (!$policykey) $policykey = $user_policykey;
-        return $status;
-    }
+    public abstract function GetFolder($id);
 
     /**
-     * Return a policy key for given user with a given device id.
-     * If there is no combination user-deviceid available, a new key
-     * should be generated.
+     * Returns folder stats. An associative array with properties is expected.
      *
-     * @param string $user
-     * @param string $pass
-     * @param string $devid
+     * @param string        $id             id of the folder
      *
-     * @return unknown
+     * @access public
+     * @return array
+     *          Associative array(
+     *              string  "id"            The server ID that will be used to identify the folder. It must be unique, and not too long
+     *                                      How long exactly is not known, but try keeping it under 20 chars or so. It must be a string.
+     *              string  "parent"        The server ID of the parent of the folder. Same restrictions as 'id' apply.
+     *              long    "mod"           This is the modification signature. It is any arbitrary string which is constant as long as
+     *                                      the folder has not changed. In practice this means that 'mod' can be equal to the folder name
+     *                                      as this is the only thing that ever changes in folders. (the type is normally constant)
+     *          )
      */
-    function getPolicyKey($user, $pass, $devid) {
-        return false;
-    }
+    public abstract function StatFolder($id);
 
     /**
-     * Generate a random policy key. Right now it's a 10-digit number.
+     * Creates or modifies a folder
      *
-     * @return unknown
+     * @param string        $folderid       id of the parent folder
+     * @param string        $oldid          if empty -> new folder created, else folder is to be renamed
+     * @param string        $displayname    new folder name (to be created, or to be renamed to)
+     * @param int           $type           folder type
+     *
+     * @access public
+     * @return boolean      status
+     *
      */
-    function generatePolicyKey(){
-        return mt_rand(1000000000, 9999999999);
-    }
+    public abstract function ChangeFolder($folderid, $oldid, $displayname, $type);
 
     /**
-     * Set a new policy key for the given device id.
+     * Returns a list (array) of messages, each entry being an associative array
+     * with the same entries as StatMessage(). This method should return stable information; ie
+     * if nothing has changed, the items in the array must be exactly the same. The order of
+     * the items within the array is not important though.
      *
-     * @param string $policykey
-     * @param string $devid
-     * @return unknown
+     * The $cutoffdate is a date in the past, representing the date since which items should be shown.
+     * This cutoffdate is determined by the user's setting of getting 'Last 3 days' of e-mail, etc. If
+     * the cutoffdate is ignored, the user will not be able to select their own cutoffdate, but all
+     * will work OK apart from that.
+     *
+     * @param string        $folderid       id of the parent folder
+     * @param long          $cutoffdate     timestamp in the past from which on messages should be returned
+     *
+     * @access public
+     * @return array        of messages
      */
-    function setPolicyKey($policykey, $devid) {
-        return false;
-    }
+    public abstract function GetMessageList($folderid, $cutoffdate);
 
     /**
-     * Return a device wipe status
+     * Returns the actual SyncXXX object type. The '$folderid' of parent folder can be used.
+     * Mixing item types returned is illegal and will be blocked by the engine; ie returning an Email object in a
+     * Tasks folder will not do anything. The SyncXXX objects should be filled with as much information as possible,
+     * but at least the subject, body, to, from, etc.
      *
-     * @param string $user
-     * @param string $pass
-     * @param string $devid
-     * @return int
+     * @param string        $folderid       id of the parent folder
+     * @param string        $id             id of the message
+     * @param int           $truncsize      truncation size in bytes
+     * @param int           $mimesupport    output the mime message
+     *
+     * @access public
+     * @return object
      */
-    function getDeviceRWStatus($user, $pass, $devid) {
-        return false;
-    }
+    public abstract function GetMessage($folderid, $id, $truncsize, $mimesupport = 0);
 
     /**
-     * Set a new rw status for the device
+     * Returns message stats, analogous to the folder stats from StatFolder().
      *
-     * @param string $user
-     * @param string $pass
-     * @param string $devid
-     * @param string $status
+     * @param string        $folderid       id of the folder
+     * @param string        $id             id of the message
      *
-     * @return boolean
+     * @access public
+     * @return array
+     *          Associative array(
+     *              string  "id"            Server unique identifier for the message. Again, try to keep this short (under 20 chars)
+     *              int     "flags"         simply '0' for unread, '1' for read
+     *              long    "mod"           This is the modification signature. It is any arbitrary string which is constant as long as
+     *                                      the message has not changed. As soon as this signature changes, the item is assumed to be completely
+     *                                      changed, and will be sent to the PDA as a whole. Normally you can use something like the modification
+     *                                      time for this field, which will change as soon as the contents have changed.
+     *          )
      */
-    function setDeviceRWStatus($user, $pass, $devid, $status) {
-        return false;
+    public abstract function StatMessage($folderid, $id);
+
+    /**
+     * Called when a message has been changed on the mobile. The new message must be saved to disk.
+     * The return value must be whatever would be returned from StatMessage() after the message has been saved.
+     * This way, the 'flags' and the 'mod' properties of the StatMessage() item may change via ChangeMessage().
+     * This method will never be called on E-mail items as it's not 'possible' to change e-mail items. It's only
+     * possible to set them as 'read' or 'unread'.
+     *
+     * @param string        $folderid       id of the folder
+     * @param string        $id             id of the message
+     * @param SyncXXX       $message        the SyncObject containing a message
+     *
+     * @access public
+     * @return array        same return value as StatMessage()
+     */
+    public abstract function ChangeMessage($folderid, $id, $message);
+
+    /**
+     * Changes the 'read' flag of a message on disk. The $flags
+     * parameter can only be '1' (read) or '0' (unread). After a call to
+     * SetReadFlag(), GetMessageList() should return the message with the
+     * new 'flags' but should not modify the 'mod' parameter. If you do
+     * change 'mod', simply setting the message to 'read' on the mobile will trigger
+     * a full resync of the item from the server.
+     *
+     * @param string        $folderid       id of the folder
+     * @param string        $id             id of the message
+     * @param int           $flags          read flag of the message
+     *
+     * @access public
+     * @return boolean      status of the operation
+     */
+    public abstract function SetReadFlag($folderid, $id, $flags);
+
+    /**
+     * Called when the user has requested to delete (really delete) a message. Usually
+     * this means just unlinking the file its in or somesuch. After this call has succeeded, a call to
+     * GetMessageList() should no longer list the message. If it does, the message will be re-sent to the mobile
+     * as it will be seen as a 'new' item. This means that if this method is not implemented, it's possible to
+     * delete messages on the PDA, but as soon as a sync is done, the item will be resynched to the mobile
+     *
+     * @param string        $folderid       id of the folder
+     * @param string        $id             id of the message
+     *
+     * @access public
+     * @return boolean      status of the operation
+     */
+    public abstract function DeleteMessage($folderid, $id);
+
+    /**
+     * Called when the user moves an item on the PDA from one folder to another. Whatever is needed
+     * to move the message on disk has to be done here. After this call, StatMessage() and GetMessageList()
+     * should show the items to have a new parent. This means that it will disappear from GetMessageList()
+     * of the sourcefolder and the destination folder will show the new message
+     *
+     * @param string        $folderid       id of the source folder
+     * @param string        $id             id of the message
+     * @param string        $newfolderid    id of the destination folder
+     *
+     * @access public
+     * @return boolean      status of the operation
+     */
+    public abstract function MoveMessage($folderid, $id, $newfolderid);
+
+
+    /**
+     * DEPRECATED legacy methods
+     */
+    public function GetHierarchyImporter() {
+        return new ImportChangesDiff($this);
     }
 
-    function AlterPing() {
-        return false;
+    public function GetContentsImporter($folderid) {
+        return new ImportChangesDiff($this, $folderid);
     }
 
-    function AlterPingChanges($folderid, &$syncstate) {
-        return array();
-    }
 }
 ?>

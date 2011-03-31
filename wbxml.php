@@ -40,7 +40,6 @@
 *
 * Consult LICENSE file for details
 ************************************************/
-include_once('debug.php');
 
 // WBXML debug mode is now configured in config.php
 // set the level to LOGLEVEL_WBXML

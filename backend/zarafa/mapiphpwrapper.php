@@ -52,6 +52,7 @@
 // sends them on to the wrapped importer (which in turn will turn it into
 // XML and send it to the PDA)
 
+// TODO implement IImportChanges ?
 class PHPContentsWrapper extends MAPIMapping {
     var $_session;
     var $store;
@@ -82,9 +83,7 @@ class PHPContentsWrapper extends MAPIMapping {
             return SYNC_E_IGNORE;
 
         $mapimessage = mapi_msgstore_openentry($this->_store, $entryid);
-        // TODO: MAPIProvider could be static
-        $mapiprovider = new MAPIProvider($this->_session, $this->_store);
-        $message = $mapiprovider->_getMessage($mapimessage, $this->_truncation);
+        $message = $this->_getMessage($mapimessage, $this->_truncation);
 
         // substitute the MAPI SYNC_NEW_MESSAGE flag by a z-push proprietary flag
         if ($flags == SYNC_NEW_MESSAGE) $message->flags = SYNC_NEWMESSAGE;
@@ -110,6 +109,13 @@ class PHPContentsWrapper extends MAPIMapping {
 
     function ImportMessageMove ($sourcekeysrcfolder, $sourcekeysrcmessage, $message, $sourcekeydestmessage, $changenumdestmessage) {
         // Never called
+    }
+
+	// TODO check if refactoring possible as not part of IImportChanges
+	// directly called by fetch in request
+    function _getMessage($mapimessage, $truncation) {
+        $mapiprovider = new MAPIProvider($this->_session, $this->_store);
+        return $mapiprovider->_getMessage($mapimessage, $truncation);
     }
 };
 

@@ -1,8 +1,8 @@
 <?php
 /***********************************************
-* File      :   provisioning.php
+* File      :   zprovisioning.php
 * Project   :   Z-Push
-* Descr     :
+* Descr     :   Implements methods of the abstract Provisiong class
 *
 * Created   :   14.02.2011
 *
@@ -41,55 +41,32 @@
 * Consult LICENSE file for details
 ************************************************/
 
-class Provisioning {
-    var $_backend;
-
-    function Provisioning() {
-        // TODO: initialize logger?
-        // TODO: how to do provisioning (WIPE!) withoug log in????
-    }
-
-    function initialize($backend) {
-        $this->_backend = $backend;
-        $this->_session = $this->_backend->_session;
-        $this->_defaultstore = $this->_backend->_defaultstore;
-    }
-
+class ZProvisioning extends Provisioning {
+    protected $_session;
+    protected $_defaultstore;
 
     /**
-     * Checks if the sent policykey matches the latest policykey on the server
+     * Initialize the provisioning
      *
-     * @param string $policykey
-     * @param string $devid
-     *
-     * @return status flag
+     * @access public
+     * @param object        $backend
      */
-    function CheckPolicy($policykey, $devid) {
-        global $user, $auth_pw;
-
-        $status = SYNC_PROVISION_STATUS_SUCCESS;
-
-        //generate some devid if it is not set,
-        //in order to be able to remove it later via mdm
-        if (!isset($devid) || !$devid) $devid = $this->generatePolicyKey();
-
-        $user_policykey = $this->getPolicyKey($user, $auth_pw, $devid);
-
-        if ($user_policykey != $policykey) {
-            $status = SYNC_PROVISION_STATUS_POLKEYMISM;
-        }
-
-        if (!$policykey) $policykey = $user_policykey;
-        return $status;
+    public function initialize($backend, $devid) {
+        parent::initialize($backend, $devid);
+        $this->_session = $this->_backend->_getSession();
+        $this->_defaultstore = $this->_backend->_getDefaultstore();
     }
 
-
-    function generatePolicyKey() {
-        return mt_rand(1000000000, 9999999999);
-    }
-
-
-    function setPolicyKey($policykey, $devid) {
+    /**
+     * Attributes a provisioned policykey to a device
+     *
+     * @param string        $policykey
+     * @param string        $devid
+     *
+     * @access public
+     * @return boolean status
+     */
+    public function setPolicyKey($policykey, $devid) {
         global $devtype, $useragent;
         if ($this->_defaultstore !== false) {
             //get devices properties
@@ -144,9 +121,17 @@ class Provisioning {
         return false;
     }
 
-
-
-    function getPolicyKey ($user, $pass, $devid) {
+    /**
+     * Returns the current policykey for a user & device
+     *
+     * @param string        $user
+     * @param string        $pass
+     * @param string        $devid
+     *
+     * @access public
+     * @return string
+     */
+    public function getPolicyKey ($user, $pass, $devid) {
         if($this->_session === false) {
             writeLog(LOGLEVEL_WARN, "logon failed for user $user");
             return false;
@@ -180,6 +165,7 @@ class Provisioning {
         return false;
     }
 
+    // TODO refactor
     function getDeviceRWStatus($user, $pass, $devid) {
 
         if($this->_session === false) {
@@ -188,7 +174,7 @@ class Provisioning {
         }
 
         // Get/open default store - we have to do this because otherwise it returns old values :(
-        $defaultstore = $this->_backend->_openDefaultMessageStore($this->_session);
+        $defaultstore = $this->_backend->_getDefaultstore();
 
         //user is logged in or can login, get the remote wipe status
         if ($defaultstore !== false) {
@@ -209,7 +195,7 @@ class Provisioning {
         return false;
     }
 
-
+    // TODO refactor
     function setDeviceRWStatus($user, $pass, $devid, $status) {
         if($this->_session === false) {
             writeLog(LOGLEVEL_WARN, "Set rw status: logon failed for user $user");
@@ -244,13 +230,13 @@ class Provisioning {
         return false;
     }
 
-
+    // TODO refactor
     function setLastSyncTime () {
         if ($this->_backend->_defaultstore !== false) {
             $devicesprops = mapi_getprops($this->_defaultstore,
             array(0x6881101E, 0x68891040));
             if (isset($devicesprops[0x6881101E]) && is_array($devicesprops[0x6881101E])) {
-                $ak = array_search($this->_backend->_devid, $devicesprops[0x6881101E]);
+                $ak = array_search($this->_devid, $devicesprops[0x6881101E]);
                 if ($ak !== false) {
                     //set new sync time
                     $devicesprops[0x68891040][$ak] = time();

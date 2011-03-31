@@ -48,35 +48,77 @@
 ************************************************/
 
 
-// This is our local importer. IE it receives data from the PDA. It must therefore receive Sync
-// objects and convert them into MAPI objects, and then send them to the ICS importer to do the actual
-// writing of the object.
-class ImportContentsChangesICS {
-    function ImportContentsChangesICS($session, $store, $folderid) {
+
+/**
+ * This is our local importer. Tt receives data from the PDA, for contents and hierarchy changes.
+ * It must therefore receive the incoming data and convert it into MAPI objects, and then send
+ * them to the ICS importer to do the actual writing of the object.
+ * The creation of folders is fairly trivial, because folders that are created on
+ * the PDA are always e-mail folders.
+ */
+
+class ImportChangesICS implements IImportChanges {
+    /**
+     * Constructor
+     *
+     * @param mapisession       $session
+     * @param mapistore         $store
+     * @param string            $folderid (opt)
+     *
+     * @access public
+     */
+    public function ImportChangesICS($session, $store, $folderid = false) {
         $this->_session = $session;
         $this->_store = $store;
         $this->_folderid = $folderid;
 
-        $entryid = mapi_msgstore_entryidfromsourcekey($store, $folderid);
+        if ($folderid) {
+            $entryid = mapi_msgstore_entryidfromsourcekey($store, $folderid);
+        }
+        else {
+            $storeprops = mapi_getprops($store, array(PR_IPM_SUBTREE_ENTRYID));
+            $entryid = $storeprops[PR_IPM_SUBTREE_ENTRYID];
+        }
+
+        // Folder available ?
         if(!$entryid) {
-            // Folder not found
-            // TODO: status
-            writeLog(LOGLEVEL_wARN, "Folder not found: " . bin2hex($folderid));
+            // TODO: throw exception with status
+            if ($folderid)
+                writeLog(LOGLEVEL_WARN, "Folder not found: " . bin2hex($folderid));
+            else
+                writeLog(LOGLEVEL_WARN, "Store root not found");
+
             $this->importer = false;
             return;
         }
 
         $folder = mapi_msgstore_openentry($store, $entryid);
         if(!$folder) {
+            // TODO: throw exception with status
             writeLog(LOGLEVEL_WARN, "Unable to open folder: " . sprintf("%x", mapi_last_hresult()));
             $this->importer = false;
             return;
         }
 
-        $this->importer = mapi_openproperty($folder, PR_COLLECTOR, IID_IExchangeImportContentsChanges, 0 , 0);
+        if ($folderid)
+            $this->importer = mapi_openproperty($folder, PR_COLLECTOR, IID_IExchangeImportContentsChanges, 0 , 0);
+        else
+            $this->importer = mapi_openproperty($folder, PR_COLLECTOR, IID_IExchangeImportHierarchyChanges, 0 , 0);
     }
 
-    function Config($state, $flags = 0) {
+    /**
+     * Initializes the importer
+     *
+     * @param string        $state
+     * @param int           $flags
+     *
+     * @access public
+     * @return boolean
+     */
+    public function Config($state, $flags = 0) {
+        $this->_flags = $flags;
+
+        // Put the state information in a stream that can be used by ICS
         $stream = mapi_stream_create();
         if(strlen($state) == 0) {
             $state = hex2bin("0000000000000000");
@@ -85,14 +127,65 @@ class ImportContentsChangesICS {
         mapi_stream_write($stream, $state);
         $this->statestream = $stream;
 
-        mapi_importcontentschanges_config($this->importer, $stream, $flags);
-        $this->_flags = $flags;
-
-        // conflicting messages can be cached here
-        $this->_memChanges = new ImportContentsChangesMem();
+        if ($this->_folderid !== false) {
+            // possible conflicting messages will be cached here
+            $this->_memChanges = new ImportChangesMem();
+            return mapi_importcontentschanges_config($this->importer, $stream, $flags);
+        }
+        else
+            return mapi_importhierarchychanges_config($this->importer, $stream, $flags);
     }
 
-    function LoadConflicts($mclass, $filtertype, $state) {
+    /**
+     * Reads state from the Importer
+     *
+     * @access public
+     * @return string
+     */
+    public function GetState() {
+        if(!isset($this->statestream)) {
+            writeLog(LOGLEVEL_WARN, "Error getting state from Importer. Not initialized.");
+            return false;
+        }
+
+        if ($this->_folderid !== false && function_exists("mapi_importcontentschanges_updatestate")) {
+            writeLog(LOGLEVEL_DEBUG, "before getting state, using 'mapi_importcontentschanges_updatestate()'");
+            if(mapi_importcontentschanges_updatestate($this->importer, $this->statestream) != true) {
+                writeLog(LOGLEVEL_WARN, "Unable to update state: " . sprintf("%X", mapi_last_hresult()));
+                return false;
+            }
+        }
+
+        mapi_stream_seek($this->statestream, 0, STREAM_SEEK_SET);
+
+        $state = "";
+        while(true) {
+            $data = mapi_stream_read($this->statestream, 4096);
+            if(strlen($data))
+                $state .= $data;
+            else
+                break;
+        }
+
+        return $state;
+    }
+
+    /**----------------------------------------------------------------------------------------------------------
+     * Methods for ContentsExporter
+     */
+
+    /**
+     * Loads objects which are expected to be exported with the current state
+     * Before importing/saving the actual message from the mobile, a conflict detection is done
+     *
+     * @param string    $mclass         class of objects
+     * @param int       $restrict       FilterType
+     * @param string    $state
+     *
+     * @access public
+     * @return string
+     */
+    public function LoadConflicts($mclass, $filtertype, $state) {
         if (!isset($this->_session) || !isset($this->_store) || !isset($this->_folderid)) {
             // TODO: trigger resync? data could be lost!! TEST!
             writeLog(LOGLEVEL_ERROR, "Warning: can not load changes for conflict detections. Session, store or folder information not available");
@@ -106,7 +199,16 @@ class ImportContentsChangesICS {
         return true;
     }
 
-    function ImportMessageChange($id, $message) {
+    /**
+     * Imports a single message
+     *
+     * @param string        $id
+     * @param SyncObject    $message
+     *
+     * @access public
+     * @return boolean/string - failure / id of message
+     */
+    public function ImportMessageChange($id, $message) {
         $parentsourcekey = $this->_folderid;
         if($id)
             $sourcekey = hex2bin($id);
@@ -144,6 +246,7 @@ class ImportContentsChangesICS {
 
             $sourcekeyprops = mapi_getprops($mapimessage, array (PR_SOURCE_KEY));
         } else {
+            // TODO: throw feasible status, if available
             writeLog(LOGLEVEL_WARN, "Unable to update object $id:" . sprintf("%x", mapi_last_hresult()));
             return false;
         }
@@ -151,8 +254,16 @@ class ImportContentsChangesICS {
         return bin2hex($sourcekeyprops[PR_SOURCE_KEY]);
     }
 
-    // Import a deletion. This may conflict if the local object has been modified.
-    function ImportMessageDeletion($objid) {
+    /**
+     * Imports a deletion. This may conflict if the local object has been modified
+     *
+     * @param string        $id
+     * @param SyncObject    $message
+     *
+     * @access public
+     * @return boolean
+     */
+    public function ImportMessageDeletion($objid) {
         // check for conflicts
         if($this->_memChanges->isChanged($objid)) {
            writeLog(LOGLEVEL_INFO, "Conflict detected. Data from Server will be dropped! PIM deleted object.");
@@ -161,22 +272,41 @@ class ImportContentsChangesICS {
         mapi_importcontentschanges_importmessagedeletion($this->importer, 1, array(hex2bin($objid)));
     }
 
-    // Import a change in 'read' flags .. This can never conflict
-    function ImportMessageReadFlag($id, $flags) {
+    /**
+     * Imports a change in 'read' flag
+     * This can never conflict
+     *
+     * @param string        $id
+     * @param int           $flags - read/unread
+     *
+     * @access public
+     * @return boolean
+     */
+    public function ImportMessageReadFlag($id, $flags) {
         $readstate = array ( "sourcekey" => hex2bin($id), "flags" => $flags);
         $ret = mapi_importcontentschanges_importperuserreadstatechange($this->importer, array ($readstate) );
         if($ret == false)
+            // TODO throw feasible status, if available
             writeLog(LOGLEVEL_WARN, "Unable to set read state: " . sprintf("%x", mapi_last_hresult()));
     }
 
-    // Import a move of a message. This occurs when a user moves an item to another folder. Normally,
-    // we would implement this via the 'offical' importmessagemove() function on the ICS importer, but the
-    // Zarafa importer does not support this. Therefore we currently implement it via a standard mapi
-    // call. This causes a mirror 'add/delete' to be sent to the PDA at the next sync.
-    // Manfred, 2010-10-21. For some mobiles import was causing duplicate messages in the destination folder
-    // (Mantis #202). Therefore we will create a new message in the destination folder, copy properties
-    // of the source message to the new one and then delete the source message.
-    function ImportMessageMove($id, $newfolder) {
+    /**
+     * Imports a move of a message. This occurs when a user moves an item to another folder
+     *
+     * Normally, we would implement this via the 'offical' importmessagemove() function on the ICS importer,
+     * but the Zarafa importer does not support this. Therefore we currently implement it via a standard mapi
+     * call. This causes a mirror 'add/delete' to be sent to the PDA at the next sync.
+     * Manfred, 2010-10-21. For some mobiles import was causing duplicate messages in the destination folder
+     * (Mantis #202). Therefore we will create a new message in the destination folder, copy properties
+     * of the source message to the new one and then delete the source message.
+     *
+     * @param string        $id
+     * @param int           $flags - read/unread
+     *
+     * @access public
+     * @return boolean
+     */
+    public function ImportMessageMove($id, $newfolder) {
         if (strtolower($newfolder) == strtolower(bin2hex($this->_folderid)) ) {
             //TODO: status value 4
             writeLog(LOGLEVEL_WARN, "Source and destination are equal");
@@ -249,72 +379,25 @@ class ImportContentsChangesICS {
         return false;
     }
 
-    function GetState() {
-        if(!isset($this->statestream))
-            return false;
 
-        if (function_exists("mapi_importcontentschanges_updatestate")) {
-            writeLog(LOGLEVEL_DEBUG, "using mapi_importcontentschanges_updatestate");
-            if(mapi_importcontentschanges_updatestate($this->importer, $this->statestream) != true) {
-                writeLog(LOGLEVEL_WARN, "Unable to update state: " . sprintf("%X", mapi_last_hresult()));
-                return false;
-            }
-        }
+    /**----------------------------------------------------------------------------------------------------------
+     * Methods for HierarchyExporter
+     */
 
-        mapi_stream_seek($this->statestream, 0, STREAM_SEEK_SET);
+    /**
+     * Imports a change on a folder
+     *
+     * @param object        $folder     SyncFolder
+     *
+     * @access public
+     * @return string       id of the folder
+     */
+    public function ImportFolderChange($folder) {
+        $id = $folder->serverid;
+        $parent = $folder->parentid;
+        $displayname = $folder->displayname;
+        $type = $folder->type;
 
-        $state = "";
-        while(true) {
-            $data = mapi_stream_read($this->statestream, 4096);
-            if(strlen($data))
-                $state .= $data;
-            else
-                break;
-        }
-
-        return $state;
-    }
-
-    // ----------------------------------------------------------------------------------------------------------
-
-};
-
-// This is our local hierarchy changes importer. It receives folder change
-// data from the PDA and must therefore convert to calls into MAPI ICS
-// import calls. It is fairly trivial because folders that are created on
-// the PDA are always e-mail folders.
-
-class ImportHierarchyChangesICS  {
-    var $_user;
-
-    function ImportHierarchyChangesICS($store) {
-        $storeprops = mapi_getprops($store, array(PR_IPM_SUBTREE_ENTRYID));
-
-        $folder = mapi_msgstore_openentry($store, $storeprops[PR_IPM_SUBTREE_ENTRYID]);
-        if(!$folder) {
-            $this->importer = false;
-            return;
-        }
-
-        $this->importer = mapi_openproperty($folder, PR_COLLECTOR, IID_IExchangeImportHierarchyChanges, 0 , 0);
-        $this->store = $store;
-    }
-
-    function Config($state, $flags = 0) {
-        // Put the state information in a stream that can be used by ICS
-
-        $stream = mapi_stream_create();
-        if(strlen($state) == 0) {
-            $state = hex2bin("0000000000000000");
-        }
-
-        mapi_stream_write($stream, $state);
-        $this->statestream = $stream;
-
-        return mapi_importhierarchychanges_config($this->importer, $stream, $flags);
-    }
-
-    function ImportFolderChange($id, $parent, $displayname, $type) {
         //create a new folder if $id is not set
         if (!$id) {
             $parentfentryid = mapi_msgstore_entryidfromsourcekey($this->store, hex2bin($parent));
@@ -326,21 +409,26 @@ class ImportHierarchyChangesICS  {
         }
 
         // 'type' is ignored because you can only create email (standard) folders
-        mapi_importhierarchychanges_importfolderchange($this->importer, array ( PR_SOURCE_KEY => hex2bin($id), PR_PARENT_SOURCE_KEY => hex2bin($parent), PR_DISPLAY_NAME => $displayname) );
-        writeLog(LOGLEVEL_DEBUG, "Imported changes for folder:$id");
+        mapi_importhierarchychanges_importfolderchange($this->importer, array(PR_SOURCE_KEY => hex2bin($id), PR_PARENT_SOURCE_KEY => hex2bin($parent), PR_DISPLAY_NAME => $displayname));
+        writeLog(LOGLEVEL_DEBUG, "Imported changes for folder: $id");
         return $id;
     }
 
-    function ImportFolderDeletion($id, $parent) {
-        return mapi_importhierarchychanges_importfolderdeletion ($this->importer, 0, array (PR_SOURCE_KEY => hex2bin($id)) );
+    /**
+     * Imports a folder deletion
+     *
+     * @param string        $id
+     * @param string        $parent id
+     *
+     * @access public
+     * @return int          SYNC_FOLDERHIERARCHY_STATUS
+     */
+    public function ImportFolderDeletion($id, $parent) {
+        writeLog(LOGLEVEL_DEBUG, "Imported folder deletetion: $id");
+        return mapi_importhierarchychanges_importfolderdeletion ($this->importer, 0, array(PR_SOURCE_KEY => hex2bin($id)) );
     }
 
-    function GetState() {
-        mapi_stream_seek($this->statestream, 0, STREAM_SEEK_SET);
-        $data = mapi_stream_read($this->statestream, 4096);
+    /**----------------------------------------------------------------------------------------------------------  */
 
-        return $data;
-    }
-};
-
+}
 ?>

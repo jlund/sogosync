@@ -47,7 +47,6 @@
 *
 * Consult LICENSE file for details
 ************************************************/
-include_once("zpushdtd.php");
 
 define('STREAMER_VAR', 1);
 define('STREAMER_ARRAY', 2);
@@ -57,7 +56,6 @@ define('STREAMER_TYPE_DATE', 1);
 define('STREAMER_TYPE_HEX', 2);
 define('STREAMER_TYPE_DATE_DASHES', 3);
 define('STREAMER_TYPE_MAPI_STREAM', 4);
-
 
 class Streamer {
     var $_mapping;
@@ -257,6 +255,56 @@ class Streamer {
         }
         return 0;
     }
-};
+
+    /**
+     * String representation of the object
+     *
+     * @return String
+     */
+    public function __toString() {
+        $str = get_class($this) . " (\n";
+
+        $streamerVars = array();
+        foreach ($this->_mapping as $k=>$v)
+            $streamerVars[$v[STREAMER_VAR]] = (isset($v[STREAMER_TYPE]))?$v[STREAMER_TYPE]:false;
+
+        foreach (get_object_vars($this) as $k=>$v) {
+            if ($k == "_mapping") continue;
+
+            if (array_key_exists($k, $streamerVars))
+                $strV = "(S) ";
+            else
+                $strV = "";
+
+            // STREAMER_ARRAY ?
+            if (is_array($v)) {
+                $str .= "\t". $strV . $k ."(Array) size: " . count($v) ."\n";
+                foreach ($v as $value) $str .= "\t\t". $this->readableValue($value) ."\n";
+            }
+            else if ($v instanceof Streamer) {
+                $str .= "\t". $strV .$k ." => ". str_replace("\n", "\n\t\t\t", $v->__toString()) . "\n";
+            }
+            else
+                $str .= "\t". $strV .$k ." => " . (isset($this->$k)? $this->readableValue($this->$k) :"null") . "\n";
+        }
+        $str .= ")";
+
+        return $str;
+
+    }
+
+
+    /**
+     * Returns a readable value for booleans and strings
+     *
+     * @param string $value
+     * @return string
+     */
+    private function readableValue($value) {
+        if ($value === false) return "false";
+        if ($value === true) return "true";
+        return "'$value'";
+    }
+}
 
 ?>

@@ -18,7 +18,7 @@
 *
 * Created   :   01.10.2007
 *
-* Copyright 2007 - 2010 Zarafa Deutschland GmbH
+* Copyright 2007 - 2011 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -54,71 +54,202 @@
 ************************************************/
 
 include_once('diffbackend.php');
-
-// The is an improved version of mimeDecode from PEAR that correctly
-// handles charsets and charset conversion
 include_once('mimeDecode.php');
 
 
 class BackendMaildir extends BackendDiff {
-    /* Called to logon a user. These are the three authentication strings that you must
-     * specify in ActiveSync on the PDA. Normally you would do some kind of password
-     * check here. Alternatively, you could ignore the password here and have Apache
-     * do authentication via mod_auth_*
+    /**----------------------------------------------------------------------------------------------------------
+     * default backend methods
      */
-    function Logon($username, $domain, $password) {
+
+    /**
+     * Authenticates the user - NOT EFFECTIVELY IMPLEMENTED
+     * Normally some kind of password check would be done here.
+     * Alternatively, the password could be ignored and an Apache
+     * authentication via mod_auth_* could be done
+     *
+     * @param string        $username
+     * @param string        $domain
+     * @param string        $password
+     *
+     * @access public
+     * @return boolean
+     */
+    public function Logon($username, $domain, $password) {
         return true;
     }
 
-    /* Called directly after the logon. This specifies the client's protocol version
-     * and device id. The device ID can be used for various things, including saving
-     * per-device state information.
-     * The $user parameter here is normally equal to the $username parameter from the
-     * Logon() call. In theory though, you could log on a 'foo', and then sync the emails
-     * of user 'bar'. The $user here is the username specified in the request URL, while the
-     * $username in the Logon() call is the username which was sent as a part of the HTTP
-     * authentication.
+    /**
+     * Logs off
+     *
+     * @access public
+     * @return boolean
      */
-    function Setup($user, $devid, $protocolversion) {
-        $this->_user = $user;
-        $this->_devid = $devid;
-        $this->_protocolversion = $protocolversion;
-
+    public function Logoff() {
         return true;
     }
 
-    /* Sends a message which is passed as rfc822. You basically can do two things
-     * 1) Send the message to an SMTP server as-is
-     * 2) Parse the message yourself, and send it some other way
-     * It is up to you whether you want to put the message in the sent items folder. If you
-     * want it in 'sent items', then the next sync on the 'sent items' folder should return
-     * the new message as any other new message in a folder.
+    /**
+     * Sends an e-mail
+     * Not implemented here
+     *
+     * @param string        $rfc822     raw mail submitted by the mobile
+     * @param string        $forward    id of the message to be attached below $rfc822
+     * @param string        $reply      id of the message to be attached below $rfc822
+     * @param string        $parent     id of the folder containing $forward or $reply
+     *
+     * @access public
+     * @return boolean
      */
-    function SendMail($rfc822, $forward = false, $reply = false, $parent = false) {
-        // Unimplemented
+    public function SendMail($rfc822, $forward = false, $reply = false, $parent = false) {
         return true;
     }
 
-    /* Should return a wastebasket folder if there is one. This is used when deleting
-     * items; if this function returns a valid folder ID, then all deletes are handled
-     * as moves and are sent to your backend as a move. If it returns FALSE, then deletes
-     * are always handled as real deletes and will be sent to your importer as a DELETE
+    /**
+     * Returns the waste basket
+     *
+     * @access public
+     * @return string
      */
-    function GetWasteBasket() {
+    public function GetWasteBasket() {
         return false;
     }
 
-    /* Should return a list (array) of messages, each entry being an associative array
-     * with the same entries as StatMessage(). This function should return stable information; ie
-     * if nothing has changed, the items in the array must be exactly the same. The order of
-     * the items within the array is not important though.
+    /**
+     * Returns the content of the named attachment. The passed attachment identifier is
+     * the exact string that is returned in the 'AttName' property of an SyncAttachment.
+     * Any information necessary to find the attachment must be encoded in that 'attname' property.
+     * Data is written directly (with print $data;)
      *
-     * The cutoffdate is a date in the past, representing the date since which items should be shown.
-     * This cutoffdate is determined by the user's setting of getting 'Last 3 days' of e-mail, etc. If
-     * you ignore the cutoffdate, the user will not be able to select their own cutoffdate, but all
-     * will work OK apart from that.
+     * @param string        $attname
+     *
+     * @access public
+     * @return boolean
      */
-    function GetMessageList($folderid, $cutoffdate) {
+    public function GetAttachmentData($attname) {
+        list($id, $part) = explode(":", $attname);
+
+        $fn = $this->findMessage($id);
+
+        // Parse e-mail
+        $rfc822 = file_get_contents($this->getPath() . "/$fn");
+
+        $message = Mail_mimeDecode::decode(array('decode_headers' => true, 'decode_bodies' => true, 'include_bodies' => true, 'input' => $rfc822, 'crlf' => "\n", 'charset' => 'utf-8'));
+        print $message->parts[$part]->body;
+        return true;
+    }
+
+    /**----------------------------------------------------------------------------------------------------------
+     * implemented DiffBackend methods
+     */
+
+
+    /**
+     * Returns a list (array) of folders.
+     * In simple implementations like this one, probably just one folder is returned.
+     *
+     * @access public
+     * @return array
+     */
+    public function GetFolderList() {
+        $folders = array();
+
+        $inbox = array();
+        $inbox["id"] = "root";
+        $inbox["parent"] = "0";
+        $inbox["mod"] = "Inbox";
+
+        $folders[]=$inbox;
+
+        $sub = array();
+        $sub["id"] = "sub";
+        $sub["parent"] = "root";
+        $sub["mod"] = "Sub";
+
+//        $folders[]=$sub;
+
+        return $folders;
+    }
+
+    /**
+     * Returns an actual SyncFolder object
+     *
+     * @param string        $id           id of the folder
+     *
+     * @access public
+     * @return object       SyncFolder with information
+     */
+    public function GetFolder($id) {
+        if($id == "root") {
+            $inbox = new SyncFolder();
+
+            $inbox->serverid = $id;
+            $inbox->parentid = "0"; // Root
+            $inbox->displayname = "Inbox";
+            $inbox->type = SYNC_FOLDER_TYPE_INBOX;
+
+            return $inbox;
+        } else if($id == "sub") {
+            $inbox = new SyncFolder();
+            $inbox->serverid = $id;
+            $inbox->parentid = "root";
+            $inbox->displayname = "Sub";
+            $inbox->type = SYNC_FOLDER_TYPE_OTHER;
+
+            return $inbox;
+        } else {
+            return false;
+        }
+    }
+
+
+    /**
+     * Returns folder stats. An associative array with properties is expected.
+     *
+     * @param string        $id             id of the folder
+     *
+     * @access public
+     * @return array
+     */
+    public function StatFolder($id) {
+        $folder = $this->GetFolder($id);
+
+        $stat = array();
+        $stat["id"] = $id;
+        $stat["parent"] = $folder->parentid;
+        $stat["mod"] = $folder->displayname;
+
+        return $stat;
+    }
+
+
+    /**
+     * Creates or modifies a folder
+     * not implemented
+     *
+     * @param string        $folderid       id of the parent folder
+     * @param string        $oldid          if empty -> new folder created, else folder is to be renamed
+     * @param string        $displayname    new folder name (to be created, or to be renamed to)
+     * @param int           $type           folder type
+     *
+     * @access public
+     * @return boolean      status
+     *
+     */
+    public function ChangeFolder($folderid, $oldid, $displayname, $type){
+        return false;
+    }
+
+    /**
+     * Returns a list (array) of messages
+     *
+     * @param string        $folderid       id of the parent folder
+     * @param long          $cutoffdate     timestamp in the past from which on messages should be returned
+     *
+     * @access public
+     * @return array        of messages
+     */
+    public function GetMessageList($folderid, $cutoffdate) {
         $this->moveNewToCur();
 
         if($folderid != "root")
@@ -177,132 +308,18 @@ class BackendMaildir extends BackendDiff {
         return $messages;
     }
 
-    /* This function is analogous to GetMessageList. In simple implementations like this one,
-     * you probably just return one folder.
-     */
-    function GetFolderList() {
-        $folders = array();
-
-        $inbox = array();
-        $inbox["id"] = "root";
-        $inbox["parent"] = "0";
-        $inbox["mod"] = "Inbox";
-
-        $folders[]=$inbox;
-
-        $sub = array();
-        $sub["id"] = "sub";
-        $sub["parent"] = "root";
-        $sub["mod"] = "Sub";
-
-//        $folders[]=$sub;
-
-        return $folders;
-    }
-
-    /* GetFolder should return an actual SyncFolder object with all the properties set. Folders
-     * are pretty simple really, having only a type, a name, a parent and a server ID.
-     */
-    function GetFolder($id) {
-        if($id == "root") {
-            $inbox = new SyncFolder();
-
-            $inbox->serverid = $id;
-            $inbox->parentid = "0"; // Root
-            $inbox->displayname = "Inbox";
-            $inbox->type = SYNC_FOLDER_TYPE_INBOX;
-
-            return $inbox;
-        } else if($id == "sub") {
-            $inbox = new SyncFolder();
-            $inbox->serverid = $id;
-            $inbox->parentid = "root";
-            $inbox->displayname = "Sub";
-            $inbox->type = SYNC_FOLDER_TYPE_OTHER;
-
-            return $inbox;
-        } else {
-            return false;
-        }
-    }
-
-    /* Return folder stats. This means you must return an associative array with the
-     * following properties:
-     * "id" => The server ID that will be used to identify the folder. It must be unique, and not too long
-     *         How long exactly is not known, but try keeping it under 20 chars or so. It must be a string.
-     * "parent" => The server ID of the parent of the folder. Same restrictions as 'id' apply.
-     * "mod" => This is the modification signature. It is any arbitrary string which is constant as long as
-     *          the folder has not changed. In practice this means that 'mod' can be equal to the folder name
-     *          as this is the only thing that ever changes in folders. (the type is normally constant)
-     */
-    function StatFolder($id) {
-        $folder = $this->GetFolder($id);
-
-        $stat = array();
-        $stat["id"] = $id;
-        $stat["parent"] = $folder->parentid;
-        $stat["mod"] = $folder->displayname;
-
-        return $stat;
-    }
-
-    /* Should return attachment data for the specified attachment. The passed attachment identifier is
-     * the exact string that is returned in the 'AttName' property of an SyncAttachment. So, you should
-     * encode any information you need to find the attachment in that 'attname' property.
-     */
-    function GetAttachmentData($attname) {
-        list($id, $part) = explode(":", $attname);
-
-        $fn = $this->findMessage($id);
-
-        // Parse e-mail
-        $rfc822 = file_get_contents($this->getPath() . "/$fn");
-
-        $message = Mail_mimeDecode::decode(array('decode_headers' => true, 'decode_bodies' => true, 'include_bodies' => true, 'input' => $rfc822, 'crlf' => "\n", 'charset' => 'utf-8'));
-        print $message->parts[$part]->body;
-        return true;
-    }
-
-    /* StatMessage should return message stats, analogous to the folder stats (StatFolder). Entries are:
-     * 'id'     => Server unique identifier for the message. Again, try to keep this short (under 20 chars)
-     * 'flags'     => simply '0' for unread, '1' for read
-     * 'mod'    => modification signature. As soon as this signature changes, the item is assumed to be completely
-     *             changed, and will be sent to the PDA as a whole. Normally you can use something like the modification
-     *             time for this field, which will change as soon as the contents have changed.
-     */
-
-    function StatMessage($folderid, $id) {
-        $dirname = $this->getPath();
-        $fn = $this->findMessage($id);
-        if(!$fn)
-            return false;
-
-        $stat = stat("$dirname/$fn");
-
-        $entry = array();
-        $entry["id"] = $id;
-        $entry["flags"] = 0;
-
-        if(strpos($fn,"S"))
-            $entry["flags"] |= 1;
-        $entry["mod"] = $stat["mtime"];
-
-        return $entry;
-    }
-
-    /* GetMessage should return the actual SyncXXX object type. You may or may not use the '$folderid' parent folder
-     * identifier here.
-     * Note that mixing item types is illegal and will be blocked by the engine; ie returning an Email object in a
-     * Tasks folder will not do anything. The SyncXXX objects should be filled with as much information as possible,
-     * but at least the subject, body, to, from, etc.
+    /**
+     * Returns the actual SyncXXX object type.
      *
-     * Truncsize is the size of the body that must be returned. If the message is under this size, bodytruncated should
-     * be 0 and body should contain the entire body. If the body is over $truncsize in bytes, then bodytruncated should
-     * be 1 and the body should be truncated to $truncsize bytes.
+     * @param string        $folderid       id of the parent folder
+     * @param string        $id             id of the message
+     * @param int           $truncsize      truncation size in bytes
+     * @param int           $mimesupport    output the mime message
      *
-     * Bodysize should always be the original body size.
+     * @access public
+     * @return object
      */
-    function GetMessage($folderid, $id, $truncsize, $mimesupport = 0) {
+    public function GetMessage($folderid, $id, $truncsize, $mimesupport = 0) {
         if($folderid != 'root')
             return false;
 
@@ -362,37 +379,60 @@ class BackendMaildir extends BackendDiff {
         return $output;
     }
 
-    /* This function is called when the user has requested to delete (really delete) a message. Usually
-     * this means just unlinking the file its in or somesuch. After this call has succeeded, a call to
-     * GetMessageList() should no longer list the message. If it does, the message will be re-sent to the PDA
-     * as it will be seen as a 'new' item. This means that if you don't implement this function, you will
-     * be able to delete messages on the PDA, but as soon as you sync, you'll get the item back
+    /**
+     * Returns message stats, analogous to the folder stats from StatFolder().
+     *
+     * @param string        $folderid       id of the folder
+     * @param string        $id             id of the message
+     *
+     * @access public
+     * @return array
      */
-    function DeleteMessage($folderid, $id) {
-        if($folderid != 'root')
+    public function StatMessage($folderid, $id) {
+        $dirname = $this->getPath();
+        $fn = $this->findMessage($id);
+        if(!$fn)
             return false;
 
-        $fn = $this->findMessage($id);
+        $stat = stat("$dirname/$fn");
 
-        if(!$fn)
-            return true; // success because message has been deleted already
+        $entry = array();
+        $entry["id"] = $id;
+        $entry["flags"] = 0;
 
+        if(strpos($fn,"S"))
+            $entry["flags"] |= 1;
+        $entry["mod"] = $stat["mtime"];
 
-        if(!unlink($this->getPath() . "/$fn")) {
-            return true; // success - message may have been deleted in the mean time (since findMessage)
-        }
-
-        return true;
+        return $entry;
     }
 
-    /* This should change the 'read' flag of a message on disk. The $flags
-     * parameter can only be '1' (read) or '0' (unread). After a call to
-     * SetReadFlag(), GetMessageList() should return the message with the
-     * new 'flags' but should not modify the 'mod' parameter. If you do
-     * change 'mod', simply setting the message to 'read' on the PDA will trigger
-     * a full resync of the item from the server
+    /**
+     * Called when a message has been changed on the mobile.
+     * This functionality is not available for emails.
+     *
+     * @param string        $folderid       id of the folder
+     * @param string        $id             id of the message
+     * @param SyncXXX       $message        the SyncObject containing a message
+     *
+     * @access public
+     * @return array        same return value as StatMessage()
      */
-    function SetReadFlag($folderid, $id, $flags) {
+    public function ChangeMessage($folderid, $id, $message) {
+        return false;
+    }
+
+    /**
+     * Changes the 'read' flag of a message on disk
+     *
+     * @param string        $folderid       id of the folder
+     * @param string        $id             id of the message
+     * @param int           $flags          read flag of the message
+     *
+     * @access public
+     * @return boolean      status of the operation
+     */
+    public function SetReadFlag($folderid, $id, $flags) {
         if($folderid != 'root')
             return false;
 
@@ -420,30 +460,60 @@ class BackendMaildir extends BackendDiff {
         return true;
     }
 
-    /* This function is called when a message has been changed on the PDA. You should parse the new
-     * message here and save the changes to disk. The return value must be whatever would be returned
-     * from StatMessage() after the message has been saved. This means that both the 'flags' and the 'mod'
-     * properties of the StatMessage() item may change via ChangeMessage().
-     * Note that this function will never be called on E-mail items as you can't change e-mail items, you
-     * can only set them as 'read'.
+    /**
+     * Called when the user has requested to delete (really delete) a message
+     *
+     * @param string        $folderid       id of the folder
+     * @param string        $id             id of the message
+     *
+     * @access public
+     * @return boolean      status of the operation
      */
-    function ChangeMessage($folderid, $id, $message) {
+    public function DeleteMessage($folderid, $id) {
+        if($folderid != 'root')
+            return false;
+
+        $fn = $this->findMessage($id);
+
+        if(!$fn)
+            return true; // success because message has been deleted already
+
+        if(!unlink($this->getPath() . "/$fn")) {
+            return true; // success - message may have been deleted in the mean time (since findMessage)
+        }
+
+        return true;
+    }
+
+    /**
+     * Called when the user moves an item on the PDA from one folder to another
+     * not implemented
+     *
+     * @param string        $folderid       id of the source folder
+     * @param string        $id             id of the message
+     * @param string        $newfolderid    id of the destination folder
+     *
+     * @access public
+     * @return boolean      status of the operation
+     */
+    public function MoveMessage($folderid, $id, $newfolderid) {
         return false;
     }
 
-    /* This function is called when the user moves an item on the PDA. You should do whatever is needed
-     * to move the message on disk. After this call, StatMessage() and GetMessageList() should show the items
-     * to have a new parent. This means that it will disappear from GetMessageList() will not return the item
-     * at all on the source folder, and the destination folder will show the new message
+
+    /**----------------------------------------------------------------------------------------------------------
+     * private maildir-specific internals
      */
-    function MoveMessage($folderid, $id, $newfolderid) {
-        return false;
-    }
 
-    // ----------------------------------------
-    // maildir-specific internals
-
-    function findMessage($id) {
+    /**
+     * Searches for the message
+     *
+     * @param string        $id        id of the message
+     *
+     * @access private
+     * @return string
+     */
+    private function findMessage($id) {
         // We could use 'this->_folderid' for path info but we currently
         // only support a single INBOX. We also have to use a glob '*'
         // because we don't know the flags of the message we're looking for.
@@ -458,9 +528,15 @@ class BackendMaildir extends BackendDiff {
         return false; // not found
     }
 
-    /* Parse the message and return only the plaintext body
+    /**
+     * Parses the message and return only the plaintext body
+     *
+     * @param string        $message        html message
+     *
+     * @access private
+     * @return string       plaintext message
      */
-    function getBody($message) {
+    private function getBody($message) {
         $body = "";
         $htmlbody = "";
 
@@ -468,19 +544,32 @@ class BackendMaildir extends BackendDiff {
 
         if(!isset($body) || $body === "") {
             $this->getBodyRecursive($message, "html", $body);
-            // HTML conversion goes here
+            // remove css-style tags
+            $body = preg_replace("/<style.*?<\/style>/is", "", $body);
+            // remove all other html
+            $body = strip_tags($body);
         }
 
         return $body;
     }
 
-    // Get all parts in the message with specified type and concatenate them together, unless the
-    // Content-Disposition is 'attachment', in which case the text is apparently an attachment
-    function getBodyRecursive($message, $subtype, &$body) {
+    /**
+     * Get all parts in the message with specified type and concatenate them together, unless the
+     * Content-Disposition is 'attachment', in which case the text is apparently an attachment
+     *
+     * @param string        $message        mimedecode message(part)
+     * @param string        $message        message subtype
+     * @param string        &$body          body reference
+     *
+     * @access private
+     * @return
+     */
+    private function getBodyRecursive($message, $subtype, &$body) {
+        if(!isset($message->ctype_primary)) return;
         if(strcasecmp($message->ctype_primary,"text")==0 && strcasecmp($message->ctype_secondary,$subtype)==0 && isset($message->body))
             $body .= $message->body;
 
-        if(strcasecmp($message->ctype_primary,"multipart")==0) {
+        if(strcasecmp($message->ctype_primary,"multipart")==0 && isset($message->parts) && is_array($message->parts)) {
             foreach($message->parts as $part) {
                 if(!isset($part->disposition) || strcasecmp($part->disposition,"attachment"))  {
                     $this->getBodyRecursive($part, $subtype, $body);
@@ -489,7 +578,15 @@ class BackendMaildir extends BackendDiff {
         }
     }
 
-    function parseReceivedDate($received) {
+    /**
+     * Parses the received date
+     *
+     * @param string        $received        received date string
+     *
+     * @access private
+     * @return long
+     */
+    private function parseReceivedDate($received) {
         $pos = strpos($received, ";");
         if(!$pos)
             return false;
@@ -500,9 +597,13 @@ class BackendMaildir extends BackendDiff {
         return strtotime($datestr);
     }
 
-    /* moves everything in Maildir/new/* to Maildir/cur/
+    /**
+     * Moves everything in Maildir/new/* to Maildir/cur/
+     *
+     * @access private
+     * @return
      */
-    function moveNewToCur() {
+    private function moveNewToCur() {
         $newdirname = MAILDIR_BASE . "/" . $this->_user . "/" . MAILDIR_SUBDIR . "/new";
 
         $newdir = opendir($newdirname);
@@ -517,12 +618,15 @@ class BackendMaildir extends BackendDiff {
         }
     }
 
-    /* The path we're working on
+    /**
+     * The path we're working on
+     *
+     * @access private
+     * @return string
      */
-    function getPath() {
+    private function getPath() {
         return MAILDIR_BASE . "/" . $this->_user . "/" . MAILDIR_SUBDIR . "/cur";
     }
-};
-
+}
 
 ?>

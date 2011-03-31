@@ -48,15 +48,6 @@
 * Consult LICENSE file for details
 ************************************************/
 
-include_once("proto.php");
-include_once("wbxml.php");
-include_once("statemachine.php");
-include_once("backend/backend.php");
-include_once("memimporter.php");
-include_once("streamimporter.php");
-include_once("zpushdtd.php");
-include_once("zpushdefs.php");
-include_once("include/utils.php");
 
 function GetObjectClassFromFolderClass($folderclass)
 {
@@ -311,7 +302,7 @@ function HandleFolderSync($backend, $protocolversion) {
     // before sending the actual data. As the amount of data done in this operation
     // is rather low, this is not memory problem. Note that this is not done when
     // sync'ing messages - we let the exporter write directly to WBXML.
-    $importer = new ImportHierarchyChangesMem($foldercache);
+    $importer = new ImportChangesMem($foldercache);
 
     // Request changes from backend, they will be sent to the MemImporter passed as the first
     // argument, which stores them in $importer. Returns the new sync state for this exporter.
@@ -319,6 +310,7 @@ function HandleFolderSync($backend, $protocolversion) {
 
     $exporter->Config($importer, false, false, $syncstate, 0, 0);
 
+    // TODO Accessing $importer->_count / $importer->_changes etc is dirty and needs refactorization
     while(is_array($exporter->Synchronize()));
 
     // Output our WBXML reply now
@@ -332,17 +324,17 @@ function HandleFolderSync($backend, $protocolversion) {
 
         $encoder->startTag(SYNC_FOLDERHIERARCHY_SYNCKEY);
         // only send new synckey if changes were processed or there are outgoing changes
-        $encoder->content((($changes || $importer->count > 0)?$newsynckey:$synckey));
+        $encoder->content((($changes || $importer->_count > 0)?$newsynckey:$synckey));
         $encoder->endTag();
 
         $encoder->startTag(SYNC_FOLDERHIERARCHY_CHANGES);
         {
             $encoder->startTag(SYNC_FOLDERHIERARCHY_COUNT);
-            $encoder->content($importer->count);
+            $encoder->content($importer->_count);
             $encoder->endTag();
 
-            if(count($importer->changed) > 0) {
-                foreach($importer->changed as $folder) {
+            if(count($importer->_changes) > 0) {
+                foreach($importer->_changes as $folder) {
                 	// send a modify flag if the folder is already known on the device
                 	if (isset($folder->serverid) && array_key_exists($folder->serverid, $foldercache) !== false)
                         $encoder->startTag(SYNC_FOLDERHIERARCHY_UPDATE);
@@ -355,8 +347,8 @@ function HandleFolderSync($backend, $protocolversion) {
                 }
             }
 
-            if(count($importer->deleted) > 0) {
-                foreach($importer->deleted as $folder) {
+            if(count($importer->_deletions) > 0) {
+                foreach($importer->_deletions as $folder) {
                     $encoder->startTag(SYNC_FOLDERHIERARCHY_REMOVE);
                         $encoder->startTag(SYNC_FOLDERHIERARCHY_SERVERENTRYID);
                             $encoder->content($folder);
@@ -657,8 +649,11 @@ function HandleSync($backend, $protocolversion, $devid) {
                     // Use the state from the importer, as changes may have already happened
                     $exporter = $backend->GetExporter($collection["collectionid"]);
 
+                    // Stream the messages directly to the PDA
+                    $streamimporter = new ImportContentsChangesStream($encoder, GetObjectClassFromFolderClass($collection["class"]));
+
                     $filtertype = isset($collection["filtertype"]) ? $collection["filtertype"] : false;
-                    $exporter->Config($importer, $collection["class"], $filtertype, $collection["syncstate"], 0, $collection["truncation"]);
+                    $exporter->Config($streamimporter, $collection["class"], $filtertype, $collection["syncstate"], 0, $collection["truncation"]);
 
                     $changecount = $exporter->GetChangeCount();
             	}
@@ -740,9 +735,6 @@ function HandleSync($backend, $protocolversion, $devid) {
 
                     // Output message changes per folder
                     $encoder->startTag(SYNC_PERFORM);
-
-                    // Stream the changes to the PDA
-                    $importer = new ImportContentsChangesStream($encoder, GetObjectClassFromFolderClass($collection["class"]));
 
                     $filtertype = isset($collection["filtertype"]) ? $collection["filtertype"] : 0;
 
@@ -995,7 +987,7 @@ function HandlePing($backend, $devid) {
     $changes = array();
     $dataavailable = false;
 
-    writeLog(LOGLEVEL_DEBUG, "Waiting for changes... (lifetime $lifetime)");
+    writeLog(LOGLEVEL_INFO, "Waiting for changes... (lifetime $lifetime)");
     // Wait for something to happen
     for($n=0;$n<$lifetime / $timeout; $n++ ) {
         //check the remote wipe status
@@ -1216,8 +1208,14 @@ function HandleFolderCreate($backend, $protocolversion) {
     $importer->Config($syncstate);
 
     if (!$delete) {
-	    // Send change
-	    $serverid = $importer->ImportFolderChange($serverid, $parentid, $displayname, $type);
+        // Send change
+        $folder = new SyncFolder();
+        $folder->serverid = $serverid;
+        $folder->parentid = $parentid;
+        $folder->displayname = $displayname;
+        $folder->type = $type;
+
+	    $serverid = $importer->ImportFolderChange($folder);
     }
     else {
     	// delete folder
