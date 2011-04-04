@@ -73,7 +73,7 @@ class BackendIMAP extends BackendDiff {
             writeLog(LOGLEVEL_FATAL, "ERROR BackendIMAP : php-imap module not installed!");
 
         // open the IMAP-mailbox
-        $this->_mbox = imap_open($this->_server , $username, $password, OP_HALFOPEN);
+        $this->_mbox = @imap_open($this->_server , $username, $password, OP_HALFOPEN);
         $this->_mboxFolder = "";
 
         if ($this->_mbox) {
