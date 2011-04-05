@@ -53,6 +53,11 @@ include_once('mapi/mapidefs.php');
 include_once('mapi/mapitags.php');
 include_once('mapi/mapicode.php');
 include_once('mapi/mapiguid.php');
+//task recurrence support in php-mapi is available since ZCP 6.40.4
+if (checkMapiExtVersion('6.40.4')) {
+    include_once('mapi/class.baserecurrence.php');
+    include_once('mapi/class.taskrecurrence.php');
+}
 include_once('mapi/class.recurrence.php');
 include_once('mapi/class.meetingrequest.php');
 include_once('mapi/class.freebusypublish.php');

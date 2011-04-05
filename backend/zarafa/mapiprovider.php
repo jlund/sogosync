@@ -106,6 +106,24 @@ class MAPIProvider extends MAPIMapping{
 
         $this->_getPropsFromMAPI($message, $mapimessage, $this->_taskmapping);
 
+        $isrecurringtag = $this->_getPropIDFromString("PT_BOOLEAN:{00062003-0000-0000-C000-000000000046}:0x8126");
+        $recurringstate = $this->_getPropIDFromString("PT_BINARY:{00062003-0000-0000-C000-000000000046}:0x8116");
+
+        $deadoccur = $this->_getPropIDFromString("PT_BOOLEAN:{00062003-0000-0000-C000-000000000046}:0x8109");
+
+
+        // Now, get and convert the recurrence and timezone information
+        $recurprops = mapi_getprops($mapimessage, array($isrecurringtag, $recurringstate, $deadoccur));
+
+        //task with deadoccur is an occurrence of a recurring task and does not need to be handled as recurring
+        if(isset($recurprops[$isrecurringtag]) && $recurprops[$isrecurringtag] && isset($recurprops[$deadoccur]) && !$recurprops[$deadoccur]) {
+            // Process recurrence
+            $message->recurrence = new SyncTaskRecurrence();
+            $this->_getRecurrence($mapimessage, $recurprops, $message, $message->recurrence, false, "task");
+        }
+
+
+
         // when set the task to complete using the WebAccess, the dateComplete property is not set correctly
         if ($message->complete == 1 && !isset($message->datecompleted))
             $message->datecompleted = time();
@@ -208,9 +226,17 @@ class MAPIProvider extends MAPIMapping{
         return $message;
     }
 
-    // Get an SyncXXXRecurrence
-    function _getRecurrence($mapimessage, $recurprops, &$syncMessage, &$syncRecurrence, $tz) {
-        $recurrence = new Recurrence($this->_store, $recurprops);
+    // Get an approprotate SyncRecurrence
+    function _getRecurrence($mapimessage, $recurprops, &$syncMessage, &$syncRecurrence, $tz, $type = "appoinment") {
+        switch ($type) {
+            case "task":
+                if (class_exists('TaskRecurrence')) {
+                    $recurrence = new TaskRecurrence($this->_store, $recurprops);
+                }
+                break;
+            default:
+                $recurrence = new Recurrence($this->_store, $recurprops);
+        }
 
         switch($recurrence->recur["type"]) {
             case 10: // daily
@@ -331,6 +357,10 @@ class MAPIProvider extends MAPIMapping{
                 $syncMessage->exceptions = array();
 
             array_push($syncMessage->exceptions, $exception);
+        }
+
+        if (isset($syncMessage->complete) && $syncMessage->complete) {
+            $syncRecurrence->complete = $syncMessage->complete;
         }
     }
 
@@ -608,10 +638,6 @@ class MAPIProvider extends MAPIMapping{
     }
 
     function _setAppointment($mapimessage, $appointment) {
-        // MAPI stores months as the amount of minutes until the beginning of the month in a
-        // non-leapyear. Why this is, is totally unclear.
-        $monthminutes = array(0,44640,84960,129600,172800,217440,260640,305280,348480,393120,437760,480960);
-
         // Get timezone info
         if(isset($appointment->timezone))
             $tz = $this->_getTZFromSyncBlob(base64_decode($appointment->timezone));
@@ -678,80 +704,20 @@ class MAPIProvider extends MAPIMapping{
             mapi_setprops($mapimessage, array(PR_ICON_INDEX => 1025));
 
             $recurrence = new Recurrence($this->_store, $mapimessage);
-
-            if(!isset($appointment->recurrence->interval))
-                $appointment->recurrence->interval = 1;
-
-            switch($appointment->recurrence->type) {
-                case 0:
-                    $recur["type"] = 10;
-                    if(isset($appointment->recurrence->dayofweek))
-                        $recur["subtype"] = 1;
-                    else
-                        $recur["subtype"] = 0;
-
-                    $recur["everyn"] = $appointment->recurrence->interval * (60 * 24);
-                    break;
-                case 1:
-                    $recur["type"] = 11;
-                    $recur["subtype"] = 1;
-                    $recur["everyn"] = $appointment->recurrence->interval;
-                    break;
-                case 2:
-                    $recur["type"] = 12;
-                    $recur["subtype"] = 2;
-                    $recur["everyn"] = $appointment->recurrence->interval;
-                    break;
-                case 3:
-                    $recur["type"] = 12;
-                    $recur["subtype"] = 3;
-                    $recur["everyn"] = $appointment->recurrence->interval;
-                    break;
-                case 4:
-                    $recur["type"] = 13;
-                    $recur["subtype"] = 1;
-                    $recur["everyn"] = $appointment->recurrence->interval * 12;
-                    break;
-                case 5:
-                    $recur["type"] = 13;
-                    $recur["subtype"] = 2;
-                    $recur["everyn"] = $appointment->recurrence->interval * 12;
-                    break;
-                case 6:
-                    $recur["type"] = 13;
-                    $recur["subtype"] = 3;
-                    $recur["everyn"] = $appointment->recurrence->interval * 12;
-                    break;
-            }
+            $recur = array();
+            $this->_set_Recurrence($appointment, $recur);
 
             $starttime = $this->gmtime($localstart);
             $endtime = $this->gmtime($localend);
 
+            //set recurrence start here because it's calculated differently for tasks and appointments
+            $recur["start"] = $this->_getDayStartOfTimestamp($this->_getGMTTimeByTz($localstart, $tz));
+
             $recur["startocc"] = $starttime["tm_hour"] * 60 + $starttime["tm_min"];
             $recur["endocc"] = $recur["startocc"] + $duration; // Note that this may be > 24*60 if multi-day
 
-            // "start" and "end" are in GMT when passing to class.recurrence
-            $recur["start"] = $this->_getDayStartOfTimestamp($this->_getGMTTimeByTz($localstart, $tz));
-            $recur["end"] = $this->_getDayStartOfTimestamp(0x7fffffff); // Maximum GMT value for end by default
-
-            if(isset($appointment->recurrence->until)) {
-                $recur["term"] = 0x21;
-                $recur["end"] = $appointment->recurrence->until;
-            } else if(isset($appointment->recurrence->occurrences)) {
-                $recur["term"] = 0x22;
-                $recur["numoccur"] = $appointment->recurrence->occurrences;
-            } else {
-                $recur["term"] = 0x23;
-            }
-
-            if(isset($appointment->recurrence->dayofweek))
-                $recur["weekdays"] = $appointment->recurrence->dayofweek;
-            if(isset($appointment->recurrence->weekofmonth))
-                $recur["nday"] = $appointment->recurrence->weekofmonth;
-            if(isset($appointment->recurrence->monthofyear))
-                $recur["month"] = $monthminutes[$appointment->recurrence->monthofyear-1];
-            if(isset($appointment->recurrence->dayofmonth))
-                $recur["monthday"] = $appointment->recurrence->dayofmonth;
+            //only tasks can regenerate
+            $recur["regen"] = false;
 
             // Process exceptions. The PDA will send all exceptions for this recurring item.
             if(isset($appointment->exceptions)) {
@@ -1021,6 +987,34 @@ class MAPIProvider extends MAPIMapping{
                 );
             }
         }
+        if (isset($task->recurrence) && class_exists('TaskRecurrence')) {
+            $deadoccur = false;
+            if (isset($task->recurrence->occurrences) && $task->recurrence->occurrences == 1) $deadoccur = true;
+
+            // Set PR_ICON_INDEX to 1281 to show correct icon in category view
+            mapi_setprops($mapimessage, array(
+            PR_ICON_INDEX => 1281,
+            //dead occur - false if new occurrences should be generated from the task
+            //true - if it is the last ocurrence of the task
+            $this->_getPropIDFromString("PT_BOOLEAN:{00062003-0000-0000-C000-000000000046}:0x8109") => $deadoccur,
+            //isRecurring
+            $this->_getPropIDFromString("PT_BOOLEAN:{00062003-0000-0000-C000-000000000046}:0x8126") => true,
+            ));
+
+            $recurrence = new TaskRecurrence($this->_store, $mapimessage);
+            $recur = array();
+            $this->_set_Recurrence($task, $recur);
+
+            //task specific recurrence properties which we need to set here
+            // "start" and "end" are in GMT when passing to class.recurrence
+            //set recurrence start here because it's calculated differently for tasks and appointments
+            $recur["start"] = $task->recurrence->start;
+            $recur["regen"] = $task->regenerate;
+            //Also add dates to $recur
+            $recur["duedate"] = $task->duedate;
+            $recurrence->setRecurrence($recur);
+        }
+
     }
 
     function _setMailingAdress($street, $zip, $city, $state, $country, $address, &$props) {
@@ -1032,6 +1026,83 @@ class MAPIProvider extends MAPIMapping{
         $props[PR_POSTAL_ADDRESS] = $address;
     }
 
+
+    function _set_Recurrence($message, &$recur) {
+        if (isset($message->complete)) {
+            $recur["complete"] = $message->complete;
+        }
+
+        if(!isset($message->recurrence->interval))
+            $message->recurrence->interval = 1;
+
+        switch($message->recurrence->type) {
+            case 0:
+                $recur["type"] = 10;
+                if(isset($message->recurrence->dayofweek))
+                    $recur["subtype"] = 1;
+                else
+                    $recur["subtype"] = 0;
+
+                $recur["everyn"] = $message->recurrence->interval * (60 * 24);
+                break;
+            case 1:
+                $recur["type"] = 11;
+                $recur["subtype"] = 1;
+                $recur["everyn"] = $message->recurrence->interval;
+                break;
+            case 2:
+                $recur["type"] = 12;
+                $recur["subtype"] = 2;
+                $recur["everyn"] = $message->recurrence->interval;
+                break;
+            case 3:
+                $recur["type"] = 12;
+                $recur["subtype"] = 3;
+                $recur["everyn"] = $message->recurrence->interval;
+                break;
+            case 4:
+                $recur["type"] = 13;
+                $recur["subtype"] = 1;
+                $recur["everyn"] = $message->recurrence->interval * 12;
+                break;
+            case 5:
+                $recur["type"] = 13;
+                $recur["subtype"] = 2;
+                $recur["everyn"] = $message->recurrence->interval * 12;
+                break;
+            case 6:
+                $recur["type"] = 13;
+                $recur["subtype"] = 3;
+                $recur["everyn"] = $message->recurrence->interval * 12;
+                break;
+        }
+
+        // "start" and "end" are in GMT when passing to class.recurrence
+        $recur["end"] = $this->_getDayStartOfTimestamp(0x7fffffff); // Maximum GMT value for end by default
+
+        if(isset($message->recurrence->until)) {
+            $recur["term"] = 0x21;
+            $recur["end"] = $message->recurrence->until;
+        } else if(isset($message->recurrence->occurrences)) {
+            $recur["term"] = 0x22;
+            $recur["numoccur"] = $message->recurrence->occurrences;
+        } else {
+            $recur["term"] = 0x23;
+        }
+
+        if(isset($message->recurrence->dayofweek))
+            $recur["weekdays"] = $message->recurrence->dayofweek;
+        if(isset($message->recurrence->weekofmonth))
+            $recur["nday"] = $message->recurrence->weekofmonth;
+        if(isset($message->recurrence->monthofyear)) {
+            // MAPI stores months as the amount of minutes until the beginning of the month in a
+            // non-leapyear. Why this is, is totally unclear.
+            $monthminutes = array(0,44640,84960,129600,172800,217440,260640,305280,348480,393120,437760,480960);
+            $recur["month"] = $monthminutes[$message->recurrence->monthofyear-1];
+        }
+        if(isset($message->recurrence->dayofmonth))
+            $recur["monthday"] = $message->recurrence->dayofmonth;
+    }
 }
 
 ?>

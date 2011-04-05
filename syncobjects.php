@@ -400,6 +400,7 @@ class SyncMeetingRequestRecurrence extends Streamer {
 class SyncTaskRecurrence extends Streamer {
     function SyncTaskRecurrence() {
         $mapping = array (
+                      SYNC_POOMTASKS_START => array (STREAMER_VAR => "start", STREAMER_TYPE => STREAMER_TYPE_DATE),
                       SYNC_POOMTASKS_TYPE => array (STREAMER_VAR => "type"),
                       SYNC_POOMTASKS_UNTIL => array (STREAMER_VAR => "until", STREAMER_TYPE => STREAMER_TYPE_DATE),
                       SYNC_POOMTASKS_OCCURRENCES => array (STREAMER_VAR => "occurrences"),
