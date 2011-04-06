@@ -544,7 +544,6 @@ function HandleSync($backend, $protocolversion, $devid) {
                 } else {
                     $clientid = false;
                 }
-
                 // Get application data if available
                 if($decoder->getElementStartTag(SYNC_DATA)) {
                     switch($collection["class"]) {
@@ -569,7 +568,6 @@ function HandleSync($backend, $protocolversion, $devid) {
                         return false;
 
                 }
-
                 switch($element[EN_TAG]) {
                     case SYNC_MODIFY:
                         if(isset($appdata)) {
@@ -868,9 +866,7 @@ function HandleGetItemEstimate($backend, $protocolversion, $devid) {
                     $encoder->endTag();
 
                     $encoder->startTag(SYNC_GETITEMESTIMATE_ESTIMATE);
-
-                    $importer = new ImportContentsChangesMem();
-
+                    $importer = new ImportChangesMem();
                     $statemachine = new StateMachine();
                     $syncstate = $statemachine->getSyncState($collection["synckey"]);
 
