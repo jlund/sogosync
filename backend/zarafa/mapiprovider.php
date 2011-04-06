@@ -116,13 +116,12 @@ class MAPIProvider extends MAPIMapping{
         $recurprops = mapi_getprops($mapimessage, array($isrecurringtag, $recurringstate, $deadoccur));
 
         //task with deadoccur is an occurrence of a recurring task and does not need to be handled as recurring
-        if(isset($recurprops[$isrecurringtag]) && $recurprops[$isrecurringtag] && isset($recurprops[$deadoccur]) && !$recurprops[$deadoccur]) {
+        //webaccess does not set deadoccur for the initial recurring task
+        if(isset($recurprops[$isrecurringtag]) && $recurprops[$isrecurringtag] && (!isset($recurprops[$deadoccur]) || (isset($recurprops[$deadoccur]) && !$recurprops[$deadoccur]))) {
             // Process recurrence
             $message->recurrence = new SyncTaskRecurrence();
-            $this->_getRecurrence($mapimessage, $recurprops, $message, $message->recurrence, false, "task");
+            $this->_getRecurrence($mapimessage, $recurprops, $message, $message->recurrence, false);
         }
-
-
 
         // when set the task to complete using the WebAccess, the dateComplete property is not set correctly
         if ($message->complete == 1 && !isset($message->datecompleted))
@@ -227,16 +226,12 @@ class MAPIProvider extends MAPIMapping{
     }
 
     // Get an approprotate SyncRecurrence
-    function _getRecurrence($mapimessage, $recurprops, &$syncMessage, &$syncRecurrence, $tz, $type = "appoinment") {
-        switch ($type) {
-            case "task":
-                if (class_exists('TaskRecurrence')) {
-                    $recurrence = new TaskRecurrence($this->_store, $recurprops);
-                }
-                break;
-            default:
-                $recurrence = new Recurrence($this->_store, $recurprops);
-        }
+    function _getRecurrence($mapimessage, $recurprops, &$syncMessage, &$syncRecurrence, $tz) {
+        if (class_exists('TaskRecurrence') && $syncRecurrence instanceof SyncTaskRecurrence)
+            $recurrence = new TaskRecurrence($this->_store, $recurprops);
+        else
+            $recurrence = new Recurrence($this->_store, $recurprops);
+
 
         switch($recurrence->recur["type"]) {
             case 10: // daily
