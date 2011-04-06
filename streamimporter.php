@@ -124,7 +124,7 @@ class ImportContentsChangesStream implements IImportChanges {
     public function ImportFolderChange($folder) {
         return true;
     }
-    public function ImportFolderDeletion($id, $parent) {
+    public function ImportFolderDeletion($id, $parent = false) {
         return true;
     }
 

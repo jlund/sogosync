@@ -333,7 +333,7 @@ interface IImportChanges {
      * @access public
      * @return int          SYNC_FOLDERHIERARCHY_STATUS
      */
-    public function ImportFolderDeletion($id, $parent);
+    public function ImportFolderDeletion($id, $parent = false);
 
 }
 

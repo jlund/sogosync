@@ -423,7 +423,7 @@ class ImportChangesICS implements IImportChanges {
      * @access public
      * @return int          SYNC_FOLDERHIERARCHY_STATUS
      */
-    public function ImportFolderDeletion($id, $parent) {
+    public function ImportFolderDeletion($id, $parent = false) {
         writeLog(LOGLEVEL_DEBUG, "Imported folder deletetion: $id");
         return mapi_importhierarchychanges_importfolderdeletion ($this->importer, 0, array(PR_SOURCE_KEY => hex2bin($id)) );
     }

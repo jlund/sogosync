@@ -440,7 +440,7 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
      * @access public
      * @return int          SYNC_FOLDERHIERARCHY_STATUS
      */
-    public function ImportFolderDeletion($id, $parent) {
+    public function ImportFolderDeletion($id, $parent = false) {
         //do nothing if it is a dummy folder
         if ($parent == SYNC_FOLDER_TYPE_DUMMY)
             return false;
