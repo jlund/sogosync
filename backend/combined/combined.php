@@ -282,6 +282,7 @@ class ImportContentsChangesCombinedWrap{
     function ImportMessageReadFlag($id, $flags){
         return $this->_icc->ImportMessageReadFlag($id, $flags);
     }
+
     function ImportMessageMove($id, $newfolder) {
         if($this->_backend->GetBackendId($this->_folderid) != $this->_backend->GetBackendId($newfolder)){
             //can not move messages between backends
@@ -289,6 +290,7 @@ class ImportContentsChangesCombinedWrap{
         }
         return $this->_icc->ImportMessageMove($id, $this->_backend->GetBackendFolder($newfolder));
     }
+
     function getState(){
         return $this->_icc->getState();
     }
@@ -301,8 +303,8 @@ class ImportContentsChangesCombinedWrap{
 
 
 class BackendCombined extends Backend{
-    private $_config;
-    private $_backends;
+    public $_config;
+    public $_backends;
 
     public function BackendCombined() {
         parent::Backend();
@@ -455,7 +457,7 @@ class BackendCombined extends Backend{
                 return false;
             $importer = $backend->GetContentsImporter($this->GetBackendFolder($folderid));
             if($importer){
-                return new ImportContentsChangesCombinedWrap($this->GetBackendFolder($folderid), &$this, &$importer);
+                return new ImportContentsChangesCombinedWrap($folderid, &$this, &$importer);
             }
             return false;
         }
@@ -589,19 +591,15 @@ class BackendCombined extends Backend{
     }
 
 
-    /**----------------------------------------------------------------------------------------------------------
-     * internal CombinedBackend methods
-     */
-
     /**
      * Finds the correct backend for a folder
      *
      * @param string        $folderid       combinedid of the folder
      *
-     * @access private
+     * @access public
      * @return object
      */
-    private function GetBackend($folderid){
+    public function GetBackend($folderid){
         $pos = strpos($folderid, $this->_config['delimiter']);
         if($pos === false)
             return false;
@@ -616,10 +614,10 @@ class BackendCombined extends Backend{
      *
      * @param string        $folderid       combinedid of the folder
      *
-     * @access private
+     * @access public
      * @return string
      */
-    private function GetBackendFolder($folderid){
+    public function GetBackendFolder($folderid){
         $pos = strpos($folderid, $this->_config['delimiter']);
         if($pos === false)
             return false;
@@ -631,10 +629,10 @@ class BackendCombined extends Backend{
      *
      * @param string        $folderid       combinedid of the folder
      *
-     * @access private
+     * @access public
      * @return object
      */
-    private function GetBackendId($folderid){
+    public function GetBackendId($folderid){
         $pos = strpos($folderid, $this->_config['delimiter']);
         if($pos === false)
             return false;
