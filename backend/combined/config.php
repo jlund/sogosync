@@ -142,5 +142,5 @@
         'rootcreatefolderbackend' => 'i',
     );
 
-    $BACKEND_CONFIG = $BACKEND_PROVIDER.'_config';
+    $BACKEND_CONFIG = @constant('BACKEND_PROVIDER') .'_config';
 ?>

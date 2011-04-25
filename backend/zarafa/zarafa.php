@@ -63,21 +63,20 @@ include_once('mapi/class.meetingrequest.php');
 include_once('mapi/class.freebusypublish.php');
 
 // processing of RFC822 messages
-include_once('mimeDecode.php');
-require_once('z_RFC822.php');
-include_once('z_tnef.php');
-include_once('z_ical.php');
+include_once('include/mimeDecode.php');
+require_once('include/z_RFC822.php');
+include_once('include/z_tnef.php');
+include_once('include/z_ical.php');
 
 // components of Zarafa backend
 include_once('mapiutils.php');
 include_once('mapiprovider.php');
 include_once('mapiphpwrapper.php');
-include_once('zprovisioning.php');
 include_once('importer.php');
 include_once('exporter.php');
 
 
-class BackendZarafa extends Backend {
+class BackendZarafa implements IBackend, ISearchProvider {
     protected $_session;
     protected $_user;
     protected $_devid;
@@ -93,7 +92,27 @@ class BackendZarafa extends Backend {
         $this->_user = false;
         $this->_devid = false;
         $this->_importedFolders = array();
-        $this->_provisioning = new ZProvisioning();
+    }
+
+    /**
+     * Indicates which StateMachine should be used
+     *
+     * @access public
+     * @return boolean      ZarafaBackend uses the default FileStateMachine
+     */
+    public function GetStateMachine() {
+        return false;
+    }
+
+    /**
+     * Returns the ZarafaBackend as it implements the ISearchProvider interface
+     * This could be overwritten by the global configuration
+     *
+     * @access public
+     * @return object       Implementation of ISearchProvider
+     */
+    public function GetSearchProvider() {
+        return $this;
     }
 
     /**
@@ -111,7 +130,12 @@ class BackendZarafa extends Backend {
         if($pos)
             $user = substr($user, $pos+1);
 
-        $this->_session = mapi_logon_zarafa($user, $pass, MAPI_SERVER);
+        try {
+            $this->_session = @mapi_logon_zarafa($user, $pass, MAPI_SERVER);
+        }
+        catch (Exception $ex) {
+            throw new AuthenticationRequiredException($ex->getMessage(), AUTHENTICATION_FAILED);
+        }
 
         if($this->_session === false) {
             writeLog(LOGLEVEL_WARN, "logon failed for user $user");
@@ -150,7 +174,6 @@ class BackendZarafa extends Backend {
         $this->_devid = $devid;
         $this->_protocolversion = $protocolversion;
 
-        $this->_provisioning->initialize($this, $devid);
         return true;
     }
 
@@ -162,14 +185,6 @@ class BackendZarafa extends Backend {
      * @return boolean
      */
     public function Logoff() {
-        global $cmd;
-
-        // TODO: remove setLastSyncTime --> statistic function?
-        // TODO: $cmd should not be global
-        //do not update last sync time on ping and provision
-        if (isset($cmd) && $cmd != '' && $cmd != 'Ping' && $cmd != 'Provision' )
-            $this->setLastSyncTime();
-
         // TODO: if a calendar of a public/shared folder was changed, F/B should be published as well!
         // publish free busy time after finishing the synchronization process
         // update if the calendar folder received incoming changes
@@ -190,85 +205,6 @@ class BackendZarafa extends Backend {
         }
 
         return true;
-    }
-
-    /**
-     * Searches the GAB of Zarafa
-     * Can be overwitten globally by configuring a SearchBackend
-     *
-     * @param string        $searchquery
-     * @param string        $searchrange
-     *
-     * @access public
-     * @return array
-     */
-    public function getSearchResults($searchquery, $searchrange){
-        // only return users from who the displayName or the username starts with $name
-        //TODO: use PR_ANR for this restriction instead of PR_DISPLAY_NAME and PR_ACCOUNT
-        $addrbook = mapi_openaddressbook($this->_session);
-        $ab_entryid = mapi_ab_getdefaultdir($addrbook);
-        $ab_dir = mapi_ab_openentry($addrbook, $ab_entryid);
-
-        $table = mapi_folder_getcontentstable($ab_dir);
-        $restriction = $this->_getSearchRestriction(u2w($searchquery));
-        mapi_table_restrict($table, $restriction);
-        mapi_table_sort($table, array(PR_DISPLAY_NAME => TABLE_SORT_ASCEND));
-
-        //range for the search results, default symbian range end is 50, wm 99,
-        //so we'll use that of nokia
-        $rangestart = 0;
-        $rangeend = 50;
-
-        if ($searchrange != '0') {
-            $pos = strpos($searchrange, '-');
-            $rangestart = substr($searchrange, 0, $pos);
-            $rangeend = substr($searchrange, ($pos + 1));
-        }
-        $items = array();
-
-        $querycnt = mapi_table_getrowcount($table);
-        //do not return more results as requested in range
-        $querylimit = (($rangeend + 1) < $querycnt) ? ($rangeend + 1) : $querycnt;
-        $items['range'] = $rangestart.'-'.($querylimit - 1);
-        $items['searchtotal'] = $querycnt;
-
-        if ($querycnt > 0)
-            $abentries = mapi_table_queryrows($table, array(PR_ACCOUNT, PR_DISPLAY_NAME, PR_SMTP_ADDRESS, PR_BUSINESS_TELEPHONE_NUMBER, PR_GIVEN_NAME, PR_SURNAME, PR_MOBILE_TELEPHONE_NUMBER, PR_HOME_TELEPHONE_NUMBER), $rangestart, $querylimit);
-
-        for ($i = 0; $i < $querylimit; $i++) {
-            $items[$i][SYNC_GAL_DISPLAYNAME] = w2u($abentries[$i][PR_DISPLAY_NAME]);
-
-            if (strlen(trim($items[$i][SYNC_GAL_DISPLAYNAME])) == 0)
-                $items[$i][SYNC_GAL_DISPLAYNAME] = w2u($abentries[$i][PR_ACCOUNT]);
-
-            $items[$i][SYNC_GAL_ALIAS] = $items[$i][SYNC_GAL_DISPLAYNAME];
-            //it's not possible not get first and last name of an user
-            //from the gab and user functions, so we just set lastname
-            //to displayname and leave firstname unset
-            //this was changed in Zarafa 6.40, so we try to get first and
-            //last name and fall back to the old behaviour if these values are not set
-            if (isset($abentries[$i][PR_GIVEN_NAME]))
-                $items[$i][SYNC_GAL_FIRSTNAME] = w2u($abentries[$i][PR_GIVEN_NAME]);
-            if (isset($abentries[$i][PR_SURNAME]))
-                $items[$i][SYNC_GAL_LASTNAME] = w2u($abentries[$i][PR_SURNAME]);
-
-            if (!isset($items[$i][SYNC_GAL_LASTNAME])) $items[$i][SYNC_GAL_LASTNAME] = $items[$i][SYNC_GAL_DISPLAYNAME];
-
-            $items[$i][SYNC_GAL_EMAILADDRESS] = w2u($abentries[$i][PR_SMTP_ADDRESS]);
-            //check if an user has an office number or it might produce warnings in the log
-            if (isset($abentries[$i][PR_BUSINESS_TELEPHONE_NUMBER]))
-                $items[$i][SYNC_GAL_OFFICE] = w2u($abentries[$i][PR_BUSINESS_TELEPHONE_NUMBER]);
-            //check if an user has a mobile number or it might produce warnings in the log
-            if (isset($abentries[$i][PR_MOBILE_TELEPHONE_NUMBER]))
-                $items[$i][SYNC_GAL_MOBILEPHONE] = w2u($abentries[$i][PR_MOBILE_TELEPHONE_NUMBER]);
-            //check if an user has a home number or it might produce warnings in the log
-            if (isset($abentries[$i][PR_HOME_TELEPHONE_NUMBER]))
-                $items[$i][SYNC_GAL_HOMEPHONE] = w2u($abentries[$i][PR_HOME_TELEPHONE_NUMBER]);
-
-            if (isset($abentries[$i][PR_ACCOUNT]))
-                $items[$i][SYNC_GAL_COMPANY] = w2u($abentries[$i][PR_ACCOUNT]);
-        }
-        return $items;
     }
 
     /**
@@ -313,6 +249,7 @@ class BackendZarafa extends Backend {
      * @return object(ImportChanges)
      */
     public function GetImporter($folderid = false) {
+        writeLog(LOGLEVEL_DEBUG, sprintf("BackendZarafa->GetImporter() folderid: '%s'", Utils::PrintAsString($folderid)));
         if($folderid !== false) {
             $this->_importedFolders[] = $folderid;
             return new ImportChangesICS($this->_session, $this->_defaultstore, hex2bin($folderid));
@@ -345,13 +282,18 @@ class BackendZarafa extends Backend {
      * @param string        $forward    id of the message to be attached below $rfc822
      * @param string        $reply      id of the message to be attached below $rfc822
      * @param string        $parent     id of the folder containing $forward or $reply
+     * @param boolean       $saveInSent indicates if the mail should be saved in the Sent folder
      *
      * @access public
      * @return boolean
      */
-    public function SendMail($rfc822, $forward = false, $reply = false, $parent = false) {
-        if (WBXML_DEBUG == true)
-            writeLog(LOGLEVEL_WBXML, "SendMail: forward: $forward   reply: $reply   parent: $parent\n" . $rfc822);
+     // TODO implement , $saveInSent = true
+    public function SendMail($rfc822, $forward = false, $reply = false, $parent = false, $saveInSent = true) {
+        if (WBXML_DEBUG == true) {
+            writeLog(LOGLEVEL_WBXML, "SendMail: forward: $forward   reply: $reply   parent: $parent");
+            foreach(preg_split("/(\r?\n)/", $rfc822) as $rfc822line)
+                writeLog(LOGLEVEL_WBXML, "SendMail RFC822:". $rfc822line);
+        }
 
         $mimeParams = array('decode_headers' => true,
                             'decode_bodies' => true,
@@ -495,8 +437,8 @@ class BackendZarafa extends Backend {
                     }
                     else {
                         // store ics as attachment
-                        //see icalTimezoneFix function in compat.php for more information
-                        $part->body = icalTimezoneFix($part->body);
+                        //see Utils::IcalTimezoneFix() in utils.php for more information
+                        $part->body = Utils::IcalTimezoneFix($part->body);
                         $this->_storeAttachment($mapimessage, $part);
                         writeLog(LOGLEVEL_INFO, "Sending ICS file as attachment");
                     }
@@ -834,6 +776,137 @@ class BackendZarafa extends Backend {
         $folder = mapi_msgstore_openentry($this->_defaultstore, $folderentryid);
         mapi_folder_deletemessages($folder, array($reqentryid), 0);
 
+        return true;
+    }
+
+    /**
+     * ZarafaBackend uses ICS to do change detection
+     *
+     * @access public
+     * @return boolean
+     */
+    public function AlterPing() {
+        return false;
+    }
+
+    /**
+     * ZarafaBackend has own machanism
+     *
+     * @param string        $folderid       id of the folder
+     * @param string        &$syncstate     reference of the syncstate
+     *
+     * @access public
+     * @return boolean
+     */
+    public function AlterPingChanges($folderid, &$syncstate) {
+        return array();
+    }
+
+
+    /**----------------------------------------------------------------------------------------------------------
+     * Implementation of the ISearchProvider interface
+     */
+
+    /**
+     * Indicates if a search type is supported by this SearchProvider
+     * Currently only the type "GAL" (Global Address List) is implemented
+     *
+     * @param string        $searchtype
+     *
+     * @access public
+     * @return boolean
+     */
+    public function SupportsType($searchtype) {
+        return ($searchtype == "GAL");
+    }
+
+    /**
+     * Searches the GAB of Zarafa
+     * Can be overwitten globally by configuring a SearchBackend
+     *
+     * @param string        $searchquery
+     * @param string        $searchrange
+     *
+     * @access public
+     * @return array
+     */
+    public function GetGALSearchResults($searchquery, $searchrange){
+        // only return users from who the displayName or the username starts with $name
+        //TODO: use PR_ANR for this restriction instead of PR_DISPLAY_NAME and PR_ACCOUNT
+        $addrbook = mapi_openaddressbook($this->_session);
+        $ab_entryid = mapi_ab_getdefaultdir($addrbook);
+        $ab_dir = mapi_ab_openentry($addrbook, $ab_entryid);
+
+        $table = mapi_folder_getcontentstable($ab_dir);
+        $restriction = $this->_getSearchRestriction(u2w($searchquery));
+        mapi_table_restrict($table, $restriction);
+        mapi_table_sort($table, array(PR_DISPLAY_NAME => TABLE_SORT_ASCEND));
+
+        //range for the search results, default symbian range end is 50, wm 99,
+        //so we'll use that of nokia
+        $rangestart = 0;
+        $rangeend = 50;
+
+        if ($searchrange != '0') {
+            $pos = strpos($searchrange, '-');
+            $rangestart = substr($searchrange, 0, $pos);
+            $rangeend = substr($searchrange, ($pos + 1));
+        }
+        $items = array();
+
+        $querycnt = mapi_table_getrowcount($table);
+        //do not return more results as requested in range
+        $querylimit = (($rangeend + 1) < $querycnt) ? ($rangeend + 1) : $querycnt;
+        $items['range'] = $rangestart.'-'.($querylimit - 1);
+        $items['searchtotal'] = $querycnt;
+
+        if ($querycnt > 0)
+            $abentries = mapi_table_queryrows($table, array(PR_ACCOUNT, PR_DISPLAY_NAME, PR_SMTP_ADDRESS, PR_BUSINESS_TELEPHONE_NUMBER, PR_GIVEN_NAME, PR_SURNAME, PR_MOBILE_TELEPHONE_NUMBER, PR_HOME_TELEPHONE_NUMBER), $rangestart, $querylimit);
+
+        for ($i = 0; $i < $querylimit; $i++) {
+            $items[$i][SYNC_GAL_DISPLAYNAME] = w2u($abentries[$i][PR_DISPLAY_NAME]);
+
+            if (strlen(trim($items[$i][SYNC_GAL_DISPLAYNAME])) == 0)
+                $items[$i][SYNC_GAL_DISPLAYNAME] = w2u($abentries[$i][PR_ACCOUNT]);
+
+            $items[$i][SYNC_GAL_ALIAS] = $items[$i][SYNC_GAL_DISPLAYNAME];
+            //it's not possible not get first and last name of an user
+            //from the gab and user functions, so we just set lastname
+            //to displayname and leave firstname unset
+            //this was changed in Zarafa 6.40, so we try to get first and
+            //last name and fall back to the old behaviour if these values are not set
+            if (isset($abentries[$i][PR_GIVEN_NAME]))
+                $items[$i][SYNC_GAL_FIRSTNAME] = w2u($abentries[$i][PR_GIVEN_NAME]);
+            if (isset($abentries[$i][PR_SURNAME]))
+                $items[$i][SYNC_GAL_LASTNAME] = w2u($abentries[$i][PR_SURNAME]);
+
+            if (!isset($items[$i][SYNC_GAL_LASTNAME])) $items[$i][SYNC_GAL_LASTNAME] = $items[$i][SYNC_GAL_DISPLAYNAME];
+
+            $items[$i][SYNC_GAL_EMAILADDRESS] = w2u($abentries[$i][PR_SMTP_ADDRESS]);
+            //check if an user has an office number or it might produce warnings in the log
+            if (isset($abentries[$i][PR_BUSINESS_TELEPHONE_NUMBER]))
+                $items[$i][SYNC_GAL_OFFICE] = w2u($abentries[$i][PR_BUSINESS_TELEPHONE_NUMBER]);
+            //check if an user has a mobile number or it might produce warnings in the log
+            if (isset($abentries[$i][PR_MOBILE_TELEPHONE_NUMBER]))
+                $items[$i][SYNC_GAL_MOBILEPHONE] = w2u($abentries[$i][PR_MOBILE_TELEPHONE_NUMBER]);
+            //check if an user has a home number or it might produce warnings in the log
+            if (isset($abentries[$i][PR_HOME_TELEPHONE_NUMBER]))
+                $items[$i][SYNC_GAL_HOMEPHONE] = w2u($abentries[$i][PR_HOME_TELEPHONE_NUMBER]);
+
+            if (isset($abentries[$i][PR_ACCOUNT]))
+                $items[$i][SYNC_GAL_COMPANY] = w2u($abentries[$i][PR_ACCOUNT]);
+        }
+        return $items;
+    }
+
+
+    /**
+     * Disconnects from the current search provider
+     *
+     * @access public
+     * @return boolean
+     */
+    public function Disconnect() {
         return true;
     }
 

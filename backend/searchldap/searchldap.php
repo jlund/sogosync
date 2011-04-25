@@ -2,8 +2,8 @@
 /***********************************************
 * File      :   searchLDAP.php
 * Project   :   Z-Push
-* Descr     :   A SearchBackend implementation to
-*               query an ldap server for user
+* Descr     :   A ISearchProvider implementation to
+*               query a ldap server for GAL
 *               information.
 *
 * Created   :   03.08.2010
@@ -45,28 +45,23 @@
 
 require_once("backend/searchldap/config.php");
 
-class SearchLDAP extends SearchBackend {
+class SearchLDAP implements ISearchProvider {
     private $_connection;
-
-    //
 
     /**
      * Initializes the backend to perform the search
      * Connects to the LDAP server using the values from the configuration
      *
-     * @param object        $backend
      *
      * @access public
      * @return
      */
-    public function initialize($backend) {
+    public function SearchLDAP() {
         if (!function_exists("ldap_connect")) {
             // TODO throw status exception
             writeLog(LOGLEVEL_FATAL, "SearchLDAP: php-ldap is not installed. Search aborted.");
             return false;
         }
-
-        $this->backend = $backend;
 
         // connect to LDAP
         $this->_connection = @ldap_connect(LDAP_HOST, LDAP_PORT);
@@ -100,6 +95,20 @@ class SearchLDAP extends SearchBackend {
     }
 
     /**
+     * Indicates if a search type is supported by this SearchProvider
+     * Currently only the type "GAL" (Global Address List) is implemented
+     *
+     * @param string        $searchtype
+     *
+     * @access public
+     * @return boolean
+     */
+    public function SupportsType($searchtype) {
+        return ($searchtype == "GAL");
+    }
+
+
+    /**
      * Queries the LDAP backend
      *
      * @param string        $searchquery        string to be searched for
@@ -108,7 +117,7 @@ class SearchLDAP extends SearchBackend {
      * @access public
      * @return array        search results
      */
-    public function getSearchResults($searchquery, $searchrange) {
+    public function GetGALSearchResults($searchquery, $searchrange) {
         global $ldap_field_map;
         if (isset($this->_connection) && $this->_connection !== false) {
             $searchfilter = str_replace("SEARCHVALUE", $searchquery, LDAP_SEARCH_FILTER);
@@ -133,6 +142,7 @@ class SearchLDAP extends SearchBackend {
             }
             $items = array();
 
+            // TODO the limiting of the searchresults could be refactored into Utils as it's probably used more than once
             $querycnt = $searchresult['count'];
             //do not return more results as requested in range
             $querylimit = (($rangeend + 1) < $querycnt) ? ($rangeend + 1) : $querycnt;
@@ -164,7 +174,7 @@ class SearchLDAP extends SearchBackend {
      * @access public
      * @return boolean
      */
-    public function disconnect() {
+    public function Disconnect() {
         if ($this->_connection)
             @ldap_close($this->_connection);
 

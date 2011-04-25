@@ -41,27 +41,24 @@
 * Consult LICENSE file for details
 ************************************************/
 
-// **********************
-//  Default settings
-// **********************
+/*********************************************************************
+ *  Default settings
+ */
     // Defines the default time zone
-    if (function_exists("date_default_timezone_set")){
-        date_default_timezone_set("Europe/Amsterdam");
-    }
+    date_default_timezone_set("Europe/Amsterdam");
 
-    // Defines the base path on the server, terminated by a slash
-    define('BASE_PATH', dirname($_SERVER['SCRIPT_FILENAME']) . "/");
+    // Defines the base path on the server
+    define('BASE_PATH', dirname($_SERVER['SCRIPT_FILENAME']). '/');
 
     // Define the include paths
     ini_set('include_path',
-                        BASE_PATH. "include/" . PATH_SEPARATOR .
                         BASE_PATH. PATH_SEPARATOR .
-                        ini_get('include_path') . PATH_SEPARATOR .
-                        "/usr/share/php/" . PATH_SEPARATOR .
-                        "/usr/share/php5/" . PATH_SEPARATOR .
-                        "/usr/share/pear/");
-
-    define('STATE_DIR', BASE_PATH.'/state');
+                        BASE_PATH. 'include/'. PATH_SEPARATOR .
+                        BASE_PATH. 'libs/'. PATH_SEPARATOR .
+                        BASE_PATH. 'backends/'. PATH_SEPARATOR .
+                        ini_get('include_path'). PATH_SEPARATOR .
+                        '/usr/share/php/'. PATH_SEPARATOR .
+                        '/usr/share/php5/');
 
     // Try to set unlimited timeout
     define('SCRIPT_TIMEOUT', 0);
@@ -70,16 +67,22 @@
     define('MAX_EMBEDDED_SIZE', 1048576);
 
 
-// **********************
-//  Logging settings
-// **********************
-    define('LOGFILEDIR', '/var/log/z-push/');
-    define('LOGFILE', LOGFILEDIR . "z-push.log");
-    define('LOGERRORFILE', LOGFILEDIR . "z-push-error.log");
-    define('LOGLEVEL', LOGLEVEL_INFO);
+/*********************************************************************
+ *  Default FileStateMachine settings
+ */
+    define('STATE_DIR', '/var/lib/z-push/');
 
-    // to save WBXML data for special users, add the usernames to the array.
-    // The wbxml data will be saved into a dedicated file per user.
+
+/*********************************************************************
+ *  Logging settings
+ */
+    define('LOGFILEDIR', '/var/log/z-push/');
+    define('LOGFILE', LOGFILEDIR . 'z-push.log');
+    define('LOGERRORFILE', LOGFILEDIR . 'z-push-error.log');
+    define('LOGLEVEL', LOGLEVEL_WBXML);
+
+    // To save WBXML data for selected users, add the usernames to the array
+    // The data will be saved into a dedicated file per user
     define('LOGUSERLEVEL', LOGLEVEL_WBXML);
     $wbxmlLogUsers = array();
 
@@ -107,7 +110,8 @@
 //  Backend settings
 // ************************
     // The data providers that we are using (see configuration below)
-    $BACKEND_PROVIDER = "BackendZarafa";
+    define('BACKEND_PROVIDER', "BackendZarafa");
+
 
     // ************************
     //  BackendZarafa settings

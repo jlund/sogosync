@@ -6,7 +6,7 @@
 *
 * Created   :   01.10.2007
 *
-* Copyright 2007 - 2010 Zarafa Deutschland GmbH
+* Copyright 2007 - 2011 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -449,7 +449,7 @@ define("SYNC_FOLDER_TYPE_USER_JOURNAL", 16);
 define("SYNC_FOLDER_TYPE_USER_NOTE", 17);
 define("SYNC_FOLDER_TYPE_UNKNOWN", 18);
 define("SYNC_FOLDER_TYPE_RECIPIENT_CACHE", 19);
-define("SYNC_FOLDER_TYPE_DUMMY", "__dummy.Folder.Id__");
+define("SYNC_FOLDER_TYPE_DUMMY", 999999);
 
 define("SYNC_CONFLICT_OVERWRITE_SERVER", 0);
 define("SYNC_CONFLICT_OVERWRITE_PIM", 1);
@@ -480,6 +480,11 @@ define("SYNC_PROVISION_RWSTATUS_NA", 0);
 define("SYNC_PROVISION_RWSTATUS_OK", 1);
 define("SYNC_PROVISION_RWSTATUS_PENDING", 2);
 define("SYNC_PROVISION_RWSTATUS_WIPED", 3);
+
+define("SYNC_STATE_CONTENT", 0);
+define("SYNC_STATE_FOLDERCACHE", 1);
+define("SYNC_STATE_PING", 2);
+
 
 //logging defs
 define("LOGLEVEL_OFF", 0);

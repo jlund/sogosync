@@ -3,17 +3,16 @@
 * File      :   streamer.php
 * Project   :   Z-Push
 * Descr     :   This file handles streaming of
-*                WBXML objects. It must be
-*                subclassed so the internals of
-*                the object can be specified via
-*                $mapping. Basically we set/read
-*                the object variables of the
-*                subclass according to the mappings
-*
+*               WBXML SyncObjects. It must be
+*               subclassed so the internals of
+*               the object can be specified via
+*               $mapping. Basically we set/read
+*               the object variables of the
+*               subclass according to the mappings
 *
 * Created   :   01.10.2007
 *
-* Copyright 2007 - 2010 Zarafa Deutschland GmbH
+* Copyright 2007 - 2011 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -48,41 +47,51 @@
 * Consult LICENSE file for details
 ************************************************/
 
-define('STREAMER_VAR', 1);
-define('STREAMER_ARRAY', 2);
-define('STREAMER_TYPE', 3);
-
-define('STREAMER_TYPE_DATE', 1);
-define('STREAMER_TYPE_HEX', 2);
-define('STREAMER_TYPE_DATE_DASHES', 3);
-define('STREAMER_TYPE_MAPI_STREAM', 4);
-
 class Streamer {
-    var $_mapping;
+    const STREAMER_VAR = 1;
+    const STREAMER_ARRAY = 2;
+    const STREAMER_TYPE = 3;
+    const STREAMER_TYPE_DATE = 1;
+    const STREAMER_TYPE_HEX = 2;
+    const STREAMER_TYPE_DATE_DASHES = 3;
+    const STREAMER_TYPE_MAPI_STREAM = 4;
 
-    var $content;
-    var $attributes;
-    var $flags;
+    protected $_mapping;
+    public $flags;
+    public $content;
 
+    /**
+     * Constructor
+     *
+     * @param array     $mapping            internal mapping of variables
+     * @access public
+     */
     function Streamer($mapping) {
         $this->_mapping = $mapping;
         $this->flags = false;
     }
 
-    // Decodes the WBXML from $input until we reach the same depth level of WBXML. This
-    // means that if there are multiple objects at this level, then only the first is decoded
-    // SubOjects are auto-instantiated and decoded using the same functionality
-    function decode(&$decoder) {
+    /**
+     * Decodes the WBXML from a WBXMLdecoder until we reach the same depth level of WBXML.
+     * This means that if there are multiple objects at this level, then only the first is
+     * decoded SubOjects are auto-instantiated and decoded using the same functionality
+     *
+     * @param WBXMLDecoder  $decoder
+     *
+     * @access public
+     */
+    public function decode(&$decoder) {
         while(1) {
             $entity = $decoder->getElement();
 
             if($entity[EN_TYPE] == EN_TYPE_STARTTAG) {
                 if(! ($entity[EN_FLAGS] & EN_FLAGS_CONTENT)) {
                     $map = $this->_mapping[$entity[EN_TAG]];
-                    if(!isset($map[STREAMER_TYPE])) {
-                        $this->$map[STREAMER_VAR] = "";
-                    } else if ($map[STREAMER_TYPE] == STREAMER_TYPE_DATE || $map[STREAMER_TYPE] == STREAMER_TYPE_DATE_DASHES ) {
-                        $this->$map[STREAMER_VAR] = "";
+                    if(!isset($map[self::STREAMER_TYPE])) {
+                        $this->$map[self::STREAMER_VAR] = "";
+                    }
+                    else if ($map[self::STREAMER_TYPE] == self::STREAMER_TYPE_DATE || $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_DATE_DASHES ) {
+                        $this->$map[self::STREAMER_VAR] = "";
                     }
                     continue;
                 }
@@ -91,44 +100,49 @@ class Streamer {
                     // This tag shouldn't be here, abort
                     debug("Tag " . $entity[EN_TAG] . " unexpected in type XML type " . get_class($this));
                     return false;
-                } else {
+                }
+                else {
                     $map = $this->_mapping[$entity[EN_TAG]];
 
                     // Handle an array
-                    if(isset($map[STREAMER_ARRAY])) {
+                    if(isset($map[self::STREAMER_ARRAY])) {
                         while(1) {
-                            if(!$decoder->getElementStartTag($map[STREAMER_ARRAY]))
+                            if(!$decoder->getElementStartTag($map[self::STREAMER_ARRAY]))
                                 break;
-                            if(isset($map[STREAMER_TYPE])) {
-                                $decoded = new $map[STREAMER_TYPE];
+                            if(isset($map[self::STREAMER_TYPE])) {
+                                $decoded = new $map[self::STREAMER_TYPE];
                                 $decoded->decode($decoder);
-                            } else {
+                            }
+                            else {
                                 $decoded = $decoder->getElementContent();
                             }
 
-                            if(!isset($this->$map[STREAMER_VAR]))
-                                $this->$map[STREAMER_VAR] = array($decoded);
+                            if(!isset($this->$map[self::STREAMER_VAR]))
+                                $this->$map[self::STREAMER_VAR] = array($decoded);
                             else
-                                array_push($this->$map[STREAMER_VAR], $decoded);
+                                array_push($this->$map[self::STREAMER_VAR], $decoded);
 
                             if(!$decoder->getElementEndTag())
                                 return false;
                         }
                         if(!$decoder->getElementEndTag())
                             return false;
-                    } else { // Handle single value
-                        if(isset($map[STREAMER_TYPE])) {
+                    }
+                    else { // Handle single value
+                        if(isset($map[self::STREAMER_TYPE])) {
                             // Complex type, decode recursively
-                            if($map[STREAMER_TYPE] == STREAMER_TYPE_DATE || $map[STREAMER_TYPE] == STREAMER_TYPE_DATE_DASHES) {
+                            if($map[self::STREAMER_TYPE] == self::STREAMER_TYPE_DATE || $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_DATE_DASHES) {
                                 $decoded = $this->parseDate($decoder->getElementContent());
                                 if(!$decoder->getElementEndTag())
                                     return false;
-                            } else if($map[STREAMER_TYPE] == STREAMER_TYPE_HEX) {
+                            }
+                            else if($map[self::STREAMER_TYPE] == self::STREAMER_TYPE_HEX) {
                                 $decoded = hex2bin($decoder->getElementContent());
                                 if(!$decoder->getElementEndTag())
                                     return false;
-                            } else {
-                                $subdecoder = new $map[STREAMER_TYPE]();
+                            }
+                            else {
+                                $subdecoder = new $map[self::STREAMER_TYPE]();
                                 if($subdecoder->decode($decoder) === false)
                                     return false;
 
@@ -139,7 +153,8 @@ class Streamer {
                                     return false;
                                 }
                             }
-                        } else {
+                        }
+                        else {
                             // Simple type, just get content
                             $decoded = $decoder->getElementContent();
 
@@ -155,7 +170,7 @@ class Streamer {
                             }
                         }
                         // $decoded now contains data object (or string)
-                        $this->$map[STREAMER_VAR] = $decoded;
+                        $this->$map[self::STREAMER_VAR] = $decoded;
                     }
                 }
             }
@@ -170,55 +185,65 @@ class Streamer {
         }
     }
 
-    // Encodes this object and any subobjects - output is ordered according to mapping
-    function encode(&$encoder) {
-        $attributes = isset($this->attributes) ? $this->attributes : array();
-
+    /**
+     * Encodes this object and any subobjects - output is ordered according to mapping
+     *
+     * @param WBXMLEncoder  $encoder
+     *
+     * @access public
+     */
+    public function encode(&$encoder) {
         foreach($this->_mapping as $tag => $map) {
-            if(isset($this->$map[STREAMER_VAR])) {
+            if(isset($this->$map[self::STREAMER_VAR])) {
                 // Variable is available
-                if(is_object($this->$map[STREAMER_VAR])) {
+                if(is_object($this->$map[self::STREAMER_VAR])) {
                     // Subobjects can do their own encoding
                     $encoder->startTag($tag);
-                    $this->$map[STREAMER_VAR]->encode($encoder);
+                    $this->$map[self::STREAMER_VAR]->encode($encoder);
                     $encoder->endTag();
-                } else if(isset($map[STREAMER_ARRAY])) {
+                }
+                else if(isset($map[self::STREAMER_ARRAY])) {
                     // Array of objects
                     $encoder->startTag($tag); // Outputs array container (eg Attachments)
-                    foreach ($this->$map[STREAMER_VAR] as $element) {
+                    foreach ($this->$map[self::STREAMER_VAR] as $element) {
                         if(is_object($element)) {
-                            $encoder->startTag($map[STREAMER_ARRAY]); // Outputs object container (eg Attachment)
+                            $encoder->startTag($map[self::STREAMER_ARRAY]); // Outputs object container (eg Attachment)
                             $element->encode($encoder);
                             $encoder->endTag();
-                        } else {
+                        }
+                        else {
                             if(strlen($element) == 0)
-                                  // Do not output empty items. Not sure if we should output an empty tag with $encoder->startTag($map[STREAMER_ARRAY], false, true);
+                                  // Do not output empty items. Not sure if we should output an empty tag with $encoder->startTag($map[self::STREAMER_ARRAY], false, true);
                                   ;
                             else {
-                                $encoder->startTag($map[STREAMER_ARRAY]);
+                                $encoder->startTag($map[self::STREAMER_ARRAY]);
                                 $encoder->content($element);
                                 $encoder->endTag();
                             }
                         }
                     }
                     $encoder->endTag();
-                } else {
+                }
+                else {
                     // Simple type
-                    if(strlen($this->$map[STREAMER_VAR]) == 0) {
+                    if(strlen($this->$map[self::STREAMER_VAR]) == 0) {
                           // Do not output empty items. See above: $encoder->startTag($tag, false, true);
                         continue;
                     } else
                         $encoder->startTag($tag);
 
-                    if(isset($map[STREAMER_TYPE]) && ($map[STREAMER_TYPE] == STREAMER_TYPE_DATE || $map[STREAMER_TYPE] == STREAMER_TYPE_DATE_DASHES)) {
-                        if($this->$map[STREAMER_VAR] != 0) // don't output 1-1-1970
-                            $encoder->content($this->formatDate($this->$map[STREAMER_VAR], $map[STREAMER_TYPE]));
-                    } else if(isset($map[STREAMER_TYPE]) && $map[STREAMER_TYPE] == STREAMER_TYPE_HEX) {
-                        $encoder->content(strtoupper(bin2hex($this->$map[STREAMER_VAR])));
-                    } else if(isset($map[STREAMER_TYPE]) && $map[STREAMER_TYPE] == STREAMER_TYPE_MAPI_STREAM) {
-                        $encoder->content($this->$map[STREAMER_VAR]);
-                    } else {
-                        $encoder->content($this->$map[STREAMER_VAR]);
+                    if(isset($map[self::STREAMER_TYPE]) && ($map[self::STREAMER_TYPE] == self::STREAMER_TYPE_DATE || $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_DATE_DASHES)) {
+                        if($this->$map[self::STREAMER_VAR] != 0) // don't output 1-1-1970
+                            $encoder->content($this->formatDate($this->$map[self::STREAMER_VAR], $map[self::STREAMER_TYPE]));
+                    }
+                    else if(isset($map[self::STREAMER_TYPE]) && $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_HEX) {
+                        $encoder->content(strtoupper(bin2hex($this->$map[self::STREAMER_VAR])));
+                    }
+                    else if(isset($map[self::STREAMER_TYPE]) && $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_MAPI_STREAM) {
+                        $encoder->content($this->$map[self::STREAMER_VAR]);
+                    }
+                    else {
+                        $encoder->content($this->$map[self::STREAMER_VAR]);
                     }
                     $encoder->endTag();
                 }
@@ -227,23 +252,41 @@ class Streamer {
         // Output our own content
         if(isset($this->content))
             $encoder->content($this->content);
-
     }
 
+    /**----------------------------------------------------------------------------------------------------------
+     * Private methods for conversion
+     */
 
-
-    // Oh yeah. This is beautiful. Exchange outputs date fields differently in calendar items
-    // and emails. We could just always send one or the other, but unfortunately nokia's 'Mail for
-    // exchange' depends on this quirk. So we have to send a different date type depending on where
-    // it's used. Sigh.
-    function formatDate($ts, $type) {
-        if($type == STREAMER_TYPE_DATE)
+    /**
+     * Formats a timestamp
+     * Oh yeah, this is beautiful. Exchange outputs date fields differently in calendar items
+     * and emails. We could just always send one or the other, but unfortunately nokia's 'Mail for
+     *  exchange' depends on this quirk. So we have to send a different date type depending on where
+     * it's used. Sigh.
+     *
+     * @param long  $ts
+     * @param int   $type
+     *
+     * @access private
+     * @return string
+     */
+    private function formatDate($ts, $type) {
+        if($type == self::STREAMER_TYPE_DATE)
             return gmstrftime("%Y%m%dT%H%M%SZ", $ts);
-        else if($type == STREAMER_TYPE_DATE_DASHES)
+        else if($type == self::STREAMER_TYPE_DATE_DASHES)
             return gmstrftime("%Y-%m-%dT%H:%M:%S.000Z", $ts);
     }
 
-    function parseDate($ts) {
+    /**
+     * Transforms an AS timestamp into a unix timestamp
+     *
+     * @param string    $ts
+     *
+     * @access private
+     * @return long
+     */
+    private function parseDate($ts) {
         if(preg_match("/(\d{4})[^0-9]*(\d{2})[^0-9]*(\d{2})T(\d{2})[^0-9]*(\d{2})[^0-9]*(\d{2})(.\d+)?Z/", $ts, $matches)) {
             if ($matches[1] >= 2038){
                 $matches[1] = 2038;
@@ -254,56 +297,6 @@ class Streamer {
             return gmmktime($matches[4], $matches[5], $matches[6], $matches[2], $matches[3], $matches[1]);
         }
         return 0;
-    }
-
-    /**
-     * String representation of the object
-     *
-     * @return String
-     */
-    public function __toString() {
-        $str = get_class($this) . " (\n";
-
-        $streamerVars = array();
-        foreach ($this->_mapping as $k=>$v)
-            $streamerVars[$v[STREAMER_VAR]] = (isset($v[STREAMER_TYPE]))?$v[STREAMER_TYPE]:false;
-
-        foreach (get_object_vars($this) as $k=>$v) {
-            if ($k == "_mapping") continue;
-
-            if (array_key_exists($k, $streamerVars))
-                $strV = "(S) ";
-            else
-                $strV = "";
-
-            // STREAMER_ARRAY ?
-            if (is_array($v)) {
-                $str .= "\t". $strV . $k ."(Array) size: " . count($v) ."\n";
-                foreach ($v as $value) $str .= "\t\t". $this->readableValue($value) ."\n";
-            }
-            else if ($v instanceof Streamer) {
-                $str .= "\t". $strV .$k ." => ". str_replace("\n", "\n\t\t\t", $v->__toString()) . "\n";
-            }
-            else
-                $str .= "\t". $strV .$k ." => " . (isset($this->$k)? $this->readableValue($this->$k) :"null") . "\n";
-        }
-        $str .= ")";
-
-        return $str;
-
-    }
-
-
-    /**
-     * Returns a readable value for booleans and strings
-     *
-     * @param string $value
-     * @return string
-     */
-    private function readableValue($value) {
-        if ($value === false) return "false";
-        if ($value === true) return "true";
-        return "'$value'";
     }
 }
 

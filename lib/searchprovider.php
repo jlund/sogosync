@@ -1,10 +1,11 @@
 <?php
 /***********************************************
-* File      :   searchbackend.php
+* File      :   searchprovider.php
 * Project   :   Z-Push
-* Descr     :   The searchbackend can be used to
-*               implement an alternative way to
-*               use the GAL search funtionality.
+* Descr     :   The searchprovider can be used to
+*               implement an alternative way perform
+*               searches.
+*               This is a stub implementation.
 *
 * Created   :   03.08.2010
 *
@@ -43,32 +44,39 @@
 * Consult LICENSE file for details
 ************************************************/
 
-/**
- * The SearchBackend is a stub to implement own search funtionality
- * By default it just calls the getSearchResults of the initialized main backend
+/*********************************************************************
+ * The SearchProvider is a stub to implement own search funtionality
  *
- * If you wish to implement an alternative search method, you should extend this class
- * like the SearchLDAP backend
+ * If you wish to implement an alternative search method, you should implement the
+ * ISearchProvider interface like the SearchLDAP backend
  */
-
-class SearchBackend {
-    protected $_backend;
+class SearchProvider implements ISearchProvider{
 
     /**
-     * Initializes the backend to perform the search
-     *
-     * @param object        $backend
+     * Constructor
+     * initializes the searchprovider to perform the search
      *
      * @access public
      * @return
      */
-    public function initialize($backend) {
-        $this->backend = $backend;
+    public function SearchProvider() {
     }
 
     /**
-     * Queries the backend to search
-     * By default, the getSearchResults() of the main backend is called
+     * Indicates if a search type is supported by this SearchProvider
+     * Currently only the type "GAL" (Global Address List) is implemented
+     *
+     * @param string        $searchtype
+     *
+     * @access public
+     * @return boolean
+     */
+    public function SupportsType($searchtype) {
+        return ($searchtype == "GAL");
+    }
+
+    /**
+     * Searches the GAL
      *
      * @param string        $searchquery        string to be searched for
      * @param string        $searchrange        specified searchrange
@@ -76,20 +84,17 @@ class SearchBackend {
      * @access public
      * @return array        search results
      */
-    public function getSearchResults($searchquery, $searchrange) {
-        if (isset($this->_backend))
-            return $this->_backend->getSearchResults($searchquery, $searchrange);
-        else
-            return false;
+    public function GetGALSearchResults($searchquery, $searchrange) {
+       return array();
     }
 
     /**
-     * Disconnects from the current search engine
+     * Disconnects from the current search provider
      *
      * @access public
      * @return boolean
      */
-    public function disconnect() {
+    public function Disconnect() {
         return true;
     }
 }

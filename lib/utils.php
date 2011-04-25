@@ -2,7 +2,7 @@
 /***********************************************
 * File      :   utils.php
 * Project   :   Z-Push
-* Descr     :
+* Descr     :   Several utility functions
 *
 * Created   :   03.04.2008
 *
@@ -41,55 +41,74 @@
 * Consult LICENSE file for details
 ************************************************/
 
-// saves information about folder data for a specific device
-function _saveFolderData($devid, $folders) {
-    if (!is_array($folders) || empty ($folders))
-        return false;
 
-    $unique_folders = array ();
+class Utils {
+    /**
+     * Prints a variable as string
+     * If a boolean is sent, 'true' or 'false' is displayed
+     *
+     * @param string $var
+     * @access public
+     * @return string
+     */
+    static public function PrintAsString($var) {
+        return ($var)?(($var===true)?'true':$var):'false';
+    }
 
-    foreach ($folders as $folder) {
-        if (!isset($folder->type))
-            continue;
-
-        // don't save folder-ids for emails
-        if ($folder->type == SYNC_FOLDER_TYPE_INBOX)
-            continue;
-
-        // no folder from that type    or the default folder
-        if (!array_key_exists($folder->type, $unique_folders) || $folder->parentid == 0) {
-            $unique_folders[$folder->type] = $folder->serverid;
+    /**
+     * Splits a "domain\user" string into two values
+     * If the string cotains only the user, domain is returned empty
+     *
+     * @param string    $domainuser
+     *
+     * @access public
+     * @return array    index 0: user  1: domain
+     */
+    static public function SplitDomainUser($domainuser) {
+        $pos = strrpos($domainuser, '\\');
+        if($pos === false){
+            $user = $domainuser;
+            $domain = '';
         }
+        else{
+            $domain = substr($domainuser,0,$pos);
+            $user = substr($domainuser,$pos+1);
+        }
+        return array($user, $domain);
     }
 
-    // Treo does initial sync for calendar and contacts too, so we need to fake
-    // these folders if they are not supported by the backend
-    if (!array_key_exists(SYNC_FOLDER_TYPE_APPOINTMENT, $unique_folders))
-        $unique_folders[SYNC_FOLDER_TYPE_APPOINTMENT] = SYNC_FOLDER_TYPE_DUMMY;
-    if (!array_key_exists(SYNC_FOLDER_TYPE_CONTACT, $unique_folders))
-        $unique_folders[SYNC_FOLDER_TYPE_CONTACT] = SYNC_FOLDER_TYPE_DUMMY;
+    /**
+     * iPhone defines standard summer time information for current year only,
+     * starting with time change in February. Dates from the 1st January until
+     * the time change are undefined and the server uses GMT or its current time.
+     * The function parses the ical attachment and replaces DTSTART one year back
+     * in VTIMEZONE section if the event takes place in this undefined time.
+     * See also http://developer.berlios.de/mantis/view.php?id=311
+     *
+     * @param string    $ical               iCalendar data
+     *
+     * @access public
+     * @return string
+     */
+    static public function IcalTimezoneFix($ical) {
+        $eventDate = substr($ical, (strpos($ical, ":", strpos($ical, "DTSTART", strpos($ical, "BEGIN:VEVENT")))+1), 8);
+        $posStd = strpos($ical, "DTSTART:", strpos($ical, "BEGIN:STANDARD")) + strlen("DTSTART:");
+        $posDst = strpos($ical, "DTSTART:", strpos($ical, "BEGIN:DAYLIGHT")) + strlen("DTSTART:");
+        $beginStandard = substr($ical, $posStd , 8);
+        $beginDaylight = substr($ical, $posDst , 8);
 
-    if (!file_put_contents(STATE_DIR."/compat-$devid", serialize($unique_folders))) {
-        writeLog(LOGLEVEL_WARN, "_saveFolderData: Data could not be saved!");
+        if (($eventDate < $beginStandard) && ($eventDate < $beginDaylight) ) {
+            ZLog::Write(LOGLEVEL_DEBUG,"icalTimezoneFix for event on $eventDate, standard:$beginStandard, daylight:$beginDaylight");
+            $year = intval(date("Y")) - 1;
+            $ical = substr_replace($ical, $year, (($beginStandard < $beginDaylight) ? $posDst : $posStd), strlen($year));
+        }
+
+        return $ical;
     }
+
 }
 
-// returns information about folder data for a specific device
-function _getFolderID($devid, $class) {
-    $filename = STATE_DIR."/compat-$devid";
-
-    if (file_exists($filename)) {
-        $arr = unserialize(file_get_contents($filename));
-
-        if ($class == "Calendar")
-            return $arr[SYNC_FOLDER_TYPE_APPOINTMENT];
-        if ($class == "Contacts")
-            return $arr[SYNC_FOLDER_TYPE_CONTACT];
-
-    }
-
-    return false;
-}
+// TODO utils functions have to be refactored into Utils class
 
 /**
  * Function which converts a hex entryid to a binary entryid.
@@ -269,50 +288,6 @@ function extractBaseDate($goid, $recurStartTime) {
     }
     else
         return false;
-}
-
-
-/**
- * Prints the Z-Push legal header to STDOUT
- * Using this function breaks ActiveSync synchronization
- *
- * @param string $additionalMessage - additional message to be displayed
- * @return
- *
- */
-function printZPushLegal($message = "", $additionalMessage = "") {
-    global $zpush_version;
-
-    if ($message)
-        $message = "<h3>". $message . "</h3>";
-    if ($additionalMessage)
-        $additionalMessage .= "<br>";
-
-    $zpush_legal = <<<END
-<html>
-<header>
-<title>Z-Push ActiveSync</title>
-</header>
-<body>
-<font face="verdana">
-<h2>Z-Push - Open Source ActiveSync</h2>
-<b>Version $zpush_version</b><br>
-$message $additionalMessage
-<br><br>
-More information about Z-Push can be found at:<br>
-<a href="http://z-push.sf.net/">Z-Push homepage</a><br>
-<a href="http://z-push.sf.net/download">Z-Push download page at BerliOS</a><br>
-<a href="http://z-push.sf.net/tracker">Z-Push Bugtracker and Roadmap</a><br>
-<br>
-All modifications to this sourcecode must be published and returned to the community.<br>
-Please see <a href="http://www.gnu.org/licenses/agpl-3.0.html">AGPLv3 License</a> for details.<br>
-</font face="verdana">
-</body>
-</html>
-END;
-
-    header("Content-type: text/html");
-    print $zpush_legal;
 }
 
 

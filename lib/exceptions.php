@@ -1,10 +1,10 @@
 <?php
 /***********************************************
-* File      :   version.php
+* File      :   exceptions.php
 * Project   :   Z-Push
-* Descr     :   version number
+* Descr     :   Defines all exceptions used in Z-Push
 *
-* Created   :   18.04.2008
+* Created   :   12.04.2011
 *
 * Copyright 2007 - 2011 Zarafa Deutschland GmbH
 *
@@ -41,5 +41,30 @@
 * Consult LICENSE file for details
 ************************************************/
 
-define("ZPUSH_VERSION", "SVN checkout");
+// Main Z-Push exception
+class ZPushException extends Exception {}
+
+// Fatal exceptions (execution stops)
+class FatalException extends ZPushException {}
+class FatalMisconfigurationException extends FatalException {}
+class FatalNotImplementedException extends FatalException {}
+class AuthenticationRequiredException extends FatalException {
+    const AUTHENTICATION_FAILED = 1;
+    const AUTHENTICATION_NOT_SENT = 2;
+    const SETUP_FAILED = 3;
+}
+class ProvisioningRequiredException extends FatalException {}
+class NoPostRequestException extends FatalException {
+    const OPTIONS_REQUEST = 1;
+    const GET_REQUEST = 2;
+}
+
+// Non fatal exceptions
+class NotImplementedException extends ZPushException {}
+class WBXMLException extends NotImplementedException {}
+class StatusException extends ZPushException {}
+class StateNotFoundException extends StatusException {}
+class StateInvalidException extends StatusException {}
+class NoHierarchyCacheAvailableException extends StateNotFoundException {}
+
 ?>

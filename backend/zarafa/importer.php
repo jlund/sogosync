@@ -129,7 +129,7 @@ class ImportChangesICS implements IImportChanges {
 
         if ($this->_folderid !== false) {
             // possible conflicting messages will be cached here
-            $this->_memChanges = new ImportChangesMem();
+            $this->_memChanges = new ChangesMemoryWrapper();
             return mapi_importcontentschanges_config($this->importer, $stream, $flags);
         }
         else
@@ -194,7 +194,11 @@ class ImportChangesICS implements IImportChanges {
 
         // configure an exporter so we can detect conflicts
         $exporter = new ExportChangesICS($this->_session, $this->_store, $this->_folderid);
-        $exporter->Config(&$this->_memChanges, $mclass, $filtertype, $state, 0, 0);
+        //  function Config(&$importer, $mclass, $restrict, $syncstate, $flags, $truncation)
+        //$exporter->Config(&$this->_memChanges, $mclass, $filtertype, $state, 0, 0);
+        $exporter->Config($state);
+        $exporter->ConfigContentParameters($mclass, $filtertype,0);
+        $exporter->InitializeExporter($this->_memChanges);
         while(is_array($exporter->Synchronize()));
         return true;
     }
@@ -224,6 +228,7 @@ class ImportChangesICS implements IImportChanges {
             // check for conflicts
             if($this->_memChanges->isChanged($id)) {
                 if ($this->_flags & SYNC_CONFLICT_OVERWRITE_PIM) {
+                    // TODO: in these cases the status 7 should be returned, so the client can inform the user (ASCMD 2.2.1.19.1.22)
                     writeLog(LOGLEVEL_INFO, "Conflict detected. Data from PIM will be dropped! Server overwrites PIM.");
                     return false;
                 }

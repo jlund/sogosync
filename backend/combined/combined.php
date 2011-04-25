@@ -86,7 +86,10 @@ class ExportHierarchyChangesCombined{
             }
 
             $this->_exporters[$i] = $this->_backend->_backends[$i]->GetExporter();
-            $this->_exporters[$i]->Config(&$this->_importwraps[$i], $folderid, $restrict, $state, $flags, $truncation);
+            // TODO config of combined backend are broken
+            //$this->_exporters[$i]->Config(&$this->_importwraps[$i], $folderid, $restrict, $state, $flags, $truncation);
+            $this->_exporters[$i]->Config($state, $flags);
+            $this->_exporters[$i]->ConfigContentParameters();
         }
         writeLog(LOGLEVEL_DEBUG, 'ExportHierarchyChangesCombined::Config complete');
     }
@@ -496,13 +499,14 @@ class BackendCombined extends Backend{
      * @param string        $forward    id of the message to be attached below $rfc822
      * @param string        $reply      id of the message to be attached below $rfc822
      * @param string        $parent     id of the folder containing $forward or $reply
+     * @param boolean       $saveInSent indicates if the mail should be saved in the Sent folder
      *
      * @access public
      * @return boolean
      */
-    public function SendMail($rfc822, $forward = false, $reply = false, $parent = false) {
+    public function SendMail($rfc822, $forward = false, $reply = false, $parent = false, $saveInSent = true) {
         foreach ($this->_backends as $i => $b){
-            if($this->_backends[$i]->SendMail($rfc822, $forward, $reply, $parent) == true){
+            if($this->_backends[$i]->SendMail($rfc822, $forward, $reply, $parent, $saveInSent) == true){
                 return true;
             }
         }

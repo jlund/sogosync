@@ -97,12 +97,13 @@ class BackendMaildir extends BackendDiff {
      * @param string        $forward    id of the message to be attached below $rfc822
      * @param string        $reply      id of the message to be attached below $rfc822
      * @param string        $parent     id of the folder containing $forward or $reply
+     * @param boolean       $saveInSent indicates if the mail should be saved in the Sent folder
      *
      * @access public
      * @return boolean
      */
-    public function SendMail($rfc822, $forward = false, $reply = false, $parent = false) {
-        return true;
+    public function SendMail($rfc822, $forward = false, $reply = false, $parent = false, $saveInSent = true) {
+        return false;
     }
 
     /**

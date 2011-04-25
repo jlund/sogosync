@@ -462,7 +462,9 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
     private $_folderid;
     private $_restrict;
     private $_flags;
+    private $_mclass;
     private $_user;
+    private $_cutoffdate;
 
     /**
      * Constructor
@@ -478,30 +480,49 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
     }
 
     /**
-     * Configures the exporter
+     * Initializes the state
      *
-     * @param object        $importer
+     * @param string        $state
+     * @param int           $flags
+     *
+     * @access public
+     * @return boolean status flag
+     */
+    public function Config($state, $flags = 0) {
+        $this->_syncstate = unserialize($state);
+        $this->_flags = $flags;
+    }
+
+    /**
+     * Configures additional parameters used for content synchronization
+     *
      * @param string        $mclass
      * @param int           $restrict       FilterType
-     * @param string        $syncstate
-     * @param int           $flags
      * @param int           $truncation     bytes
      *
      * @access public
      * @return boolean
      */
-    // TODO: test alterping, as footprint changed .. mclass was $folderid (which doesn't make sense here)
-    public function Config(&$importer, $mclass, $restrict, $syncstate, $flags, $truncation) {
-        $this->_importer = &$importer;
+    public function ConfigContentParameters($mclass, $restrict, $truncation) {
+        $this->_mclass = $mclass;
         $this->_restrict = $restrict;
-        $this->_syncstate = unserialize($syncstate);
-        $this->_flags = $flags;
         $this->_truncation = $truncation;
 
+        $this->_cutoffdate = getCutOffDate($restrict);
+    }
+
+    /**
+     * Sets the importer the exporter will sent it's changes to
+     * and initializes the Exporter
+     *
+     * @param object        &$importer  Implementation of IImportChanges
+     *
+     * @access public
+     * @return boolean
+     */
+    public function InitializeExporter(&$importer) {
         $this->_changes = array();
         $this->_step = 0;
-
-        $cutoffdate = getCutOffDate($restrict);
 
         if($this->_folderid) {
             // Get the changes since the last sync
@@ -514,14 +535,13 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
 
             //do nothing if it is a dummy folder
             if ($this->_folderid != SYNC_FOLDER_TYPE_DUMMY) {
-
                 // on ping: check if backend supports alternative PING mechanism & use it
-                if ($mclass === false && $this->_flags == BACKEND_DISCARD_DATA && $this->_backend->AlterPing()) {
+                if ($this->_mclass === false && $this->_flags == BACKEND_DISCARD_DATA && $this->_backend->AlterPing()) {
                     $this->_changes = $this->_backend->AlterPingChanges($this->_folderid, $this->_syncstate);
                 }
                 else {
                     // Get our lists - syncstate (old)  and msglist (new)
-                    $msglist = $this->_backend->GetMessageList($this->_folderid, $cutoffdate);
+                    $msglist = $this->_backend->GetMessageList($this->_folderid, $this->_cutoffdate);
                     if($msglist === false)
                         return false;
 
@@ -530,7 +550,8 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
             }
 
             writeLog(LOGLEVEL_INFO, "Found " . count($this->_changes) . " message changes");
-        } else {
+        }
+        else {
             writeLog(LOGLEVEL_DEBUG, "Initializing folder diff engine");
 
             $folderlist = $this->_backend->GetFolderList();
