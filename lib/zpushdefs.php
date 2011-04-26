@@ -78,7 +78,6 @@ define("SYNC_WAIT","Wait"); //12.1 and 14.0
 define("SYNC_LIMIT","Limit"); //12.1 and 14.0
 define("SYNC_PARTIAL","Partial"); //12.1 and 14.0
 define("SYNC_CONVERSATIONMODE","ConversationMode"); //14.0
-define("SYNC_MAXITEMS","NewMessage"); //14.0
 define("SYNC_HEARTBEATINTERVAL","HeartbeatInterval"); //14.0
 
 // POOMCONTACTS
