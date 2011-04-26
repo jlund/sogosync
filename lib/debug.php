@@ -73,7 +73,10 @@ class ZLog {
                 define('WBXML_DEBUG', false);
         }
 
-        self::$user = '['. $user .'] ';
+        if ($user)
+            self::$user = '['. $user .'] ';
+        else
+            self::$user = '';
 
         // log the device id if the global loglevel is set to log devid or the user is in  and has the right log level
         if (Request::getDeviceId() != "" && (LOGLEVEL >= LOGLEVEL_DEVICEID || (LOGUSERLEVEL >= LOGLEVEL_DEVICEID && in_array($user, $wbxmlLogUsers))))
