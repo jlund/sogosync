@@ -521,7 +521,6 @@ class SyncRecurrence extends SyncObject {
     public $monthofyear;
 
     function SyncRecurrence() {
-        // TODO is there no START in SyncRecurrence?
         $mapping = array (
                     SYNC_POOMCAL_TYPE => array (self::STREAMER_VAR => "type"),
                     SYNC_POOMCAL_UNTIL => array (self::STREAMER_VAR => "until", self::STREAMER_TYPE => self::STREAMER_TYPE_DATE),
@@ -549,7 +548,6 @@ class SyncMeetingRequestRecurrence extends SyncObject {
     public $monthofyear;
 
     function SyncMeetingRequestRecurrence() {
-        // TODO is there no START in SyncMeetingRequestRecurrence?
         $mapping = array (
                     SYNC_POOMMAIL_TYPE => array (self::STREAMER_VAR => "type"),
                     SYNC_POOMMAIL_UNTIL => array (self::STREAMER_VAR => "until", self::STREAMER_TYPE => self::STREAMER_TYPE_DATE),
