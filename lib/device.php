@@ -430,13 +430,19 @@ class DeviceManager {
         $this->statemachine = ZPush::GetStateMachine();
         $this->exceptions = array();
         $this->devid = Request::getDeviceID();
-        $this->device = new ASDevice($this->devid, Request::getDeviceType(), Request::getGETUser(), Request::getUserAgent());
 
-        try {
-            $data = unserialize($this->statemachine->GetState($this->devid, IStateMachine::DEVICEDATA));
-            $this->device->setData($data);
+        // only continue if deviceid is set
+        if ($this->devid) {
+            $this->device = new ASDevice($this->devid, Request::getDeviceType(), Request::getGETUser(), Request::getUserAgent());
+
+            try {
+                $data = unserialize($this->statemachine->GetState($this->devid, IStateMachine::DEVICEDATA));
+                $this->device->setData($data);
+            }
+            catch (StateNotFoundException $snfex) {}
         }
-        catch (StateNotFoundException $snfex) {}
+        else
+            throw new FatalNotImplementedException("Can not proceed without a device id.");
 
         $this->hierarchyOperation = ZPush::HierarchyCommand(Request::getCommand());
     }
