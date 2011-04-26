@@ -44,7 +44,6 @@
 *
 * Consult LICENSE file for details
 ************************************************/
-
 class FileStateMachine implements IStateMachine {
     private $userfilename;
 
@@ -65,7 +64,6 @@ class FileStateMachine implements IStateMachine {
 
         if (!file_exists(STATE_DIR))
             throw new FatalMisconfigurationException("The configured state directory does not exist or can not be accessed.");
-
         // checks if the directory exists and tries to create the necessary subfolders if they do not exist
         $this->getDirectoryForDevice(Request::getDeviceID());
         $this->userfilename = STATE_DIR . 'users';
@@ -81,7 +79,7 @@ class FileStateMachine implements IStateMachine {
      *
      * @param string    $devid              the device id
      * @param string    $key
-     * @param string    $counter
+     * @param string    $counter            (opt)
      *
      * @access public
      * @return string

@@ -60,6 +60,7 @@
  * The key could be IStateMachine::DEVICEDATA or IStateMachine::PINGDATA
  * indicating that these are general device or ping data
  */
+
 interface IStateMachine {
     const DEVICEDATA = "devicedata";
     const PINGDATA = "ping";
@@ -78,7 +79,7 @@ interface IStateMachine {
      * @access public
      * @return string
      */
-    public function GetState($devid, $key, $counter);
+    public function GetState($devid, $key, $counter = false);
 
     /**
      * Writes ta state to for a key and counter
