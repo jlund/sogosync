@@ -214,7 +214,7 @@ class FileStateMachine implements IStateMachine {
      *
      * @access private
      * @return string
-     * @throws FatalException
+     * @throws StateInvalidException
      */
     private function getFullFilePath($devid, $key, $counter = false, $doNotCreateDirs = false) {
         $testkey = $devid . "-" . $key;
