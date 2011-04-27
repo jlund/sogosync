@@ -164,11 +164,12 @@ class HierarchyCache {
 
         ZLog::Write(LOGLEVEL_DEBUG, "HierarchyCache: delFolder() serverid: $serverid - type (from cache): {$ftype->type}");
         unset($this->cacheById[$serverid]);
+        $this->changed = true;
         return true;
     }
 
     /**
-     * Removes a folder to the HierarchyCache
+     * Imports a folder array to the HierarchyCache
      *
      * @param array     $folders            folders to the HierarchyCache
      *
@@ -188,6 +189,21 @@ class HierarchyCache {
             $this->addFolder($folder);
         }
         return true;
+    }
+
+    /**
+     * Exports all folders from the HierarchyCache
+     *
+     * @param boolean   $oldstate           (optional) by default false
+     *
+     * @access public
+     * @return array
+     */
+    public function exportFolders($oldstate = false) {
+        if ($oldstate === false)
+            return $this->cacheById;
+        else
+            return $this->cacheByIdOld;
     }
 
     /**
@@ -247,9 +263,54 @@ class ChangesMemoryWrapper extends HierarchyCache implements IImportChanges, IEx
     }
 
     /**
+     * Only used to load additional folder sync information for hierarchy changes
+     *
+     * @param array    $state               current state of additional hierarchy folders
+     *
+     * @access public
+     * @return boolean
+     */
+    public function Config($state, $flags = 0) {
+        // we should never forward this changes to a backend
+        if (!isset($this->destinationImporter)) {
+            foreach($state as $addKey => $addFolder) {
+                // TODO remove some of these logs
+                ZLog::Write(LOGLEVEL_DEBUG, sprintf("ChangesMemoryWrapper->Config(AdditionalFolders) : process folder '%s'", $addFolder->displayname));
+                if (isset($addFolder->NoBackendFolder) && $addFolder->NoBackendFolder == true) {
+                    $hasRights = ZPush::GetBackend()->Setup($addFolder->Store, true, $addFolder->serverid);
+                    // delete the folder on the device
+                    if (! $hasRights) {
+                        // delete the folder only if it was an additional folder before, else ignore it
+                        $synchedfolder = $this->getFolder($addFolder->serverid);
+                        if (isset($synchedfolder->NoBackendFolder) && $synchedfolder->NoBackendFolder == true)
+                            $this->ImportFolderDeletion($addFolder->serverid, $addFolder->parentid);
+                        continue;
+                    }
+                }
+                // add folder to the device - if folder is already on the device, nothing will happen
+                $this->ImportFolderChange($addFolder);
+            }
+
+            // look for folders which are currently on the device if there are now not to be synched anymore
+            $alreadyDeleted = $this->getDeletedFolders();
+            foreach ($this->exportFolders(true) as $sid => $folder) {
+                // we are only looking at additional folders
+                if (isset($folder->NoBackendFolder)) {
+                    // look if this folder is still in the list of additional folders and was not already deleted (e.g. missing permissions)
+                    if (!array_key_exists($sid, $state) && !array_key_exists($sid, $alreadyDeleted)) {
+                        ZLog::Write(LOGLEVEL_INFO, sprintf("ChangesMemoryWrapper->Config(AdditionalFolders) : previously synchronized folder '%s' is not to be synched anymore. Sending delete to mobile.", $folder->displayname));
+                        $this->ImportFolderDeletion($folder->serverid, $folder->parentid);
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+
+    /**
      * Implement interfaces which are never used
      */
-    public function Config($state, $flags = 0) { return true; }
     public function GetState() { return false;}
     public function LoadConflicts($mclass, $filtertype, $state) { return true; }
     public function ConfigContentParameters($mclass, $restrict, $truncation) { return true; }
@@ -340,6 +401,7 @@ class ChangesMemoryWrapper extends HierarchyCache implements IImportChanges, IEx
             // if the operation was sucessfull, update the HierarchyCache
             if ($ret)
                 $this->addFolder($folder);
+            return $ret;
         }
         // load into memory
         else {
@@ -349,8 +411,8 @@ class ChangesMemoryWrapper extends HierarchyCache implements IImportChanges, IEx
                 // stay the same. These changes will be dropped and are not sent!
                 $cacheFolder = $this->getFolder($folder->serverid);
                 if ($folder->equals($this->getFolder($folder->serverid))) {
-                    ZLog::Write(LOGLEVEL_DEBUG,"Change for folder '".$folder->displayname."' will not be sent as modification is not relevant");
-                    return true;
+                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("Change for folder '%s' will not be sent as modification is not relevant.", $folder->displayname));
+                    return false;
                 }
 
                 // load this change into memory
@@ -358,7 +420,9 @@ class ChangesMemoryWrapper extends HierarchyCache implements IImportChanges, IEx
 
                 // HierarchyCache: already add/update the folder so changes are not sent twice (if exported twice)
                 $this->addFolder($folder);
+                return true;
             }
+            return false;
         }
     }
 

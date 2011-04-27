@@ -93,9 +93,13 @@ abstract class SyncObject extends Streamer {
         if (! ($odo instanceof SyncObject)) {
             return false;
         }
+        // we add a fake property so we can compare on it. This way, it's never streamed to the device.
+        // TODO this could be done directly in the SyncObject. It should then have a flag so it's not streamed
+        $custMapping = $this->_mapping;
+        $custMapping["customValueStore"] = array(self::STREAMER_VAR => "Store");
 
         // check for mapped fields
-        foreach ($this->_mapping as $v) {
+        foreach ($custMapping as $v) {
             $val = $v[self::STREAMER_VAR];
             // array of values?
             if (isset($v[self::STREAMER_ARRAY])) {
@@ -109,9 +113,10 @@ abstract class SyncObject extends Streamer {
                     return false;
             }
             else {
-                if (isset($this->$val) && isset($odo->$val))
+                if (isset($this->$val) && isset($odo->$val)) {
                     if ($this->$val != $odo->$val)
                         return false;
+                }
                 else
                     return false;
             }

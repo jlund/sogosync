@@ -194,8 +194,6 @@ class ImportChangesICS implements IImportChanges {
 
         // configure an exporter so we can detect conflicts
         $exporter = new ExportChangesICS($this->_session, $this->_store, $this->_folderid);
-        //  function Config(&$importer, $mclass, $restrict, $syncstate, $flags, $truncation)
-        //$exporter->Config(&$this->_memChanges, $mclass, $filtertype, $state, 0, 0);
         $exporter->Config($state);
         $exporter->ConfigContentParameters($mclass, $filtertype,0);
         $exporter->InitializeExporter($this->_memChanges);

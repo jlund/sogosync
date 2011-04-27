@@ -679,9 +679,7 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
  */
 
 abstract class BackendDiff extends Backend {
-    protected $_user;
-    protected $_devid;
-    protected $_protocolversion;
+    protected $_store;
 
     /**
      * Constructor
@@ -693,19 +691,26 @@ abstract class BackendDiff extends Backend {
     }
 
     /**
-     * Initializes the backend
+     * Setup the backend to work on a specific store or checks ACLs there.
+     * If only the $store is submitted, all Import/Export/Fetch/Etc operations should be
+     * performed on this store (switch operations store).
+     * If the ACL check is enabled, this operation should just indicate the ACL status on
+     * the submitted store, without changing the store for operations.
+     * For the ACL status, the currently logged on user MUST have access rights on
+     *  - the entire store - admin access if no folderid is sent, or
+     *  - on a specific folderid in the store (secretary/full access rights)
      *
-     * @param string        $user
-     * @param string        $devid
-     * @param string        $protocolversion
+     * The ACLcheck MUST fail if a folder of the authenticated user is checked!
+     *
+     * @param string        $store              target store, could contain a "domain\user" value
+     * @param boolean       $checkACLonly       if set to true, Setup() should just check ACLs
+     * @param string        $folderid           if set, only ACLs on this folderid are relevant
      *
      * @access public
      * @return boolean
      */
-    public function Setup($user, $devid, $protocolversion) {
-        $this->_user = $user;
-        $this->_devid = $devid;
-        $this->_protocolversion = $protocolversion;
+    public function Setup($store, $checkACLonly = false, $folderid = false) {
+        $this->_store = $store;
 
         return true;
     }
@@ -964,6 +969,7 @@ abstract class BackendDiff extends Backend {
     public abstract function MoveMessage($folderid, $id, $newfolderid);
 
 
+// TODO this is deprecated - should be removed
     /**
      * DEPRECATED legacy methods
      */

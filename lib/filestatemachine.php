@@ -44,6 +44,7 @@
 *
 * Consult LICENSE file for details
 ************************************************/
+
 class FileStateMachine implements IStateMachine {
     private $userfilename;
 

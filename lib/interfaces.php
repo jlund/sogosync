@@ -74,7 +74,7 @@ interface IStateMachine {
      *
      * @param string    $devid              the device id
      * @param string    $key
-     * @param string    $counter
+     * @param string    $counter            (opt)
      *
      * @access public
      * @return string
@@ -163,25 +163,25 @@ interface IBackend {
     public function Logon($username, $domain, $password);
 
     /**
-     * Initializes the backend
+     * Setup the backend to work on a specific store or checks ACLs there.
+     * If only the $store is submitted, all Import/Export/Fetch/Etc operations should be
+     * performed on this store (switch operations store).
+     * If the ACL check is enabled, this operation should just indicate the ACL status on
+     * the submitted store, without changing the store for operations.
+     * For the ACL status, the currently logged on user MUST have access rights on
+     *  - the entire store - admin access if no folderid is sent, or
+     *  - on a specific folderid in the store (secretary/full access rights)
      *
-     * Called directly after the logon. This specifies the client's protocol version
-     * and device id. The device ID can be used for various things, including saving
-     * per-device state information.
-     * The $user parameter here is normally equal to the $username parameter from the
-     * Logon() call. In theory though, you could log on a 'foo', and then sync the emails
-     * of user 'bar'. The $user here is the username specified in the request URL, while the
-     * $username in the Logon() call is the username which was sent as a part of the HTTP
-     * authentication.
+     * The ACLcheck MUST fail if a folder of the authenticated user is checked!
      *
-     * @param string        $user
-     * @param string        $devid
-     * @param string        $protocolversion
+     * @param string        $store              target store, could contain a "domain\user" value
+     * @param boolean       $checkACLonly       if set to true, Setup() should just check ACLs
+     * @param string        $folderid           if set, only ACLs on this folderid are relevant
      *
      * @access public
      * @return boolean
      */
-    public function Setup($user, $devid, $protocolversion);
+    public function Setup($store, $checkACLonly = false, $folderid = false);
 
     /**
      * Logs off

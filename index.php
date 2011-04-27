@@ -112,13 +112,17 @@ include_once('version.php');
             if($backend->Logon(Request::getAuthUser(), Request::getAuthDomain(), Request::getAuthPassword()) == false)
                 throw new AuthenticationRequiredException("Access denied.  Username or password incorrect", AuthenticationRequiredException::AUTHENTICATION_FAILED);
 
-            // Request::getGETUser() is usually the same as the Request::getAuthUser().
-            // This allows you to sync the 'john' account if you have sufficient privileges as user 'joe'.
-            if($backend->Setup(Request::getGETUser(), Request::getDeviceID(), Request::getProtocolVersion()) == false)
-                throw new AuthenticationRequiredException("Access denied or setup for user '$user' failed", AuthenticationRequiredException::SETUP_FAILED);
-
             // mark this request as "authenticated"
             Request::ConfirmUserAuthentication();
+
+            // do Backend->Setup() for permission check
+            // Request::getGETUser() is usually the same as the Request::getAuthUser().
+            // If the GETUser is different from the AuthUser, the AuthUser MUST HAVE admin
+            // permissions on GETUser store. Only then the Setup() will be sucessfull.
+            // This allows the user 'john' do operations as user 'joe' if he has sufficient privileges.
+            if($backend->Setup(Request::getGETUser(), true) == false)
+                throw new AuthenticationRequiredException(sprintf("Not enough priviledges of '%s' to setup for user '%s': Permission denied", Request::getAuthUser(), Request::getGETUser()),
+                            AuthenticationRequiredException::SETUP_FAILED);
         }
 
         // Do the actual processing of the request
@@ -206,6 +210,7 @@ include_once('version.php');
         // the output had not started yet. If it has started already, we can't show the user the error, and
         // the device will give its own (useless) error message.
         if(!headers_sent()) {
+            // TODO search for AS return codes and send these to the mobile
             header('HTTP/1.1 500 Internal Server Error');
             ZPush::PrintZPushLegal($exclass. " processing command <i>". Request::getCommand() ."</i>!", sprintf('<pre>%s</pre>', $ex->getMessage()));
         }

@@ -41,7 +41,7 @@
 * Consult LICENSE file for details
 ************************************************/
 
-/*********************************************************************
+/**********************************************************************************
  *  Default settings
  */
     // Defines the default time zone
@@ -67,29 +67,29 @@
     define('MAX_EMBEDDED_SIZE', 1048576);
 
 
-/*********************************************************************
+/**********************************************************************************
  *  Default FileStateMachine settings
  */
     define('STATE_DIR', '/var/lib/z-push/');
 
 
-/*********************************************************************
+/**********************************************************************************
  *  Logging settings
  */
     define('LOGFILEDIR', '/var/log/z-push/');
     define('LOGFILE', LOGFILEDIR . 'z-push.log');
     define('LOGERRORFILE', LOGFILEDIR . 'z-push-error.log');
-    define('LOGLEVEL', LOGLEVEL_WBXML);
+    define('LOGLEVEL', LOGLEVEL_INFO);
 
-    // To save WBXML data for selected users, add the usernames to the array
-    // The data will be saved into a dedicated file per user
+    // To save e.g. WBXML data only for selected users, add the usernames to the array
+    // The data will be saved into a dedicated file per user in the LOGFILEDIR
     define('LOGUSERLEVEL', LOGLEVEL_WBXML);
-    $wbxmlLogUsers = array();
+    $specialLogUsers = array();
 
 
-// **********************
-//  Mobile settings
-// **********************
+/**********************************************************************************
+ *  Mobile settings
+ */
     // Device Provisioning
     define('PROVISIONING', true);
 
@@ -106,9 +106,9 @@
     //   SYNC_CONFLICT_OVERWRITE_PIM    - PIM is overwritten, Server wins (default)
     define('SYNC_CONFLICT_DEFAULT', SYNC_CONFLICT_OVERWRITE_PIM);
 
-// ************************
-//  Backend settings
-// ************************
+/**********************************************************************************
+ *  Backend settings
+ */
     // The data providers that we are using (see configuration below)
     define('BACKEND_PROVIDER', "BackendZarafa");
 
@@ -160,5 +160,50 @@
     // if an empty value is used, the default search functionality of the main backend is used
     // use 'SearchLDAP' to search in a LDAP directory (see backend/searchldap/config.php)
     define('SEARCH_PROVIDER', '');
+
+
+/**********************************************************************************
+ *  Synchronize additional folders to all mobiles
+ *
+ *  With this feature, special folders can be synchronized to all mobiles.
+ *  This is useful for e.g. global company contacts.
+ *
+ *  This feature is supported only by certain devices, like iPhones.
+ *  Check the compatibility list for supported devices:
+ *      http://z-push.sf.net/compatibility
+ *
+ *  To synchronize a folder, add a section setting all parameters as below:
+ *      store:      the ressource where the folder is located.
+ *                  Zarafa users use 'SYSTEM' for the 'Public Folder'
+ *      folderid:   folder id of the folder to be synchronized
+ *      name:       name displayed on the mobile device
+ *      type:       supported types are:
+ *                      SYNC_FOLDER_TYPE_USER_CONTACT
+ *                      SYNC_FOLDER_TYPE_USER_APPOINTMENT
+ *                      SYNC_FOLDER_TYPE_USER_TASK
+ *                      SYNC_FOLDER_TYPE_USER_MAIL
+ *
+ *  Additional notes:
+ *  - all Z-Push users MUST HAVE FULL write permissions to the configured folders!
+ *  - this feature is only partly suitable for multi-tenancy environments,
+ *    as ALL users from all tenents need access to the configured store & folder.
+ *  - use the zarafa_listfolders.php script to get a list of available folders
+ *  - changing this configuration could cause high load on the system, as all
+ *    connected devices will be updated and load the data contained in the
+ *    added/modified folders.
+ */
+
+    $additionalFolders = array(
+        // demo entry for the synchronization of contacts from the public folder.
+        // uncomment (remove '/*' '*/') and fill in the folderid
+/*
+        array(
+            'store'     => "SYSTEM",
+            'folderid'  => "",
+            'name'      => "Public Contacts",
+            'type'      => SYNC_FOLDER_TYPE_USER_CONTACT,
+        ),
+*/
+    );
 
 ?>

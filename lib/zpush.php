@@ -85,6 +85,7 @@ class ZPush {
     static private $searchProvider;
     static private $deviceManager;
     static private $backend;
+    static private $addSyncFolders;
 
 
     /**
@@ -96,7 +97,7 @@ class ZPush {
      */
     static public function CheckConfig() {
         // this is a legacy thing
-        global $wbxmlLogUsers;
+        global $specialLogUsers, $additionalFolders;
 
         // check the php version
         if (strnatcmp(phpversion(),'5.1.0') < 0)
@@ -127,9 +128,45 @@ class ZPush {
         if (!touch(LOGERRORFILE))
             throw new FatalMisconfigurationException("The configured LOGFILE can not be modified.");
 
-        if (!is_array($wbxmlLogUsers))
+        if (!is_array($specialLogUsers))
             throw new FatalMisconfigurationException("The WBXML log users is not an array.");
 
+        // the check on additional folders will not throw hard errors, as this is probably changed on live systems
+        if (isset($additionalFolders) && !is_array($additionalFolders))
+            ZLog::Write(LOGLEVEL_ERROR, "ZPush::CheckConfig() : The additional folders synchronization not available as array.");
+        else {
+            self::$addSyncFolders = array();
+
+            // process configured data
+            foreach ($additionalFolders as $af) {
+
+                if (!is_array($af) || !isset($af['store']) || !isset($af['folderid']) || !isset($af['name']) || !isset($af['type'])) {
+                    ZLog::Write(LOGLEVEL_ERROR, "ZPush::CheckConfig() : the additional folder synchronization is not configured correctly. Missing parameters. Entry will be ignored.");
+                    continue;
+                }
+
+                if ($af['store'] == "" || $af['folderid'] == "" || $af['name'] == "" || $af['type'] == "") {
+                    ZLog::Write(LOGLEVEL_WARN, "ZPush::CheckConfig() : the additional folder synchronization is not configured correctly. Empty parameters. Entry will be ignored.");
+                    continue;
+                }
+
+                if (!in_array($af['type'], array(SYNC_FOLDER_TYPE_USER_CONTACT, SYNC_FOLDER_TYPE_USER_APPOINTMENT, SYNC_FOLDER_TYPE_USER_TASK, SYNC_FOLDER_TYPE_USER_MAIL))) {
+                    ZLog::Write(LOGLEVEL_ERROR, sprintf("ZPush::CheckConfig() : the type of the additional synchronization folder '%s is not permitted.", $af['name']));
+                    continue;
+                }
+
+                $folder = new SyncFolder();
+                $folder->serverid = $af['folderid'];
+                $folder->parentid = 0;                  // only top folders are supported
+                $folder->displayname = $af['name'];
+                $folder->type = $af['type'];
+                // save store as custom property which is not streamed directly to the device
+                $folder->NoBackendFolder = true;
+                $folder->Store = $af['store'];
+                self::$addSyncFolders[$folder->serverid] = $folder;
+            }
+
+        }
         return true;
     }
 
@@ -246,6 +283,33 @@ class ZPush {
                 throw new FatalMisconfigurationException("Backend provider '".@constant('BACKEND_PROVIDER')."' can not be loaded. Check configuration!");
         }
         return ZPush::$backend;
+    }
+
+    /**
+     * Returns additional folder objects which should be synchronized to the device
+     *
+     * @access public
+     * @return array
+     */
+    static public function GetAdditionalSyncFolders() {
+        // TODO if there are any user based folders which should be synchronized, they have to be returned here as well!!
+        return self::$addSyncFolders;
+    }
+
+    /**
+     * Returns additional folder objects which should be synchronized to the device
+     *
+     * @param string        $folderid
+     * @param boolean       $noDebug        (opt) by default, debug message is shown
+     *
+     * @access public
+     * @return string
+     */
+    static public function GetAdditionalSyncFolderStore($folderid, $noDebug = false) {
+        $val = (isset(self::$addSyncFolders[$folderid]->Store))? self::$addSyncFolders[$folderid]->Store : false;
+        if (!$noDebug)
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::GetAdditionalSyncFolderStore('%s'): '%s'", $folderid, Utils::PrintAsString($val)));
+        return $val;
     }
 
     /**
@@ -370,7 +434,9 @@ END;
      * @return boolean
      */
     static public function CommandNeedsAuthentication($command) {
-        return ! self::checkCommandOptions($command, self::UNAUTHENTICATED);
+        $stat = ! self::checkCommandOptions($command, self::UNAUTHENTICATED);
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::CommandNeedsAuthentication('%s'): ", Utils::PrintAsString($stat)));
+        return $stat;
     }
 
     /**
@@ -383,7 +449,7 @@ END;
      */
     static public function CommandNeedsProvisioning($command) {
         $stat =  ! self::checkCommandOptions($command, self::UNPROVISIONED);
-        ZLog::Write(LOGLEVEL_DEBUG, "CommandNeedsProvisioning($command): ". Utils::PrintAsString($stat));
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::CommandNeedsProvisioning('%s'): ", Utils::PrintAsString($stat)));
         return $stat;
     }
 
@@ -397,7 +463,7 @@ END;
      */
     static public function HierarchyCommand($command) {
         $stat = self::checkCommandOptions($command, self::HIERARCHYCOMMAND);
-        ZLog::Write(LOGLEVEL_DEBUG, "ZPush::HierarchyCommand($command): ". Utils::PrintAsString($stat));
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::HierarchyCommand('%s'): ", Utils::PrintAsString($stat)));
         return $stat;
     }
 

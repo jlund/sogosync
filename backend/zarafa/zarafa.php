@@ -77,10 +77,12 @@ include_once('exporter.php');
 
 
 class BackendZarafa implements IBackend, ISearchProvider {
-    protected $_session;
-    protected $_user;
-    protected $_devid;
-    protected $_importedFolders;
+    private $_mainUser;
+    private $_session;
+    private $_defaultstore;
+    private $_store;
+    private $_storeCache;
+    private $_importedFolders;
 
     /**
      * Constructor of the Zarafa Backend
@@ -89,8 +91,8 @@ class BackendZarafa implements IBackend, ISearchProvider {
      */
     public function BackendZarafa() {
         $this->_session = false;
-        $this->_user = false;
-        $this->_devid = false;
+        $this->_store = false;
+        $this->_storeCache = array();
         $this->_importedFolders = array();
     }
 
@@ -126,9 +128,8 @@ class BackendZarafa implements IBackend, ISearchProvider {
      * @return boolean
      */
     public function Logon($user, $domain, $pass) {
-        $pos = strpos($user, "\\");
-        if($pos)
-            $user = substr($user, $pos+1);
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->Logon(): Trying to authenticate user '%s'..", $user));
+        $this->_mainUser = $user;
 
         try {
             $this->_session = @mapi_logon_zarafa($user, $pass, MAPI_SERVER);
@@ -144,15 +145,17 @@ class BackendZarafa implements IBackend, ISearchProvider {
         }
 
         // Get/open default store
-        $this->_defaultstore = $this->_openDefaultMessageStore($this->_session);
+        $this->_defaultstore = $this->openMessageStore();
 
         if($this->_defaultstore === false) {
             // TODO set HTTP status code if available
-            writeLog(LOGLEVEL_ERROR, "user $user has no default store");
+            ZLog::Write(LOGLEVEL_ERROR, sprintf("ZarafaBackend->Logon(): User '%s' has no default store", $user));
             return false;
         }
+        else
+            $this->_store = $this->_defaultstore;
 
-        writeLog(LOGLEVEL_INFO, "User $user logged on");
+        writeLog(LOGLEVEL_INFO, sprintf("ZarafaBackend->Logon(): User '%s' is authenticated",$user));
 
         // check if this is a Zarafa 7 store with unicode support
         $this->_isUnicodeStore();
@@ -160,46 +163,121 @@ class BackendZarafa implements IBackend, ISearchProvider {
     }
 
     /**
-     * Setup of the backend
+     * Setup the backend to work on a specific store or checks ACLs there.
+     * If only the $store is submitted, all Import/Export/Fetch/Etc operations should be
+     * performed on this store (switch operations store).
+     * If the ACL check is enabled, this operation should just indicate the ACL status on
+     * the submitted store, without changing the store for operations.
+     * For the ACL status, the currently logged on user MUST have access rights on
+     *  - the entire store - admin access if no folderid is sent, or
+     *  - on a specific folderid in the store (secretary/full access rights)
      *
-     * @param string        $user
-     * @param string        $devid
-     * @param string        $protocolversion
+     * The ACLcheck MUST fail if a folder of the authenticated user is checked!
+     *
+     * @param string        $store              target store, could contain a "domain\user" value
+     * @param boolean       $checkACLonly       if set to true, Setup() should just check ACLs
+     * @param string        $folderid           if set, only ACLs on this folderid are relevant
      *
      * @access public
      * @return boolean
      */
-    public function Setup($user, $devid, $protocolversion) {
-        $this->_user = $user;
-        $this->_devid = $devid;
-        $this->_protocolversion = $protocolversion;
+    public function Setup($store, $checkACLonly = false, $folderid = false) {
+        list($user, $domain) = Utils::SplitDomainUser($store);
 
-        return true;
+        // This is a special case. A user will get it's entire folder structure by the foldersync by default.
+        // The ACL check is executed when an additional folder is going to be sent to the mobile.
+        // Configured that way the user could receive the same folderid twice, with two different names.
+        if ($this->_mainUser == $user && $checkACLonly && $folderid) {
+            ZLog::Write(LOGLEVEL_DEBUG, "ZarafaBackend->Setup(): Checking ACLs for folder of the users defaultstore. Fail is forced to avoid folder duplications on mobile.");
+            return false;
+        }
+
+        // get the users store
+        $userstore = $this->openMessageStore($user);
+
+        // only proceed if a store was found, else return false
+        if ($userstore) {
+            // only check permissions
+            if ($checkACLonly == true) {
+                // check for admin rights
+                if (!$folderid) {
+                    if ($user != $this->_mainUser) {
+                        $zarafauserinfo = @mapi_zarafa_getuser_by_name($this->_defaultstore, $this->_mainUser);
+                        $admin = (isset($zarafauserinfo['admin']) && $zarafauserinfo['admin'])?true:false;
+                    }
+                    // the user has always full access to his own store
+                    else
+                        $admin = true;
+
+                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->Setup(): Checking for admin ACLs: '%s'", Utils::PrintAsString($admin)));
+                    return $admin;
+                }
+                // check 'secretary' permissions on this folder
+                else {
+                    $rights = false;
+                    $entryid = mapi_msgstore_entryidfromsourcekey($userstore, hex2bin($folderid));
+                    if ($entryid) {
+                        $folder = mapi_msgstore_openentry($userstore, $entryid);
+                        if ($folder) {
+                            $props = mapi_getprops($folder, array(PR_RIGHTS));
+                            if (isset($props[PR_RIGHTS])) {
+                                if (($props[PR_RIGHTS] & ecRightsReadAny) &&
+                                    ($props[PR_RIGHTS] & ecRightsCreate) &&
+                                    ($props[PR_RIGHTS] & ecRightsEditOwned) &&
+                                    ($props[PR_RIGHTS] & ecRightsDeleteOwned) &&
+                                    ($props[PR_RIGHTS] & ecRightsEditAny) &&
+                                    ($props[PR_RIGHTS] & ecRightsDeleteAny) &&
+                                    ($props[PR_RIGHTS] & ecRightsFolderVisible)) {
+                                    $rights = true;
+                                }
+                            }
+                        }
+                    }
+
+                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->Setup(): Checking for secretary ACLs on '%s' of store '%s': '%s'", $folderid, $user, Utils::PrintAsString($rights)));
+                    return $rights;
+                }
+            }
+
+            // switch operations store
+            // this should also be done if called with user = mainuser or user = false
+            // which means to switch back to the default store
+            else {
+                // switch active store
+                $this->_store = $userstore;
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
      * Logs off
      * Free/Busy information is updated for modified calendars
+     * This is done after the synchronization process is completed
      *
      * @access public
      * @return boolean
      */
     public function Logoff() {
-        // TODO: if a calendar of a public/shared folder was changed, F/B should be published as well!
-        // publish free busy time after finishing the synchronization process
-        // update if the calendar folder received incoming changes
-        $storeprops = mapi_getprops($this->_defaultstore, array(PR_USER_ENTRYID));
-        $root = mapi_msgstore_openentry($this->_defaultstore);
-        if (!$root) return true;
+        // update if the calendar which received incoming changes
+        foreach($this->_importedFolders as $folderid => $store) {
+            // open the root of the store
+            $storeprops = mapi_getprops($store, array(PR_USER_ENTRYID));
+            $root = mapi_msgstore_openentry($store);
+            if (!$root)
+                continue;
 
-        $rootprops = mapi_getprops($root, array(PR_IPM_APPOINTMENT_ENTRYID));
-        foreach($this->_importedFolders as $folderid) {
-            $entryid = mapi_msgstore_entryidfromsourcekey($this->_defaultstore, hex2bin($folderid));
-            if($rootprops[PR_IPM_APPOINTMENT_ENTRYID] == $entryid) {
-                writeLog(LOGLEVEL_DEBUG, "Update freebusy for ". $folderid);
-                $calendar = mapi_msgstore_openentry($this->_defaultstore, $entryid);
+            // get the entryid of the main calendar of the store and the calendar to be published
+            $rootprops = mapi_getprops($root, array(PR_IPM_APPOINTMENT_ENTRYID));
+            $entryid = mapi_msgstore_entryidfromsourcekey($store, hex2bin($folderid));
 
-                $pub = new FreeBusyPublish($this->_session, $this->_defaultstore, $calendar, $storeprops[PR_USER_ENTRYID]);
+            // only publish free busy for the main calendar
+            if(isset($rootprops[PR_IPM_APPOINTMENT_ENTRYID]) && $rootprops[PR_IPM_APPOINTMENT_ENTRYID] == $entryid) {
+                ZLog::Write(LOGLEVEL_INFO, sprintf("ZarafaBackend->Logoff(): Updating freebusy information on folder id '%s'", $folderid));
+                $calendar = mapi_msgstore_openentry($store, $entryid);
+
+                $pub = new FreeBusyPublish($this->_session, $store, $calendar, $storeprops[PR_USER_ENTRYID]);
                 $pub->publishFB(time() - (7 * 24 * 60 * 60), 6 * 30 * 24 * 60 * 60); // publish from one week ago, 6 months ahead
             }
         }
@@ -219,9 +297,9 @@ class BackendZarafa implements IBackend, ISearchProvider {
     public function GetHierarchy() {
         $folders = array();
         $importer = false;
-        $himp= new PHPHierarchyWrapper($this->_defaultstore, $importer);
+        $himp= new PHPHierarchyWrapper($this->_store, $importer);
 
-        $rootfolder = mapi_msgstore_openentry($this->_defaultstore);
+        $rootfolder = mapi_msgstore_openentry($this->_store);
         $rootfolderprops = mapi_getprops($rootfolder, array(PR_SOURCE_KEY));
         $rootfoldersourcekey = bin2hex($rootfolderprops[PR_SOURCE_KEY]);
 
@@ -229,7 +307,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         $rows = mapi_table_queryallrows($hierarchy, array(PR_ENTRYID));
 
         foreach ($rows as $row) {
-            $mapifolder = mapi_msgstore_openentry($this->_defaultstore, $row[PR_ENTRYID]);
+            $mapifolder = mapi_msgstore_openentry($this->_store, $row[PR_ENTRYID]);
             $folder = $himp->_getFolder($mapifolder);
 
             if (isset($folder->parentid) && $folder->parentid != $rootfoldersourcekey)
@@ -251,11 +329,11 @@ class BackendZarafa implements IBackend, ISearchProvider {
     public function GetImporter($folderid = false) {
         writeLog(LOGLEVEL_DEBUG, sprintf("BackendZarafa->GetImporter() folderid: '%s'", Utils::PrintAsString($folderid)));
         if($folderid !== false) {
-            $this->_importedFolders[] = $folderid;
-            return new ImportChangesICS($this->_session, $this->_defaultstore, hex2bin($folderid));
+            $this->_importedFolders[$folderid] = $this->_store;
+            return new ImportChangesICS($this->_session, $this->_store, hex2bin($folderid));
         }
         else
-            return new ImportChangesICS($this->_session, $this->_defaultstore);
+            return new ImportChangesICS($this->_session, $this->_store);
     }
 
     /**
@@ -269,9 +347,9 @@ class BackendZarafa implements IBackend, ISearchProvider {
      */
     public function GetExporter($folderid = false) {
         if($folderid !== false)
-            return new ExportChangesICS($this->_session, $this->_defaultstore, hex2bin($folderid));
+            return new ExportChangesICS($this->_session, $this->_store, hex2bin($folderid));
         else
-            return new ExportChangesICS($this->_session, $this->_defaultstore);
+            return new ExportChangesICS($this->_session, $this->_store);
     }
 
     /**
@@ -304,13 +382,13 @@ class BackendZarafa implements IBackend, ISearchProvider {
         $message = $mimeObject->decode($mimeParams);
 
         // Open the outbox and create the message there
-        $storeprops = mapi_getprops($this->_defaultstore, array(PR_IPM_OUTBOX_ENTRYID, PR_IPM_SENTMAIL_ENTRYID));
+        $storeprops = mapi_getprops($this->_store, array(PR_IPM_OUTBOX_ENTRYID, PR_IPM_SENTMAIL_ENTRYID));
         if(!isset($storeprops[PR_IPM_OUTBOX_ENTRYID])) {
             writeLog(LOGLEVEL_ERROR, "Outbox not found to create message");
             return false;
         }
 
-        $outbox = mapi_msgstore_openentry($this->_defaultstore, $storeprops[PR_IPM_OUTBOX_ENTRYID]);
+        $outbox = mapi_msgstore_openentry($this->_store, $storeprops[PR_IPM_OUTBOX_ENTRYID]);
         if(!$outbox) {
             // TODO: this should throw a hard error, stop all further syncs and notify the administrator
             writeLog(LOGLEVEL_ERROR, "Unable to open outbox");
@@ -407,12 +485,12 @@ class BackendZarafa implements IBackend, ISearchProvider {
                 }
                 // TNEF
                 elseif($part->ctype_primary == "ms-tnef" || $part->ctype_secondary == "ms-tnef") {
-                    $zptnef = new ZPush_tnef($this->_defaultstore);
+                    $zptnef = new ZPush_tnef($this->_store);
                     $mapiprops = array();
                     $zptnef->extractProps($part->body, $mapiprops);
                     if (is_array($mapiprops) && !empty($mapiprops)) {
                         //check if it is a recurring item
-                        $tnefrecurr = GetPropIDFromString($this->_defaultstore, "PT_BOOLEAN:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x5");
+                        $tnefrecurr = GetPropIDFromString($this->_store, "PT_BOOLEAN:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x5");
                         if (isset($mapiprops[$tnefrecurr])) {
                             $this -> _handleRecurringItem($mapimessage, $mapiprops);
                         }
@@ -422,7 +500,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
                 }
                 // iCalendar
                 elseif($part->ctype_primary == "text" && $part->ctype_secondary == "calendar") {
-                    $zpical = new ZPush_ical($this->_defaultstore);
+                    $zpical = new ZPush_ical($this->_store);
                     $mapiprops = array();
                     $zpical->extractProps($part->body, $mapiprops);
 
@@ -464,8 +542,8 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
         if(isset($orig) && $orig) {
             // Append the original text body for reply/forward
-            $entryid = mapi_msgstore_entryidfromsourcekey($this->_defaultstore, hex2bin($parent), hex2bin($orig));
-            $fwmessage = mapi_msgstore_openentry($this->_defaultstore, $entryid);
+            $entryid = mapi_msgstore_entryidfromsourcekey($this->_store, hex2bin($parent), hex2bin($orig));
+            $fwmessage = mapi_msgstore_openentry($this->_store, $entryid);
 
             if($fwmessage) {
                 //update icon when forwarding or replying message
@@ -537,8 +615,8 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
         if($forward) {
             // Add attachments from the original message in a forward
-            $entryid = mapi_msgstore_entryidfromsourcekey($this->_defaultstore, hex2bin($parent), hex2bin($orig));
-            $fwmessage = mapi_msgstore_openentry($this->_defaultstore, $entryid);
+            $entryid = mapi_msgstore_entryidfromsourcekey($this->_store, hex2bin($parent), hex2bin($orig));
+            $fwmessage = mapi_msgstore_openentry($this->_store, $entryid);
 
             $attachtable = mapi_message_getattachmenttable($fwmessage);
             $rows = mapi_table_queryallrows($attachtable, array(PR_ATTACH_NUM));
@@ -607,16 +685,16 @@ class BackendZarafa implements IBackend, ISearchProvider {
         $dummy = false;
 
         // Fake a contents importer because it can do the conversion for us
-        $importer = new PHPContentsWrapper($this->_session, $this->_defaultstore, $foldersourcekey, $dummy, SYNC_TRUNCATION_ALL);
+        $importer = new PHPContentsWrapper($this->_session, $this->_store, $foldersourcekey, $dummy, SYNC_TRUNCATION_ALL);
 
-        $entryid = mapi_msgstore_entryidfromsourcekey($this->_defaultstore, $foldersourcekey, $messagesourcekey);
+        $entryid = mapi_msgstore_entryidfromsourcekey($this->_store, $foldersourcekey, $messagesourcekey);
         if(!$entryid) {
             // TODO: this should trigger a folder resync (status)
             writeLog(LOGLEVEL_WARN, "Unknown ID passed to Fetch");
             return false;
         }
 
-        $message = mapi_msgstore_openentry($this->_defaultstore, $entryid);
+        $message = mapi_msgstore_openentry($this->_store, $entryid);
         if(!$message) {
             // TODO: this should trigger a folder resync (status)
             writeLog(LOGLEVEL_WARN, "Unable to open message for Fetch command");
@@ -655,13 +733,13 @@ class BackendZarafa implements IBackend, ISearchProvider {
         $foldersourcekey = hex2bin($folderid);
 
         // TODO: errors must trigger status codes
-        $entryid = mapi_msgstore_entryidfromsourcekey($this->_defaultstore, $foldersourcekey, $sourcekey);
+        $entryid = mapi_msgstore_entryidfromsourcekey($this->_store, $foldersourcekey, $sourcekey);
         if(!$entryid) {
             writeLog(LOGLEVEL_WARN, "Attachment requested for non-existing item $attname");
             return false;
         }
 
-        $message = mapi_msgstore_openentry($this->_defaultstore, $entryid);
+        $message = mapi_msgstore_openentry($this->_store, $entryid);
         if(!$message) {
             writeLog(LOGLEVEL_WARN, "Unable to open item for attachment data for " . bin2hex($entryid));
             return false;
@@ -703,8 +781,8 @@ class BackendZarafa implements IBackend, ISearchProvider {
      */
     public function MeetingResponse($requestid, $folderid, $response, &$calendarid) {
         // Use standard meeting response code to process meeting request
-        $reqentryid = mapi_msgstore_entryidfromsourcekey($this->_defaultstore, hex2bin($folderid), hex2bin($requestid));
-        $mapimessage = mapi_msgstore_openentry($this->_defaultstore, $reqentryid);
+        $reqentryid = mapi_msgstore_entryidfromsourcekey($this->_store, hex2bin($folderid), hex2bin($requestid));
+        $mapimessage = mapi_msgstore_openentry($this->_store, $reqentryid);
 
         // TODO: trigger status codes
         if(!$mapimessage) {
@@ -712,7 +790,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
             return false;
         }
 
-        $meetingrequest = new Meetingrequest($this->_defaultstore, $mapimessage);
+        $meetingrequest = new Meetingrequest($this->_store, $mapimessage);
 
         if(!$meetingrequest->isMeetingRequest()) {
             writeLog(LOGLEVEL_WARN, "Attempt to respond to non-meeting request");
@@ -743,7 +821,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
         // We have to return the ID of the new calendar item, so do that here
         if (isset($entryid)) {
-            $newitem = mapi_msgstore_openentry($this->_defaultstore, $entryid);
+            $newitem = mapi_msgstore_openentry($this->_store, $entryid);
             $newprops = mapi_getprops($newitem, array(PR_SOURCE_KEY));
             $calendarid = bin2hex($newprops[PR_SOURCE_KEY]);
         }
@@ -751,7 +829,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         // on recurring items, the MeetingRequest class responds with a wrong entryid
         if ($requestid == $calendarid) {
             writeLog(LOGLEVEL_DEBUG, "returned calender id is the same as the requestid - re-searching");
-            $goidprop = GetPropIDFromString($this->_defaultstore, "PT_BINARY:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x3");
+            $goidprop = GetPropIDFromString($this->_store, "PT_BINARY:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x3");
 
             $messageprops = mapi_getprops($mapimessage, Array($goidprop, PR_OWNER_APPT_ID));
                 $goid = $messageprops[$goidprop];
@@ -763,7 +841,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
                 $items = $meetingrequest->findCalendarItems($goid, $apptid);
 
                 if (is_array($items)) {
-                   $newitem = mapi_msgstore_openentry($this->_defaultstore, $items[0]);
+                   $newitem = mapi_msgstore_openentry($this->_store, $items[0]);
                    $newprops = mapi_getprops($newitem, array(PR_SOURCE_KEY));
                    $calendarid = bin2hex($newprops[PR_SOURCE_KEY]);
                    writeLog(LOGLEVEL_DEBUG, "found other calendar entryid");
@@ -772,8 +850,8 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
 
         // delete meeting request from Inbox
-        $folderentryid = mapi_msgstore_entryidfromsourcekey($this->_defaultstore, hex2bin($folderid));
-        $folder = mapi_msgstore_openentry($this->_defaultstore, $folderentryid);
+        $folderentryid = mapi_msgstore_entryidfromsourcekey($this->_store, hex2bin($folderid));
+        $folder = mapi_msgstore_openentry($this->_store, $folderentryid);
         mapi_folder_deletemessages($folder, array($reqentryid), 0);
 
         return true;
@@ -899,7 +977,6 @@ class BackendZarafa implements IBackend, ISearchProvider {
         return $items;
     }
 
-
     /**
      * Disconnects from the current search provider
      *
@@ -910,57 +987,75 @@ class BackendZarafa implements IBackend, ISearchProvider {
         return true;
     }
 
-    /**----------------------------------------------------------------------------------------------------------
-     * Getter
-     */
-
-    /**
-     * Getter for session
-     *
-     * @access public
-     * @return MAPISession
-     */
-    public function _getSession() {
-        return $this->_session;
-    }
-
-    /**
-     * Getter for Defaultstore
-     *
-     * @access public
-     * @return MAPISession
-     */
-    public function _getDefaultstore() {
-        return $this->_openDefaultMessageStore($this->_session);
-    }
 
     /**----------------------------------------------------------------------------------------------------------
      * Private methods
      */
 
-    // TODO: in generall all necessary stores might be opened (public, shared folders etc.)
-    // Open the store marked with PR_DEFAULT_STORE = TRUE
-    protected function _openDefaultMessageStore($session)
-    {
-        // Find the default store
-        $storestables = mapi_getmsgstorestable($session);
-        $result = mapi_last_hresult();
+    //
+    /**
+     * Open the store marked with PR_DEFAULT_STORE = TRUE
+     * if $return_public is set, the public store is opened
+     *
+     * @param string    $user               (opt) User which store should be opened. If false, the main user store is returned
+     *
+     * @access public
+     * @return boolean
+     */
+    private function openMessageStore($user = false) {
+        if (!isset($this->_mainUser))
+            return false;
+
+        if ($user === false)
+            $user = $this->_mainUser;
+
+        // During PING requests the operations store has to be switched constantly
+        // the cache prevents the same store opened several times
+        if (isset($this->_storeCache[$user]))
+           return  $this->_storeCache[$user];
+
         $entryid = false;
+        $return_public = false;
 
-        if ($result == NOERROR){
-            $rows = mapi_table_queryallrows($storestables, array(PR_ENTRYID, PR_DEFAULT_STORE, PR_MDB_PROVIDER));
+        if (strtoupper($user) == 'SYSTEM')
+            $return_public = true;
 
-            foreach($rows as $row) {
-                if(isset($row[PR_DEFAULT_STORE]) && $row[PR_DEFAULT_STORE] == true) {
-                    $entryid = $row[PR_ENTRYID];
-                    break;
+        // loop through the storestable if authenticated user of public folder
+        if ($user == $this->_mainUser || $return_public === true) {
+            // Find the default store
+            $storestables = mapi_getmsgstorestable($this->_session);
+            $result = mapi_last_hresult();
+
+            if ($result == NOERROR){
+                $rows = mapi_table_queryallrows($storestables, array(PR_ENTRYID, PR_DEFAULT_STORE, PR_MDB_PROVIDER));
+
+                foreach($rows as $row) {
+                    if(!$return_public && isset($row[PR_DEFAULT_STORE]) && $row[PR_DEFAULT_STORE] == true) {
+                        $entryid = $row[PR_ENTRYID];
+                        break;
+                    }
+                    if ($return_public && isset($row[PR_MDB_PROVIDER]) && $row[PR_MDB_PROVIDER] == ZARAFA_STORE_PUBLIC_GUID) {
+                        $entryid = $row[PR_ENTRYID];
+                        break;
+                    }
                 }
             }
         }
+        else
+            $entryid = @mapi_msgstore_createentryid($this->_defaultstore, $user);
 
         if($entryid) {
-            return mapi_openmsgstore($session, $entryid);
-        } else {
+            $store = @mapi_openmsgstore($this->_session, $entryid);
+
+            // add this store to the cache
+            if (!isset($this->_storeCache[$user]))
+                $this->_storeCache[$user] = $store;
+
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->openMessageStore('%s'): Found '%s' store: '%s'", $user, (($return_public)?'PUBLIC':'DEFAULT'),$store));
+            return $store;
+        }
+        else {
+            ZLog::Write(LOGLEVEL_WARN, sprintf("ZarafaBackend->openMessageStore('%s'): No store found for this user", $user));
             return false;
         }
     }
@@ -983,7 +1078,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
             array_push($list, $folder);
 
             if(isset($row[PR_SUBFOLDERS]) && $row[PR_SUBFOLDERS]) {
-                $this->_getFoldersRecursive(mapi_msgstore_openentry($this->_defaultstore, $row[PR_ENTRYID]), $folderprops[PR_ENTRYID], $list);
+                $this->_getFoldersRecursive(mapi_msgstore_openentry($this->_store, $row[PR_ENTRYID]), $folderprops[PR_ENTRYID], $list);
             }
         }
 
@@ -1059,7 +1154,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         $props[12] = "PT_I2:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x13"; //month interval
         $props[13] = "PT_I2:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x14"; //year interval
 
-        $props = getPropIdsFromStrings($this->_defaultstore, $props);
+        $props = getPropIdsFromStrings($this->_store, $props);
 
         $mapiprops[$props[0]] = true;
         $mapiprops[$props[1]] = 369;
@@ -1093,7 +1188,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
 
     protected function _isUnicodeStore() {
-        $supportmask = mapi_getprops($this->_defaultstore, array(PR_STORE_SUPPORT_MASK));
+        $supportmask = mapi_getprops($this->_store, array(PR_STORE_SUPPORT_MASK));
         if (isset($supportmask[PR_STORE_SUPPORT_MASK]) && ($supportmask[PR_STORE_SUPPORT_MASK] & STORE_UNICODE_OK)) {
             writeLog(LOGLEVEL_DEBUG, "Store supports properties containing Unicode characters.");
             define('STORE_SUPPORTS_UNICODE', true);

@@ -55,7 +55,7 @@ class ZLog {
      * @return boolean
      */
     static public function Initialize() {
-        global $wbxmlLogUsers;
+        global $specialLogUsers;
 
         // define some constants for the logging
         if (!defined('LOGUSERLEVEL'))
@@ -67,7 +67,7 @@ class ZLog {
         list($user,) = Utils::SplitDomainUser(Request::getGETUser());
         if (!defined('WBXML_DEBUG') && $user) {
             // define the WBXML_DEBUG mode on user basis depending on the configurations
-            if (LOGLEVEL >= LOGLEVEL_WBXML || (LOGUSERLEVEL >= LOGLEVEL_WBXML && in_array($user, $wbxmlLogUsers)))
+            if (LOGLEVEL >= LOGLEVEL_WBXML || (LOGUSERLEVEL >= LOGLEVEL_WBXML && in_array($user, $specialLogUsers)))
                 define('WBXML_DEBUG', true);
             else
                 define('WBXML_DEBUG', false);
@@ -79,7 +79,7 @@ class ZLog {
             self::$user = '';
 
         // log the device id if the global loglevel is set to log devid or the user is in  and has the right log level
-        if (Request::getDeviceId() != "" && (LOGLEVEL >= LOGLEVEL_DEVICEID || (LOGUSERLEVEL >= LOGLEVEL_DEVICEID && in_array($user, $wbxmlLogUsers))))
+        if (Request::getDeviceId() != "" && (LOGLEVEL >= LOGLEVEL_DEVICEID || (LOGUSERLEVEL >= LOGLEVEL_DEVICEID && in_array($user, $specialLogUsers))))
             self::$devid = '['. $devid.'] ';
         else
             self::$devid = '';
@@ -140,12 +140,14 @@ class ZLog {
      * @return string
      */
     static private function logToUserFile() {
-        global $wbxmlLogUsers;
+        global $specialLogUsers;
 
         if (self::$authUser === false) {
-            $authuser = Request::getAuthUser();
-            if ($authuser && in_array($authuser, $wbxmlLogUsers))
-                self::$authUser = preg_replace('/[^a-z0-9]/', '_', strtolower($authuser));
+            if (Request::isUserAuthenticated()) {
+                $authuser = Request::getAuthUser();
+                if ($authuser && in_array($authuser, $specialLogUsers))
+                    self::$authUser = preg_replace('/[^a-z0-9]/', '_', strtolower($authuser));
+            }
         }
         return self::$authUser;
     }

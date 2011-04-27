@@ -754,6 +754,9 @@ class RequestProcessor {
         // We will be saving the sync state under 'newsynckey'
         $newsynckey = self::$deviceManager->GetNewSyncKey($synckey);
 
+        // the hierarchyCache should now fully be initialized - check for changes in the additional folders
+        $changesMem->Config(ZPush::GetAdditionalSyncFolders());
+
         // process incoming changes
         if(self::$decoder->getElementStartTag(SYNC_FOLDERHIERARCHY_CHANGES)) {
             // Ignore <Count> if present
@@ -1009,6 +1012,9 @@ class RequestProcessor {
             // Get our sync state for this collection
             try {
                 $collection["syncstate"] = self::$deviceManager->GetSyncState($collection["synckey"]);
+
+                // if this is an additional folder the backend has to be setup correctly
+                self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore($collection["collectionid"]));
             }
             catch (StateNotFoundException $snfex) {
                 ZLog::Write(LOGLEVEL_WARN, sprintf("State not found for SyncKey '%s'. Triggering error on device.", $collection["synckey"]));
@@ -1481,6 +1487,9 @@ class RequestProcessor {
                     if ($collection["state"] == "")
                         ZLog::Write(LOGLEVEL_DEBUG, "empty state for ". $collection["class"]);
 
+                    // switch user store if this is a additional folder
+                    self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore($collection["serverid"]));
+
                     // Create start state for this collection
                     $exporter = self::$backend->GetExporter($collection["serverid"]);
                     $importer = false;
@@ -1522,6 +1531,9 @@ class RequestProcessor {
 
             for($i=0;$i<count($collections);$i++) {
                 $collection = $collections[$i];
+
+                // switch user store if this is a additional folder (true -> do not debug)
+                self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore($collection["serverid"], true));
 
                 $exporter = self::$backend->GetExporter($collection["serverid"]);
                 $importer = false;
@@ -1712,6 +1724,11 @@ class RequestProcessor {
 
         // Over the ChangesWrapper the HierarchyCache is notified about all changes
         $changesMem = self::$deviceManager->GetHierarchyChangesWrapper();
+
+        // TODO check how mobile triggered changes affect additional synched folders (e.g. public folders). This should return an "impossible" return code.
+
+        // switch user store if this is a additional folder (true -> do not debug)
+        self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore($serverid));
 
         // Configure importer with last state
         $importer = self::$backend->GetImporter();
