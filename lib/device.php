@@ -791,7 +791,7 @@ class DeviceManager {
      * @access public
      * @return int
      */
-    public function GetMaxItemsToBeExported() {
+    public function GetWindowSize() {
         // TODO implement volatile device state for loop detection
         return 100;
     }

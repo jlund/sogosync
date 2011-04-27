@@ -940,8 +940,8 @@ class RequestProcessor {
             if(self::$decoder->getElementStartTag(SYNC_GETCHANGES))
                 $collection["getchanges"] = true;
 
-            if(self::$decoder->getElementStartTag(SYNC_MAXITEMS)) {
-                $collection["maxitems"] = self::$decoder->getElementContent();
+            if(self::$decoder->getElementStartTag(SYNC_WINDOWSIZE)) {
+                $collection["windowsize"] = self::$decoder->getElementContent();
                 if(!self::$decoder->getElementEndTag())
                     return false;
             }
@@ -999,9 +999,9 @@ class RequestProcessor {
                 $collection["conflict"] = SYNC_CONFLICT_DEFAULT;
             }
 
-            // compatibility mode - set maxitems if the client doesn't send it
-            if (!isset($collection["maxitems"])) {
-                $collection["maxitems"] = self::$deviceManager->GetMaxItemsToBeExported();
+            // compatibility mode - set windowsize if the client doesn't send it
+            if (!isset($collection["windowsize"])) {
+                $collection["windowsize"] = self::$deviceManager->GetWindowSize();
             }
 
             // TODO really implement Status
@@ -1236,7 +1236,7 @@ class RequestProcessor {
                     if($status == 1 && isset($collection["getchanges"])) {
                         // exporter already intialized
 
-                        if($changecount > $collection["maxitems"]) {
+                        if($changecount > $collection["windowsize"]) {
                             self::$encoder->startTag(SYNC_MOREAVAILABLE, false, true);
                         }
 
@@ -1252,8 +1252,8 @@ class RequestProcessor {
                                 break;
                             $n++;
 
-                            if($n >= $collection["maxitems"]) {
-                            	ZLog::Write(LOGLEVEL_DEBUG, "Exported maxItems of messages: ". $collection["maxitems"] . " / ". $changecount);
+                            if($n >= $collection["windowsize"]) {
+                            	ZLog::Write(LOGLEVEL_DEBUG, "Exported maxItems of messages: ". $collection["windowsize"] . " / ". $changecount);
                                 break;
                             }
 
