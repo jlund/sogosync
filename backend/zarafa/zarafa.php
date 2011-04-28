@@ -679,21 +679,15 @@ class BackendZarafa implements IBackend, ISearchProvider {
      * @return object(SyncObject)
      */
     public function Fetch($folderid, $id, $mimesupport = 0) {
-        $foldersourcekey = hex2bin($folderid);
-        $messagesourcekey = hex2bin($id);
-
-        $dummy = false;
-
-        // Fake a contents importer because it can do the conversion for us
-        $importer = new PHPContentsWrapper($this->_session, $this->_store, $foldersourcekey, $dummy, SYNC_TRUNCATION_ALL);
-
-        $entryid = mapi_msgstore_entryidfromsourcekey($this->_store, $foldersourcekey, $messagesourcekey);
+        // get the entry id of the message
+        $entryid = mapi_msgstore_entryidfromsourcekey($this->_store, hex2bin($folderid), hex2bin($id));
         if(!$entryid) {
             // TODO: this should trigger a folder resync (status)
             writeLog(LOGLEVEL_WARN, "Unknown ID passed to Fetch");
             return false;
         }
 
+        // open the message
         $message = mapi_msgstore_openentry($this->_store, $entryid);
         if(!$message) {
             // TODO: this should trigger a folder resync (status)
@@ -701,7 +695,9 @@ class BackendZarafa implements IBackend, ISearchProvider {
             return false;
         }
 
-        return $importer->_getMessage($message, 1024*1024, $mimesupport); // Get 1MB of body size
+        // convert the mapi message into a SyncObject and return it
+        $mapiprovider = new MAPIProvider($this->_session, $this->_store);
+        return $mapiprovider->_getMessage($message, SYNC_TRUNCATION_ALL, $mimesupport);
     }
 
     /**
