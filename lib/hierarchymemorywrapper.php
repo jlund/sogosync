@@ -274,7 +274,6 @@ class ChangesMemoryWrapper extends HierarchyCache implements IImportChanges, IEx
         // we should never forward this changes to a backend
         if (!isset($this->destinationImporter)) {
             foreach($state as $addKey => $addFolder) {
-                // TODO remove some of these logs
                 ZLog::Write(LOGLEVEL_DEBUG, sprintf("ChangesMemoryWrapper->Config(AdditionalFolders) : process folder '%s'", $addFolder->displayname));
                 if (isset($addFolder->NoBackendFolder) && $addFolder->NoBackendFolder == true) {
                     $hasRights = ZPush::GetBackend()->Setup($addFolder->Store, true, $addFolder->serverid);
