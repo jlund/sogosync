@@ -47,6 +47,13 @@
 
 
 abstract class SyncObject extends Streamer {
+    protected $unsetVars;
+
+    public function SyncObject($mapping) {
+        $this->unsetVars = array();
+        parent::Streamer($mapping);
+    }
+
     /**
      * Sets all supported but not transmitted variables
      * of this SyncObject to an "empty" value, so they are deleted when being saved
@@ -60,23 +67,17 @@ abstract class SyncObject extends Streamer {
         if ($supportedFields === false || !is_array($supportedFields))
             return false;
 
-        $supportDebug = "Supported variables:";
         foreach ($supportedFields as $field) {
             if (!isset($this->_mapping[$field])) {
                 ZLog::Write(LOGLEVEL_WARN, sprintf("Field '%s' is supposed to be emptied but is not defined for '%s'", $field, get_class($this)));
                 continue;
             }
             $var = $this->_mapping[$field][self::STREAMER_VAR];
-            // only do something if var is not set..
-            if (!isset($this->$var)){
-                // TODO it could be nice to mark the variable as "unset" somehow!
-                $this->$var = "";
-                if (isset($this->_mapping[$field][self::STREAMER_ARRAY]))
-                    $this->$var = array();
-                $supportDebug .= " ". $var;
-            }
+            // add var to $this->unsetVars if $var is not set
+            if (!isset($this->$var))
+                $this->unsetVars[] = $var;
         }
-        ZLog::Write(LOGLEVEL_DEBUG, $supportDebug ." - emptied");
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("Supported variables to be unset: %s", implode(',', $this->unsetVars)));
         return true;
     }
 
@@ -177,7 +178,7 @@ class SyncFolder extends SyncObject {
                     SYNC_FOLDERHIERARCHY_TYPE => array (self::STREAMER_VAR => "type")
                 );
 
-        parent::Streamer($mapping);
+        parent::SyncObject($mapping);
     }
 }
 
@@ -199,7 +200,7 @@ class SyncAttachment extends SyncObject {
                     SYNC_POOMMAIL_ATTREMOVED => array (self::STREAMER_VAR => "attremoved"),
                 );
 
-        parent::Streamer($mapping);
+        parent::SyncObject($mapping);
     }
 }
 
@@ -239,7 +240,7 @@ class SyncMeetingRequest extends SyncObject {
                     SYNC_POOMMAIL_GLOBALOBJID => array (self::STREAMER_VAR => "globalobjid"),
                 );
 
-        parent::Streamer($mapping);
+        parent::SyncObject($mapping);
     }
 }
 
@@ -296,7 +297,7 @@ class SyncMail extends SyncObject {
                     );
         }
 
-        parent::Streamer($mapping);
+        parent::SyncObject($mapping);
     }
 }
 
@@ -441,7 +442,7 @@ class SyncContact extends SyncObject {
                     );
         }
 
-        parent::Streamer($mapping);
+        parent::SyncObject($mapping);
     }
 }
 
@@ -455,7 +456,7 @@ class SyncAttendee extends SyncObject {
                     SYNC_POOMCAL_NAME => array (self::STREAMER_VAR => "name" )
                 );
 
-        parent::Streamer($mapping);
+        parent::SyncObject($mapping);
     }
 }
 
@@ -511,7 +512,7 @@ class SyncAppointment extends SyncObject {
                     SYNC_POOMCAL_CATEGORIES => array (self::STREAMER_VAR => "categories", self::STREAMER_ARRAY => SYNC_POOMCAL_CATEGORY),
                 );
 
-        parent::Streamer($mapping);
+        parent::SyncObject($mapping);
     }
 }
 
@@ -537,7 +538,7 @@ class SyncRecurrence extends SyncObject {
                     SYNC_POOMCAL_MONTHOFYEAR => array (self::STREAMER_VAR => "monthofyear")
                 );
 
-        parent::Streamer($mapping);
+        parent::SyncObject($mapping);
     }
 }
 
@@ -564,7 +565,7 @@ class SyncMeetingRequestRecurrence extends SyncObject {
                     SYNC_POOMMAIL_MONTHOFYEAR => array (self::STREAMER_VAR => "monthofyear")
                 );
 
-        parent::Streamer($mapping);
+        parent::SyncObject($mapping);
     }
 }
 
@@ -592,7 +593,7 @@ class SyncTaskRecurrence extends SyncObject {
                     SYNC_POOMTASKS_WEEKOFMONTH => array (self::STREAMER_VAR => "weekofmonth"),
                     SYNC_POOMTASKS_MONTHOFYEAR => array (self::STREAMER_VAR => "monthofyear"),
                 );
-        parent::Streamer($mapping);
+        parent::SyncObject($mapping);
     }
 }
 
@@ -636,7 +637,7 @@ class SyncTask extends SyncObject {
                     SYNC_POOMTASKS_CATEGORIES => array (self::STREAMER_VAR => "categories", self::STREAMER_ARRAY => SYNC_POOMTASKS_CATEGORY),
                 );
 
-        parent::Streamer($mapping);
+        parent::SyncObject($mapping);
     }
 }
 
