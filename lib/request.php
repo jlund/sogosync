@@ -1026,7 +1026,14 @@ class RequestProcessor {
                 if ($status == 1) {
                     // Configure importer with last state
                     $importer = self::$backend->GetImporter($collection["collectionid"]);
-                    $importer->Config($collection["syncstate"], $collection["conflict"]);
+                    // the importer could not be initialized if there are missing permissions
+                    if ($importer === false) {
+                        // force a hierarchysync
+                        // TODO status exceptions should be thrown
+                        $status = 12;
+                    }
+                    else
+                        $importer->Config($collection["syncstate"], $collection["conflict"]);
                 }
 
                 $nchanges = 0;
@@ -1158,15 +1165,21 @@ class RequestProcessor {
                         // Use the state from the importer, as changes may have already happened
                         $exporter = self::$backend->GetExporter($collection["collectionid"]);
 
-                        // Stream the messages directly to the PDA
-                        $streamimporter = new ImportChangesStream(self::$encoder, ZPush::getSyncObjectFromFolderClass($collection["class"]));
+                        if ($exporter === false) {
+                            ZLog::Write(LOGLEVEL_DEBUG, "No exporter available, forcing hierarchy synchronization");
+                            $status = 12;
+                        }
+                        else {
+                            // Stream the messages directly to the PDA
+                            $streamimporter = new ImportChangesStream(self::$encoder, ZPush::getSyncObjectFromFolderClass($collection["class"]));
 
-                        $filtertype = isset($collection["filtertype"]) ? $collection["filtertype"] : false;
-                        $exporter->Config($collection["syncstate"]);
-                        $exporter->ConfigContentParameters($collection["class"], $filtertype, $collection["truncation"]);
-                        $exporter->InitializeExporter($streamimporter);
+                            $filtertype = isset($collection["filtertype"]) ? $collection["filtertype"] : false;
+                            $exporter->Config($collection["syncstate"]);
+                            $exporter->ConfigContentParameters($collection["class"], $filtertype, $collection["truncation"]);
+                            $exporter->InitializeExporter($streamimporter);
 
-                        $changecount = $exporter->GetChangeCount();
+                            $changecount = $exporter->GetChangeCount();
+                        }
                     }
 
                     // Get a new sync key to output to the client if any changes have been requested or will be send
@@ -1367,9 +1380,28 @@ class RequestProcessor {
             foreach($collections as $collection) {
                 self::$encoder->startTag(SYNC_GETITEMESTIMATE_RESPONSE);
                 {
-                    self::$encoder->startTag(SYNC_GETITEMESTIMATE_STATUS);
+                    // TODO implement correct status handling
+                    $changecount = 0;
+                    $status = 1;
+                    $exporter = self::$backend->GetExporter($collection["collectionid"]);
+                    if ($exporter === false) {
+                        ZLog::Write(LOGLEVEL_DEBUG, "No exporter available, forcing hierarchy synchronization");
+                        $status = 12;
+                    }
+                    else {
+                        $importer = new ChangesMemoryWrapper();
+                        // TODO this could also fail -> set correct status
+                        $syncstate = self::$deviceManager->GetSyncState($collection["synckey"]);
+
+                        $exporter->Config($syncstate);
+                        $exporter->ConfigContentParameters($collection["class"], $collection["filtertype"], 0);
+                        $exporter->InitializeExporter($importer);
+                        $changecount = $exporter->GetChangeCount();
+                    }
+
                     // TODO set status
-                    self::$encoder->content(1);
+                    self::$encoder->startTag(SYNC_GETITEMESTIMATE_STATUS);
+                    self::$encoder->content($status);
                     self::$encoder->endTag();
 
                     self::$encoder->startTag(SYNC_GETITEMESTIMATE_FOLDER);
@@ -1383,17 +1415,9 @@ class RequestProcessor {
                         self::$encoder->endTag();
 
                         self::$encoder->startTag(SYNC_GETITEMESTIMATE_ESTIMATE);
-                        $importer = new ChangesMemoryWrapper();
-                        $syncstate = self::$deviceManager->GetSyncState($collection["synckey"]);
 
-                        $exporter = self::$backend->GetExporter($collection["collectionid"]);
-                        //  function Config(&$importer, $mclass, $restrict, $syncstate, $flags, $truncation)
-                        //$exporter->Config($importer, $collection["class"], $collection["filtertype"], $syncstate, 0, 0);
-                        $exporter->Config($syncstate);
-                        $exporter->ConfigContentParameters($collection["class"], $collection["filtertype"], 0);
-                        $exporter->InitializeExporter($importer);
 
-                        self::$encoder->content($exporter->GetChangeCount());
+                        self::$encoder->content($changecount);
 
                         self::$encoder->endTag();
                     }
@@ -1536,6 +1560,14 @@ class RequestProcessor {
                 self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore($collection["serverid"], true));
 
                 $exporter = self::$backend->GetExporter($collection["serverid"]);
+                // during the ping, permissions could be revoked
+                // TODO during ping, the permissions are constantly checked. This could be improved.
+                if ($exporter === false) {
+                    $pingstatus = 7;
+                    // reset current collections
+                    $collections = array();
+                    break 2;
+                }
                 $importer = false;
 
                 $exporter->Config($collection["state"], BACKEND_DISCARD_DATA);

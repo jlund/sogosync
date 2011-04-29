@@ -81,6 +81,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
     private $_session;
     private $_defaultstore;
     private $_store;
+    private $_storeName;
     private $_storeCache;
     private $_importedFolders;
 
@@ -92,6 +93,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
     public function BackendZarafa() {
         $this->_session = false;
         $this->_store = false;
+        $this->_storeName = false;
         $this->_storeCache = array();
         $this->_importedFolders = array();
     }
@@ -145,15 +147,17 @@ class BackendZarafa implements IBackend, ISearchProvider {
         }
 
         // Get/open default store
-        $this->_defaultstore = $this->openMessageStore();
+        $this->_defaultstore = $this->openMessageStore($user);
 
         if($this->_defaultstore === false) {
             // TODO set HTTP status code if available
             ZLog::Write(LOGLEVEL_ERROR, sprintf("ZarafaBackend->Logon(): User '%s' has no default store", $user));
             return false;
         }
-        else
+        else {
             $this->_store = $this->_defaultstore;
+            $this->_storeName = $user;
+        }
 
         writeLog(LOGLEVEL_INFO, sprintf("ZarafaBackend->Logon(): User '%s' is authenticated",$user));
 
@@ -184,6 +188,12 @@ class BackendZarafa implements IBackend, ISearchProvider {
     public function Setup($store, $checkACLonly = false, $folderid = false) {
         list($user, $domain) = Utils::SplitDomainUser($store);
 
+        if (!isset($this->_mainUser))
+            return false;
+
+        if ($user === false)
+            $user = $this->_mainUser;
+
         // This is a special case. A user will get it's entire folder structure by the foldersync by default.
         // The ACL check is executed when an additional folder is going to be sent to the mobile.
         // Configured that way the user could receive the same folderid twice, with two different names.
@@ -209,31 +219,12 @@ class BackendZarafa implements IBackend, ISearchProvider {
                     else
                         $admin = true;
 
-                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->Setup(): Checking for admin ACLs: '%s'", Utils::PrintAsString($admin)));
+                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->Setup(): Checking for admin ACLs on store '%s': '%s'", $user, Utils::PrintAsString($admin)));
                     return $admin;
                 }
                 // check 'secretary' permissions on this folder
                 else {
-                    $rights = false;
-                    $entryid = mapi_msgstore_entryidfromsourcekey($userstore, hex2bin($folderid));
-                    if ($entryid) {
-                        $folder = mapi_msgstore_openentry($userstore, $entryid);
-                        if ($folder) {
-                            $props = mapi_getprops($folder, array(PR_RIGHTS));
-                            if (isset($props[PR_RIGHTS])) {
-                                if (($props[PR_RIGHTS] & ecRightsReadAny) &&
-                                    ($props[PR_RIGHTS] & ecRightsCreate) &&
-                                    ($props[PR_RIGHTS] & ecRightsEditOwned) &&
-                                    ($props[PR_RIGHTS] & ecRightsDeleteOwned) &&
-                                    ($props[PR_RIGHTS] & ecRightsEditAny) &&
-                                    ($props[PR_RIGHTS] & ecRightsDeleteAny) &&
-                                    ($props[PR_RIGHTS] & ecRightsFolderVisible)) {
-                                    $rights = true;
-                                }
-                            }
-                        }
-                    }
-
+                    $rights = $this->hasSecretaryACLs($userstore, $folderid);
                     ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->Setup(): Checking for secretary ACLs on '%s' of store '%s': '%s'", $folderid, $user, Utils::PrintAsString($rights)));
                     return $rights;
                 }
@@ -245,6 +236,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
             else {
                 // switch active store
                 $this->_store = $userstore;
+                $this->_storeName = $user;
                 return true;
             }
         }
@@ -329,6 +321,11 @@ class BackendZarafa implements IBackend, ISearchProvider {
     public function GetImporter($folderid = false) {
         writeLog(LOGLEVEL_DEBUG, sprintf("BackendZarafa->GetImporter() folderid: '%s'", Utils::PrintAsString($folderid)));
         if($folderid !== false) {
+            // check if the user of the current store has permissions to import to this folderid
+            if ($this->_storeName != $this->_mainUser && !$this->hasSecretaryACLs($this->_store, $folderid)) {
+                writeLog(LOGLEVEL_DEBUG, sprintf("BackendZarafa->GetImporter(): missing permissions on folderid: '%s'.", Utils::PrintAsString($folderid)));
+                return false;
+            }
             $this->_importedFolders[$folderid] = $this->_store;
             return new ImportChangesICS($this->_session, $this->_store, hex2bin($folderid));
         }
@@ -346,8 +343,14 @@ class BackendZarafa implements IBackend, ISearchProvider {
      * @return object(ExportChanges)
      */
     public function GetExporter($folderid = false) {
-        if($folderid !== false)
+        if($folderid !== false) {
+            // check if the user of the current store has permissions to export from this folderid
+            if ($this->_storeName != $this->_mainUser && !$this->hasSecretaryACLs($this->_store, $folderid)) {
+                writeLog(LOGLEVEL_DEBUG, sprintf("BackendZarafa->GetExporter(): missing permissions on folderid: '%s'.", Utils::PrintAsString($folderid)));
+                return false;
+            }
             return new ExportChangesICS($this->_session, $this->_store, hex2bin($folderid));
+        }
         else
             return new ExportChangesICS($this->_session, $this->_store);
     }
@@ -993,18 +996,12 @@ class BackendZarafa implements IBackend, ISearchProvider {
      * Open the store marked with PR_DEFAULT_STORE = TRUE
      * if $return_public is set, the public store is opened
      *
-     * @param string    $user               (opt) User which store should be opened. If false, the main user store is returned
+     * @param string    $user               User which store should be opened
      *
      * @access public
      * @return boolean
      */
-    private function openMessageStore($user = false) {
-        if (!isset($this->_mainUser))
-            return false;
-
-        if ($user === false)
-            $user = $this->_mainUser;
-
+    private function openMessageStore($user) {
         // During PING requests the operations store has to be switched constantly
         // the cache prevents the same store opened several times
         if (isset($this->_storeCache[$user]))
@@ -1054,6 +1051,27 @@ class BackendZarafa implements IBackend, ISearchProvider {
             ZLog::Write(LOGLEVEL_WARN, sprintf("ZarafaBackend->openMessageStore('%s'): No store found for this user", $user));
             return false;
         }
+    }
+
+    private function hasSecretaryACLs($store, $folderid) {
+        $entryid = mapi_msgstore_entryidfromsourcekey($store, hex2bin($folderid));
+        if (!$entryid)  return false;
+
+        $folder = mapi_msgstore_openentry($store, $entryid);
+        if (!$folder) return false;
+
+        $props = mapi_getprops($folder, array(PR_RIGHTS));
+        if (isset($props[PR_RIGHTS]) &&
+            ($props[PR_RIGHTS] & ecRightsReadAny) &&
+            ($props[PR_RIGHTS] & ecRightsCreate) &&
+            ($props[PR_RIGHTS] & ecRightsEditOwned) &&
+            ($props[PR_RIGHTS] & ecRightsDeleteOwned) &&
+            ($props[PR_RIGHTS] & ecRightsEditAny) &&
+            ($props[PR_RIGHTS] & ecRightsDeleteAny) &&
+            ($props[PR_RIGHTS] & ecRightsFolderVisible) ) {
+            return true;
+        }
+        return false;
     }
 
     // Adds all folders in $mapifolder to $list, recursively
