@@ -176,7 +176,7 @@
  *      store:      the ressource where the folder is located.
  *                  Zarafa users use 'SYSTEM' for the 'Public Folder'
  *      folderid:   folder id of the folder to be synchronized
- *      name:       name displayed on the mobile device
+ *      name:       name to be displayed on the mobile device
  *      type:       supported types are:
  *                      SYNC_FOLDER_TYPE_USER_CONTACT
  *                      SYNC_FOLDER_TYPE_USER_APPOINTMENT
@@ -184,11 +184,18 @@
  *                      SYNC_FOLDER_TYPE_USER_MAIL
  *
  *  Additional notes:
- *  - all Z-Push users MUST HAVE FULL write permissions to the configured folders!
+ *  - on Zarafa systems use backend/zarafa/listfolders.php script to get a list
+ *    of available folders
+ *
+ *  - all Z-Push users must have full writing permissions (secretary rights) so
+ *    the configured folders can be synchronized to the mobile
+ *
  *  - this feature is only partly suitable for multi-tenancy environments,
- *    as ALL users from all tenents need access to the configured store & folder.
- *  - use the zarafa_listfolders.php script to get a list of available folders
- *  - changing this configuration could cause high load on the system, as all
+ *    as ALL users from ALL tenents need access to the configured store & folder.
+ *    When configuring a public folder, this will cause problems, as each user has
+ *    a different public folder in his tenant, so the folder are not available.
+
+ *  - changing this configuration could cause HIGH LOAD on the system, as all
  *    connected devices will be updated and load the data contained in the
  *    added/modified folders.
  */

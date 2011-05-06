@@ -151,7 +151,7 @@ class ASDevice {
             $this->useragentHistory     = $data[$this->user][self::USERAGENTHISTORY];
             $this->supportedFields      = $data[$this->user][self::SUPPORTEDFIELDS];
 
-            ZLog::Write(LOGLEVEL_INFO, sprintf("ASDevice data loaded for user: '%s'", $this->user));
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("ASDevice data loaded for user: '%s'", $this->user));
         }
 
         $this->loadedData = $data;
