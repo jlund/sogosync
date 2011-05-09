@@ -59,7 +59,7 @@ class SearchLDAP implements ISearchProvider {
     public function SearchLDAP() {
         if (!function_exists("ldap_connect")) {
             // TODO throw status exception
-            writeLog(LOGLEVEL_FATAL, "SearchLDAP: php-ldap is not installed. Search aborted.");
+            ZLog::Write(LOGLEVEL_FATAL, "SearchLDAP: php-ldap is not installed. Search aborted.");
             return false;
         }
 
@@ -71,7 +71,7 @@ class SearchLDAP implements ISearchProvider {
         if (constant('ANONYMOUS_BIND') === true) {
             if(! @ldap_bind($this->_connection)) {
                 // TODO throw status exception
-                writeLog(LOGLEVEL_ERROR, "SearchLDAP: Could not bind anonymously to server! Search aborted.");
+                ZLog::Write(LOGLEVEL_ERROR, "SearchLDAP: Could not bind anonymously to server! Search aborted.");
                 $this->_connection = false;
                 return false;
             }
@@ -79,14 +79,14 @@ class SearchLDAP implements ISearchProvider {
         else if (constant('LDAP_BIND_USER') != "") {
             if(! @ldap_bind($this->_connection, LDAP_BIND_USER, LDAP_BIND_PASSWORD)) {
                 // TODO throw status exception
-                writeLog(LOGLEVEL_ERROR, "SearchLDAP: Could not bind to server with user '".LDAP_BIND_USER."' and given password! Search aborted.");
+                ZLog::Write(LOGLEVEL_ERROR, "SearchLDAP: Could not bind to server with user '".LDAP_BIND_USER."' and given password! Search aborted.");
                 $this->_connection = false;
                 return false;
             }
         }
         else {
             // TODO throw status exception
-            writeLog(LOGLEVEL_ERROR, "SearchLDAP: neither anonymous nor default bind enabled. Other options not implemented.");
+            ZLog::Write(LOGLEVEL_ERROR, "SearchLDAP: neither anonymous nor default bind enabled. Other options not implemented.");
             // it would be possible to use the users login and password to authenticate on the LDAP server
             // the main $backend has to keep these values so they could be used here
             $this->_connection = false;
@@ -123,7 +123,7 @@ class SearchLDAP implements ISearchProvider {
             $searchfilter = str_replace("SEARCHVALUE", $searchquery, LDAP_SEARCH_FILTER);
             $result = @ldap_search($this->_connection, LDAP_SEARCH_BASE, $searchfilter);
             if (!$result) {
-                writeLog(LOGLEVEL_ERROR, "SearchLDAP: Error in search query. Search aborted");
+                ZLog::Write(LOGLEVEL_ERROR, "SearchLDAP: Error in search query. Search aborted");
                 return false;
             }
 

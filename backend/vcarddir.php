@@ -126,7 +126,7 @@ class BackendVCDir extends BackendDiff {
      * @return array
      */
     public function GetFolderList() {
-        writeLog(LOGLEVEL_DEBUG, 'VCDir::GetFolderList()');
+        ZLog::Write(LOGLEVEL_DEBUG, 'VCDir::GetFolderList()');
         $contacts = array();
         $folder = $this->StatFolder("root");
         $contacts[] = $folder;
@@ -143,7 +143,7 @@ class BackendVCDir extends BackendDiff {
      * @return object       SyncFolder with information
      */
     public function GetFolder($id) {
-        writeLog(LOGLEVEL_DEBUG, 'VCDir::GetFolder('.$id.')');
+        ZLog::Write(LOGLEVEL_DEBUG, 'VCDir::GetFolder('.$id.')');
         if($id == "root") {
             $folder = new SyncFolder();
             $folder->serverid = $id;
@@ -164,7 +164,7 @@ class BackendVCDir extends BackendDiff {
      * @return array
      */
     public function StatFolder($id) {
-        writeLog(LOGLEVEL_DEBUG, 'VCDir::StatFolder('.$id.')');
+        ZLog::Write(LOGLEVEL_DEBUG, 'VCDir::StatFolder('.$id.')');
         $folder = $this->GetFolder($id);
 
         $stat = array();
@@ -202,7 +202,7 @@ class BackendVCDir extends BackendDiff {
      * @return array        of messages
      */
     public function GetMessageList($folderid, $cutoffdate) {
-        writeLog(LOGLEVEL_DEBUG, 'VCDir::GetMessageList('.$folderid.')');
+        ZLog::Write(LOGLEVEL_DEBUG, 'VCDir::GetMessageList('.$folderid.')');
         $messages = array();
 
         $dir = opendir($this->getPath());
@@ -237,7 +237,7 @@ class BackendVCDir extends BackendDiff {
      * @return object
      */
     public function GetMessage($folderid, $id, $truncsize, $mimesupport = 0) {
-        writeLog(LOGLEVEL_DEBUG, 'VCDir::GetMessage('.$folderid.', '.$id.', ..)');
+        ZLog::Write(LOGLEVEL_DEBUG, 'VCDir::GetMessage('.$folderid.', '.$id.', ..)');
         if($folderid != "root")
             return;
 
@@ -460,7 +460,7 @@ class BackendVCDir extends BackendDiff {
      * @return array
      */
     public function StatMessage($folderid, $id) {
-        writeLog(LOGLEVEL_DEBUG, 'VCDir::StatMessage('.$folderid.', '.$id.')');
+        ZLog::Write(LOGLEVEL_DEBUG, 'VCDir::StatMessage('.$folderid.', '.$id.')');
         if($folderid != "root")
             return false;
 
@@ -486,7 +486,7 @@ class BackendVCDir extends BackendDiff {
      * @return array        same return value as StatMessage()
      */
     public function ChangeMessage($folderid, $id, $message) {
-        writeLog(LOGLEVEL_DEBUG, 'VCDir::ChangeMessage('.$folderid.', '.$id.', ..)');
+        ZLog::Write(LOGLEVEL_DEBUG, 'VCDir::ChangeMessage('.$folderid.', '.$id.', ..)');
         $mapping = array(
             'fileas' => 'FN',
             'lastname;firstname;middlename;title;suffix' => 'N',
