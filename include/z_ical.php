@@ -42,8 +42,8 @@
 ************************************************/
 
 class ZPush_ical{
-    function ZPush_ical($store){
-        $this->_store = $store;
+    function ZPush_ical(&$store, &$props){
+         $this->_props = $props;
     }
 
     /*
@@ -63,6 +63,7 @@ class ZPush_ical{
         $elemcount = count($aical);
         $i=0;
         $nextline = $aical[0];
+
         //last element is empty
         while ($i < $elemcount - 1) {
             $line = $nextline;
@@ -96,30 +97,16 @@ class ZPush_ical{
                         switch ($property) {
                             case 'DTSTART':
                                 $data = $this->getTimestampFromStreamerDate($data);
-                                $namedStartTime = GetPropIDFromString($this->_store, "PT_SYSTIME:{00062002-0000-0000-C000-000000000046}:0x820d");
-                                $mapiprops[$namedStartTime] = $data;
-                                $namedCommonStart = GetPropIDFromString($this->_store, "PT_SYSTIME:{00062008-0000-0000-C000-000000000046}:0x8516");
-                                $mapiprops[$namedCommonStart] = $data;
-                                $clipStart = GetPropIDFromString($this->_store, "PT_SYSTIME:{00062002-0000-0000-C000-000000000046}:0x8235");
-                                $mapiprops[$clipStart] = $data;
-                                $mapiprops[PR_START_DATE] = $data;
+                                $mapiprops[$this->_props["starttime"]] = $mapiprops[$this->_props["commonstart"]] = $mapiprops[$this->_props["clipstart"]] = $mapiprops[PR_START_DATE] = $data;
                                 break;
 
                             case 'DTEND':
                                 $data = $this->getTimestampFromStreamerDate($data);
-                                $namedEndTime = GetPropIDFromString($this->_store, "PT_SYSTIME:{00062002-0000-0000-C000-000000000046}:0x820e");
-                                $mapiprops[$namedEndTime] = $data;
-                                $namedCommonEnd = GetPropIDFromString($this->_store, "PT_SYSTIME:{00062008-0000-0000-C000-000000000046}:0x8517");
-                                $mapiprops[$namedCommonEnd] = $data;
-                                $clipEnd = GetPropIDFromString($this->_store, "PT_SYSTIME:{00062002-0000-0000-C000-000000000046}:0x8236");
-                                $mapiprops[$clipEnd] = $data;
-                                $mapiprops[PR_END_DATE] = $data;
+                                $mapiprops[$this->_props["endtime"]] = $mapiprops[$this->_props["commonend"]] = $mapiprops[$this->_props["recurrenceend"]] = $mapiprops[PR_END_DATE] = $data;
                                 break;
 
                             case 'UID':
-                                $goid = GetPropIDFromString($this->_store, "PT_BINARY:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x3");
-                                $goid2 = GetPropIDFromString($this->_store, "PT_BINARY:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x23");
-                                $mapiprops[$goid] = $mapiprops[$goid2] = hex2bin($data);
+                                $mapiprops[$this->_props["goidtag"]] = $mapiprops[$this->_props["goid2tag"]] = hex2bin($data);
                                 break;
 
                             case 'ATTENDEE':
@@ -164,10 +151,7 @@ class ZPush_ical{
                                 $data = str_replace("\\t", "&nbsp;", $data);
                                 $data = str_replace("\\r", "<br />", $data);
                                 $data = stripslashes($data);
-                                $namedLocation = GetPropIDFromString($this->_store, "PT_STRING8:{00062002-0000-0000-C000-000000000046}:0x8208");
-                                $mapiprops[$namedLocation] = $data;
-                                $tneflocation = GetPropIDFromString($this->_store, "PT_STRING8:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x2");
-                                $mapiprops[$tneflocation] = $data;
+                                $mapiprops[$this->_props["tneflocation"]] = $mapiprops[$this->_props["location"]] = $data;
                                 break;
                         }
                     }
@@ -176,8 +160,7 @@ class ZPush_ical{
             $i++;
 
         }
-        $useTNEF = GetPropIDFromString($this->_store, "PT_BOOLEAN:{00062008-0000-0000-C000-000000000046}:0x8582");
-        $mapiprops[$useTNEF] = true;
+        $mapiprops[$this->_props["usetnef"]] = true;
     }
 
     /*

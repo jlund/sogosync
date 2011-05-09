@@ -41,7 +41,7 @@
 * Consult LICENSE file for details
 ************************************************/
 
-class MAPIProvider extends MAPIMapping{
+class MAPIProvider {
     var $_session;
     var $_store;
 
@@ -52,7 +52,7 @@ class MAPIProvider extends MAPIMapping{
 
 
     // ------------------- getter
-    function _getMessage($mapimessage, $truncflag, $mimesupport = 0) {
+    public function GetMessage($mapimessage, $truncflag, $mimesupport = 0) {
         // Gets the Sync object from a MAPI object according to its message class
 
         $truncsize = getTruncSize($truncflag);
@@ -63,28 +63,31 @@ class MAPIProvider extends MAPIMapping{
             $messageclass = "IPM";
 
         if(strpos($messageclass,"IPM.Contact") === 0)
-            return $this->_getContact($mapimessage, $truncsize, $mimesupport);
+            return $this->getContact($mapimessage, $truncsize, $mimesupport);
         else if(strpos($messageclass,"IPM.Appointment") === 0)
-            return $this->_getAppointment($mapimessage, $truncsize, $mimesupport);
+            return $this->getAppointment($mapimessage, $truncsize, $mimesupport);
         else if(strpos($messageclass,"IPM.Task") === 0)
-            return $this->_getTask($mapimessage, $truncsize, $mimesupport);
+            return $this->getTask($mapimessage, $truncsize, $mimesupport);
         else
-            return $this->_getEmail($mapimessage, $truncsize, $mimesupport);
+            return $this->getEmail($mapimessage, $truncsize, $mimesupport);
     }
 
     // Get an SyncContact object
-    function _getContact($mapimessage, $truncsize, $mimesupport = 0) {
+    private function getContact($mapimessage, $truncsize, $mimesupport = 0) {
         $message = new SyncContact();
 
-        $this->_getPropsFromMAPI($message, $mapimessage, $this->_contactmapping);
+        // Standard one-to-one mappings first
+        $this->getPropsFromMAPI($message, $mapimessage, MAPIMapping::GetContactMapping());
+
+        // Contact specific props
+        $contactproperties = MAPIMapping::GetContactProperties();
+        $messageprops = $this->getProps($mapimessage, $contactproperties);
 
         //check the picture
-        $haspic = $this->_getPropIDFromString("PT_BOOLEAN:{00062004-0000-0000-C000-000000000046}:0x8015");
-        $messageprops = mapi_getprops($mapimessage, array( $haspic ));
-        if (isset($messageprops[$haspic]) && $messageprops[$haspic]) {
+        if (isset($messageprops[$contactproperties["haspic"]]) && $messageprops[$contactproperties["haspic"]]) {
             // Add attachments
             $attachtable = mapi_message_getattachmenttable($mapimessage);
-            mapi_table_restrict($attachtable, getContactPicRestriction());
+            mapi_table_restrict($attachtable, MAPIUtils::GetContactPicRestriction());
             $rows = mapi_table_queryallrows($attachtable, array(PR_ATTACH_NUM, PR_ATTACH_SIZE));
 
             foreach($rows as $row) {
@@ -101,26 +104,26 @@ class MAPIProvider extends MAPIMapping{
     }
 
     // Get an SyncTask object
-    function _getTask($mapimessage, $truncsize, $mimesupport = 0) {
+    private function getTask($mapimessage, $truncsize, $mimesupport = 0) {
         $message = new SyncTask();
 
-        $this->_getPropsFromMAPI($message, $mapimessage, $this->_taskmapping);
+        // Standard one-to-one mappings first
+        $this->getPropsFromMAPI($message, $mapimessage, MAPIMapping::GetTaskMapping());
 
-        $isrecurringtag = $this->_getPropIDFromString("PT_BOOLEAN:{00062003-0000-0000-C000-000000000046}:0x8126");
-        $recurringstate = $this->_getPropIDFromString("PT_BINARY:{00062003-0000-0000-C000-000000000046}:0x8116");
-
-        $deadoccur = $this->_getPropIDFromString("PT_BOOLEAN:{00062003-0000-0000-C000-000000000046}:0x8109");
-
-
-        // Now, get and convert the recurrence and timezone information
-        $recurprops = mapi_getprops($mapimessage, array($isrecurringtag, $recurringstate, $deadoccur));
+        // Task specific props
+        $taskproperties = MAPIMapping::GetTaskProperties();
+        $messageprops = $this->getProps($mapimessage, $taskproperties);
 
         //task with deadoccur is an occurrence of a recurring task and does not need to be handled as recurring
         //webaccess does not set deadoccur for the initial recurring task
-        if(isset($recurprops[$isrecurringtag]) && $recurprops[$isrecurringtag] && (!isset($recurprops[$deadoccur]) || (isset($recurprops[$deadoccur]) && !$recurprops[$deadoccur]))) {
+        if(isset($messageprops[$taskproperties["isrecurringtag"]]) &&
+            $messageprops[$taskproperties["isrecurringtag"]] &&
+            (!isset($messageprops[$taskproperties["deadoccur"]]) ||
+            (isset($messageprops[$taskproperties["deadoccur"]]) &&
+            !$messageprops[$taskproperties["deadoccur"]]))) {
             // Process recurrence
             $message->recurrence = new SyncTaskRecurrence();
-            $this->_getRecurrence($mapimessage, $recurprops, $message, $message->recurrence, false);
+            $this->getRecurrence($mapimessage, $messageprops, $message, $message->recurrence, false);
         }
 
         // when set the task to complete using the WebAccess, the dateComplete property is not set correctly
@@ -131,60 +134,52 @@ class MAPIProvider extends MAPIMapping{
     }
 
     // Get an SyncAppointment object
-    function _getAppointment($mapimessage, $truncsize, $mimesupport = 0) {
+    private function getAppointment($mapimessage, $truncsize, $mimesupport = 0) {
         $message = new SyncAppointment();
 
         // Standard one-to-one mappings first
-        $this->_getPropsFromMAPI($message, $mapimessage, $this->_appointmentmapping);
+        $this->getPropsFromMAPI($message, $mapimessage, MAPIMapping::GetAppointmentMapping());
+
+        // Appointment specific props
+        $appointmentprops = MAPIMapping::GetAppointmentProperties();
+        $messageprops = $this->getProps($mapimessage, $appointmentprops);
 
         // Disable reminder if it is off
-        $reminderset = $this->_getPropIDFromString("PT_BOOLEAN:{00062008-0000-0000-C000-000000000046}:0x8503");
-        $remindertime = $this->_getPropIDFromString("PT_LONG:{00062008-0000-0000-C000-000000000046}:0x8501");
-        $messageprops = mapi_getprops($mapimessage, array ( $reminderset, $remindertime ));
-
-        if(!isset($messageprops[$reminderset]) || $messageprops[$reminderset] == false)
+        if(!isset($messageprops[$appointmentprops["reminderset"]]) || $messageprops[$appointmentprops["reminderset"]] == false)
             $message->reminder = "";
         else {
-            if ($messageprops[$remindertime] == 0x5AE980E1)
+            if ($messageprops[$appointmentprops["remindertime"]] == 0x5AE980E1)
                 $message->reminder = 15;
             else
-                $message->reminder = $messageprops[$remindertime];
+                $message->reminder = $messageprops[$appointmentprops["remindertime"]];
         }
 
-        $messageprops = mapi_getprops($mapimessage, array ( PR_SOURCE_KEY ));
-
         if(!isset($message->uid))
-            $message->uid = bin2hex($messageprops[PR_SOURCE_KEY]);
+            $message->uid = bin2hex($messageprops[$appointmentprops["sourcekey"]]);
         else
             $message->uid = getICalUidFromOLUid($message->uid);
 
         // Get organizer information if it is a meetingrequest
-        $meetingstatustag = $this->_getPropIDFromString("PT_LONG:{00062002-0000-0000-C000-000000000046}:0x8217");
-        $messageprops = mapi_getprops($mapimessage, array($meetingstatustag, PR_SENT_REPRESENTING_ENTRYID, PR_SENT_REPRESENTING_NAME));
+        if(isset($messageprops[$appointmentprops["meetingstatus"]]) &&
+            $messageprops[$appointmentprops["meetingstatus"]] > 0 &&
+            isset($messageprops[$appointmentprops["representingentryid"]]) &&
+            isset($messageprops[$appointmentprops["representingname"]])) {
 
-        if(isset($messageprops[$meetingstatustag]) && $messageprops[$meetingstatustag] > 0 && isset($messageprops[PR_SENT_REPRESENTING_ENTRYID]) && isset($messageprops[PR_SENT_REPRESENTING_NAME])) {
-            $message->organizeremail = w2u($this->_getSMTPAddressFromEntryID($messageprops[PR_SENT_REPRESENTING_ENTRYID]));
-            $message->organizername = w2u($messageprops[PR_SENT_REPRESENTING_NAME]);
+            $message->organizeremail = w2u($this->getSMTPAddressFromEntryID($messageprops[$appointmentprops["representingentryid"]]));
+            $message->organizername = w2u($messageprops[$appointmentprops["representingname"]]);
         }
 
-        $isrecurringtag = $this->_getPropIDFromString("PT_BOOLEAN:{00062002-0000-0000-C000-000000000046}:0x8223");
-        $recurringstate = $this->_getPropIDFromString("PT_BINARY:{00062002-0000-0000-C000-000000000046}:0x8216");
-        $timezonetag = $this->_getPropIDFromString("PT_BINARY:{00062002-0000-0000-C000-000000000046}:0x8233");
-
-        // Now, get and convert the recurrence and timezone information
-        $recurprops = mapi_getprops($mapimessage, array($isrecurringtag, $recurringstate, $timezonetag));
-
-        if(isset($recurprops[$timezonetag]))
-            $tz = $this->_getTZFromMAPIBlob($recurprops[$timezonetag]);
+        if(isset($messageprops[$appointmentprops["timezonetag"]]))
+            $tz = $this->getTZFromMAPIBlob($messageprops[$appointmentprops["timezonetag"]]);
         else
-            $tz = $this->_getGMTTZ();
+            $tz = $this->getGMTTZ();
 
-        $message->timezone = base64_encode($this->_getSyncBlobFromTZ($tz));
+        $message->timezone = base64_encode($this->getSyncBlobFromTZ($tz));
 
-        if(isset($recurprops[$isrecurringtag]) && $recurprops[$isrecurringtag]) {
+        if(isset($messageprops[$appointmentprops["isrecurring"]]) && $messageprops[$appointmentprops["isrecurring"]]) {
             // Process recurrence
             $message->recurrence = new SyncRecurrence();
-            $this->_getRecurrence($mapimessage, $recurprops, $message, $message->recurrence, $tz);
+            $this->getRecurrence($mapimessage, $messageprops, $message, $message->recurrence, $tz);
         }
 
         // Do attendees
@@ -226,7 +221,7 @@ class MAPIProvider extends MAPIMapping{
     }
 
     // Get an approprotate SyncRecurrence
-    function _getRecurrence($mapimessage, $recurprops, &$syncMessage, &$syncRecurrence, $tz) {
+    private function getRecurrence($mapimessage, $recurprops, &$syncMessage, &$syncRecurrence, $tz) {
         if (class_exists('TaskRecurrence') && $syncRecurrence instanceof SyncTaskRecurrence)
             $recurrence = new TaskRecurrence($this->_store, $recurprops);
         else
@@ -311,11 +306,11 @@ class MAPIProvider extends MAPIMapping{
 
             // start, end, basedate, subject, remind_before, reminderset, location, busystatus, alldayevent, label
             if(isset($change["start"]))
-                $exception->starttime = $this->_getGMTTimeByTZ($change["start"], $tz);
+                $exception->starttime = $this->getGMTTimeByTZ($change["start"], $tz);
             if(isset($change["end"]))
-                $exception->endtime = $this->_getGMTTimeByTZ($change["end"], $tz);
+                $exception->endtime = $this->getGMTTimeByTZ($change["end"], $tz);
             if(isset($change["basedate"]))
-                $exception->exceptionstarttime = $this->_getGMTTimeByTZ($this->_getDayStartOfTimestamp($change["basedate"]) + $recurrence->recur["startocc"] * 60, $tz);
+                $exception->exceptionstarttime = $this->getGMTTimeByTZ($this->getDayStartOfTimestamp($change["basedate"]) + $recurrence->recur["startocc"] * 60, $tz);
             if(isset($change["subject"]))
                 $exception->subject = w2u($change["subject"]);
             if(isset($change["reminder_before"]) && $change["reminder_before"])
@@ -345,7 +340,7 @@ class MAPIProvider extends MAPIMapping{
         foreach($recurrence->recur["deleted_occurences"] as $deleted) {
             $exception = new SyncAppointment();
 
-            $exception->exceptionstarttime = $this->_getGMTTimeByTZ($this->_getDayStartOfTimestamp($deleted) + $recurrence->recur["startocc"] * 60, $tz);
+            $exception->exceptionstarttime = $this->getGMTTimeByTZ($this->getDayStartOfTimestamp($deleted) + $recurrence->recur["startocc"] * 60, $tz);
             $exception->deleted = "1";
 
             if(!isset($syncMessage->exceptions))
@@ -361,13 +356,13 @@ class MAPIProvider extends MAPIMapping{
 
 
     // Get an SyncEmail object
-    function _getEmail($mapimessage, $truncsize, $mimesupport = 0) {
+    private function getEmail($mapimessage, $truncsize, $mimesupport = 0) {
         $message = new SyncMail();
 
-        $this->_getPropsFromMAPI($message, $mapimessage, $this->_emailmapping);
+        $this->getPropsFromMAPI($message, $mapimessage, MAPIMapping::GetEmailMapping());
 
-        // Override 'From' to show "Full Name <user@domain.com>"
-        $messageprops = mapi_getprops($mapimessage, array(PR_SENT_REPRESENTING_NAME, PR_SENT_REPRESENTING_ENTRYID, PR_SOURCE_KEY));
+        $emailproperties = MAPIMapping::GetEmailProperties();
+        $messageprops = $this->getProps($mapimessage, $emailproperties);
 
         // Override 'body' for truncation
         $body = mapi_openproperty($mapimessage, PR_BODY);
@@ -388,10 +383,10 @@ class MAPIProvider extends MAPIMapping{
 
         $fromname = $fromaddr = "";
 
-        if(isset($messageprops[PR_SENT_REPRESENTING_NAME]))
-            $fromname = $messageprops[PR_SENT_REPRESENTING_NAME];
-        if(isset($messageprops[PR_SENT_REPRESENTING_ENTRYID]))
-            $fromaddr = $this->_getSMTPAddressFromEntryID($messageprops[PR_SENT_REPRESENTING_ENTRYID]);
+        if(isset($messageprops[$emailproperties["representingname"]]))
+            $fromname = $messageprops[$emailproperties["representingname"]];
+        if(isset($messageprops[$emailproperties["representingentryid"]]))
+            $fromaddr = $this->getSMTPAddressFromEntryID($messageprops[$emailproperties["representingentryid"]]);
 
         if($fromname == $fromaddr)
             $fromname = "";
@@ -408,44 +403,37 @@ class MAPIProvider extends MAPIMapping{
         // process Meeting Requests
         if(isset($message->messageclass) && strpos($message->messageclass, "IPM.Schedule.Meeting") === 0) {
             $message->meetingrequest = new SyncMeetingRequest();
-            $this->_getPropsFromMAPI($message->meetingrequest, $mapimessage, $this->_meetingrequestmapping);
+            $this->getPropsFromMAPI($message->meetingrequest, $mapimessage, MAPIMapping::GetMeetingRequestMapping());
 
-            $goidtag = $this->_getPropIdFromString("PT_BINARY:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x3");
-            $timezonetag = $this->_getPropIDFromString("PT_BINARY:{00062002-0000-0000-C000-000000000046}:0x8233");
-            $recReplTime = $this->_getPropIDFromString("PT_SYSTIME:{00062002-0000-0000-C000-000000000046}:0x8228");
-            $isrecurringtag = $this->_getPropIDFromString("PT_BOOLEAN:{00062002-0000-0000-C000-000000000046}:0x8223");
-            $recurringstate = $this->_getPropIDFromString("PT_BINARY:{00062002-0000-0000-C000-000000000046}:0x8216");
-            $appSeqNr = $this->_getPropIDFromString("PT_LONG:{00062002-0000-0000-C000-000000000046}:0x8201");
-            $lidIsException = $this->_getPropIDFromString("PT_BOOLEAN:{00062002-0000-0000-C000-000000000046}:0xA");
-            $recurStartTime = $this->_getPropIDFromString("PT_LONG:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0xE");
-
-            $props = mapi_getprops($mapimessage, array($goidtag, $timezonetag, $recReplTime, $isrecurringtag, $recurringstate, $appSeqNr, $lidIsException, $recurStartTime));
+            $meetingrequestproperties = MAPIMapping::GetMeetingRequestProperties();
+            $props = $this->getProps($mapimessage, $meetingrequestproperties);
 
             // Get the GOID
-            if(isset($props[$goidtag]))
-                $message->meetingrequest->globalobjid = base64_encode($props[$goidtag]);
+            if(isset($props[$meetingrequestproperties["goidtag"]]))
+                $message->meetingrequest->globalobjid = base64_encode($props[$meetingrequestproperties["goidtag"]]);
 
             // Set Timezone
-            if(isset($props[$timezonetag]))
-                $tz = $this->_getTZFromMAPIBlob($props[$timezonetag]);
+            if(isset($props[$meetingrequestproperties["timezonetag"]]))
+                $tz = $this->getTZFromMAPIBlob($props[$meetingrequestproperties["timezonetag"]]);
             else
-                $tz = $this->_getGMTTZ();
+                $tz = $this->getGMTTZ();
 
-            $message->meetingrequest->timezone = base64_encode($this->_getSyncBlobFromTZ($tz));
+            $message->meetingrequest->timezone = base64_encode($this->getSyncBlobFromTZ($tz));
 
             // send basedate if exception
-            if(isset($props[$recReplTime]) || (isset($props[$lidIsException]) && $props[$lidIsException] == true)) {
-                if (isset($props[$recReplTime])){
-                   $basedate = $props[$recReplTime];
-                   $message->meetingrequest->recurrenceid = $this->_getGMTTimeByTZ($basedate, $this->_getGMTTZ());
+            if(isset($props[$meetingrequestproperties["recReplTime"]]) ||
+                (isset($props[$meetingrequestproperties["lidIsException"]]) && $props[$meetingrequestproperties["lidIsException"]] == true)) {
+                if (isset($props[$meetingrequestproperties["recReplTime"]])){
+                    $basedate = $props[$meetingrequestproperties["recReplTime"]];
+                    $message->meetingrequest->recurrenceid = $this->getGMTTimeByTZ($basedate, $this->getGMTTZ());
                 }
                 else {
-                   if (!isset($props[$goidtag]) || !isset($props[$recurStartTime]) || !isset($props[$timezonetag]))
-                       writeLog(LOGLEVEL_WARN, "Missing property to set correct basedate for exception");
-                   else {
-                       $basedate = extractBaseDate($props[$goidtag], $props[$recurStartTime]);
-                       $message->meetingrequest->recurrenceid = $this->_getGMTTimeByTZ($basedate, $tz);
-                   }
+                    if (!isset($props[$meetingrequestproperties["goidtag"]]) || !isset($props[$meetingrequestproperties["recurStartTime"]]) || !isset($props[$meetingrequestproperties["timezonetag"]]))
+                        ZLog::Write(LOGLEVEL_WARN, "Missing property to set correct basedate for exception");
+                    else {
+                        $basedate = extractBaseDate($props[$meetingrequestproperties["goidtag"]], $props[$meetingrequestproperties["recurStartTime"]]);
+                        $message->meetingrequest->recurrenceid = $this->getGMTTimeByTZ($basedate, $tz);
+                    }
                 }
             }
 
@@ -453,10 +441,10 @@ class MAPIProvider extends MAPIMapping{
             $message->meetingrequest->organizer = $message->from;
 
             // Process recurrence
-            if(isset($props[$isrecurringtag]) && $props[$isrecurringtag]) {
+            if(isset($props[$meetingrequestproperties["isrecurringtag"]]) && $props[$meetingrequestproperties["isrecurringtag"]]) {
                 $myrec = new SyncMeetingRequestRecurrence();
                 // get recurrence -> put $message->meetingrequest as message so the 'alldayevent' is set correctly
-                $this->_getRecurrence($mapimessage, $props, $message->meetingrequest, $myrec, $tz);
+                $this->getRecurrence($mapimessage, $props, $message->meetingrequest, $myrec, $tz);
                 $message->meetingrequest->recurrences = array($myrec);
             }
 
@@ -470,28 +458,24 @@ class MAPIProvider extends MAPIMapping{
             // 2 = single instance of recurring appointment
             // 3 = exception of recurring appointment
             $message->meetingrequest->instancetype = 0;
-            if (isset($props[$isrecurringtag]) && $props[$isrecurringtag] == 1)
+            if (isset($props[$meetingrequestproperties["isrecurringtag"]]) && $props[$meetingrequestproperties["isrecurringtag"]] == 1)
                 $message->meetingrequest->instancetype = 1;
-            else if ((!isset($props[$isrecurringtag]) || $props[$isrecurringtag] == 0 )&& isset($message->meetingrequest->recurrenceid))
-                if (isset($props[$appSeqNr]) && $props[$appSeqNr] == 0 )
+            else if ((!isset($props[$meetingrequestproperties["isrecurringtag"]]) || $props[$meetingrequestproperties["isrecurringtag"]] == 0 )&& isset($message->meetingrequest->recurrenceid))
+                if (isset($props[$meetingrequestproperties["appSeqNr"]]) && $props[$meetingrequestproperties["appSeqNr"]] == 0 )
                     $message->meetingrequest->instancetype = 2;
                 else
                     $message->meetingrequest->instancetype = 3;
 
             // Disable reminder if it is off
-            $reminderset = $this->_getPropIDFromString("PT_BOOLEAN:{00062008-0000-0000-C000-000000000046}:0x8503");
-            $remindertime = $this->_getPropIDFromString("PT_LONG:{00062008-0000-0000-C000-000000000046}:0x8501");
-            $messageprops = mapi_getprops($mapimessage, array ( $reminderset, $remindertime ));
-
-            if(!isset($messageprops[$reminderset]) || $messageprops[$reminderset] == false)
+            if(!isset($props[$meetingrequestproperties["reminderset"]]) || $props[$meetingrequestproperties["reminderset"]] == false)
                 $message->meetingrequest->reminder = "";
             //the property saves reminder in minutes, but we need it in secs
             else {
                 ///set the default reminder time to seconds
-                if ($messageprops[$remindertime] == 0x5AE980E1)
+                if ($props[$meetingrequestproperties["remindertime"]] == 0x5AE980E1)
                     $message->meetingrequest->reminder = 900;
                 else
-                    $message->meetingrequest->reminder = $messageprops[$remindertime] * 60;
+                    $message->meetingrequest->reminder = $props[$meetingrequestproperties["remindertime"]] * 60;
             }
 
             // Set sensitivity to 0 if missing
@@ -597,51 +581,29 @@ class MAPIProvider extends MAPIMapping{
 
     // ------------------- setter
 
-
-    function GetTZOffset($ts)
-    {
-        $Offset = date("O", $ts);
-
-        $Parity = $Offset < 0 ? -1 : 1;
-        $Offset = $Parity * $Offset;
-        $Offset = ($Offset - ($Offset % 100)) / 100 * 60 + $Offset % 100;
-
-        return $Parity * $Offset;
-    }
-
-    function gmtime($time)
-    {
-        $TZOffset = $this->GetTZOffset($time);
-
-        $t_time = $time - $TZOffset * 60; #Counter adjust for localtime()
-        $t_arr = localtime($t_time, 1);
-
-        return $t_arr;
-    }
-
-    function _setMessage($mapimessage, $message) {
+    public function SetMessage($mapimessage, $message) {
         switch(strtolower(get_class($message))) {
             case "synccontact":
-                return $this->_setContact($mapimessage, $message);
+                return $this->setContact($mapimessage, $message);
             case "syncappointment":
-                return $this->_setAppointment($mapimessage, $message);
+                return $this->setAppointment($mapimessage, $message);
             case "synctask":
-                return $this->_setTask($mapimessage, $message);
+                return $this->setTask($mapimessage, $message);
             default:
-                return $this->_setEmail($mapimessage, $message); // In fact, this is unimplemented. It never happens. You can't save or modify an email from the PDA (except readflags)
+                return $this->setEmail($mapimessage, $message); // In fact, this is unimplemented. It never happens. You can't save or modify an email from the PDA (except readflags)
         }
     }
 
-    function _setAppointment($mapimessage, $appointment) {
+    private function setAppointment($mapimessage, $appointment) {
         // Get timezone info
         if(isset($appointment->timezone))
-            $tz = $this->_getTZFromSyncBlob(base64_decode($appointment->timezone));
+            $tz = $this->getTZFromSyncBlob(base64_decode($appointment->timezone));
         else
             $tz = false;
 
         //calculate duration because without it some webaccess views are broken. duration is in min
-        $localstart = $this->_getLocaltimeByTZ($appointment->starttime, $tz);
-        $localend = $this->_getLocaltimeByTZ($appointment->endtime, $tz);
+        $localstart = $this->getLocaltimeByTZ($appointment->starttime, $tz);
+        $localend = $this->getLocaltimeByTZ($appointment->endtime, $tz);
         $duration = ($localend - $localstart)/60;
 
         //nokia sends an yearly event with 0 mins duration but as all day event,
@@ -658,55 +620,50 @@ class MAPIProvider extends MAPIMapping{
 
         mapi_setprops($mapimessage, array(PR_MESSAGE_CLASS => "IPM.Appointment"));
 
-        $this->_setPropsInMAPI($mapimessage, $appointment, $this->_appointmentmapping);
+        $this->setPropsInMAPI($mapimessage, $appointment, MAPIMapping::GetAppointmentMapping());
+        $appointmentprops = MAPIMapping::GetAppointmentProperties();
+        $appointmentprops = $this->getPropIdsFromStrings($appointmentprops);
+        //appointment specific properties to be set
+        $props = array();
 
         //we also have to set the responsestatus and not only meetingstatus, so we use another mapi tag
-        if (isset($appointment->meetingstatus))
-            mapi_setprops($mapimessage, array(
-                $this->_getPropIDFromString("PT_LONG:{00062002-0000-0000-C000-000000000046}:0x8218") =>  $appointment->meetingstatus));
+        if (isset($appointment->meetingstatus)) $props[$appointmentprops["meetingstatus"]] = $appointment->meetingstatus;
 
         //sensitivity is not enough to mark an appointment as private, so we use another mapi tag
-        if (isset($appointment->sensitivity) && $appointment->sensitivity == 0) $private = false;
-        else  $private = true;
+        $private = (isset($appointment->sensitivity) && $appointment->sensitivity == 0) ? false : true;
 
         // Set commonstart/commonend to start/end and remindertime to start, duration, private and cleanGlobalObjectId
-        mapi_setprops($mapimessage, array(
-            $this->_getPropIDFromString("PT_SYSTIME:{00062008-0000-0000-C000-000000000046}:0x8516") =>  $appointment->starttime,
-            $this->_getPropIDFromString("PT_SYSTIME:{00062008-0000-0000-C000-000000000046}:0x8517") =>  $appointment->endtime,
-            $this->_getPropIDFromString("PT_SYSTIME:{00062008-0000-0000-C000-000000000046}:0x8502") =>  $appointment->starttime,
-            $this->_getPropIDFromString("PT_LONG:{00062002-0000-0000-C000-000000000046}:0x8213") =>     $duration,
-            $this->_getPropIDFromString("PT_BOOLEAN:{00062008-0000-0000-C000-000000000046}:0x8506") =>  $private,
-            $this->_getPropIDFromString("PT_BINARY:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x23") =>     $appointment->uid,
-            ));
-
+        $props[$appointmentprops["commonstart"]] = $appointment->starttime;
+        $props[$appointmentprops["commonend"]] = $appointment->endtime;
+        $props[$appointmentprops["reminderstart"]] = $appointment->starttime;
+        // Set reminder boolean to 'true' if reminder is set
+        $props[$appointmentprops["reminderset"]] = isset($appointment->reminder) ? true : false;
+        $props[$appointmentprops["duration"]] = $duration;
+        $props[$appointmentprops["private"]] = $private;
+        $props[$appointmentprops["uid"]] = $appointment->uid;
         // Set named prop 8510, unknown property, but enables deleting a single occurrence of a recurring
         // type in OLK2003.
-        mapi_setprops($mapimessage, array(
-            $this->_getPropIDFromString("PT_LONG:{00062008-0000-0000-C000-000000000046}:0x8510") => 369));
+        $props[$appointmentprops["sideeffects"]] = 369;
 
-        // Set reminder boolean to 'true' if reminder is set
-        mapi_setprops($mapimessage, array(
-            $this->_getPropIDFromString("PT_BOOLEAN:{00062008-0000-0000-C000-000000000046}:0x8503") => isset($appointment->reminder) ? true : false));
 
         if(isset($appointment->reminder) && $appointment->reminder > 0) {
             // Set 'flagdueby' to correct value (start - reminderminutes)
-            mapi_setprops($mapimessage, array(
-                $this->_getPropIDFromString("PT_SYSTIME:{00062008-0000-0000-C000-000000000046}:0x8560") => $appointment->starttime - $appointment->reminder));
+            $props[$appointmentprops["flagdueby"]] = $appointment->starttime - $appointment->reminder * 60;
         }
 
         if(isset($appointment->recurrence)) {
             // Set PR_ICON_INDEX to 1025 to show correct icon in category view
-            mapi_setprops($mapimessage, array(PR_ICON_INDEX => 1025));
+            $props[$appointmentprops["icon"]] = 1025;
 
             $recurrence = new Recurrence($this->_store, $mapimessage);
             $recur = array();
-            $this->_set_Recurrence($appointment, $recur);
+            $this->setRecurrence($appointment, $recur);
 
             $starttime = $this->gmtime($localstart);
             $endtime = $this->gmtime($localend);
 
             //set recurrence start here because it's calculated differently for tasks and appointments
-            $recur["start"] = $this->_getDayStartOfTimestamp($this->_getGMTTimeByTz($localstart, $tz));
+            $recur["start"] = $this->getDayStartOfTimestamp($this->getGMTTimeByTZ($localstart, $tz));
 
             $recur["startocc"] = $starttime["tm_hour"] * 60 + $starttime["tm_min"];
             $recur["endocc"] = $recur["startocc"] + $duration; // Note that this may be > 24*60 if multi-day
@@ -726,15 +683,15 @@ class MAPIProvider extends MAPIMapping{
                         if(!isset($recur["deleted_occurences"]))
                             $recur["deleted_occurences"] = array();
 
-                        array_push($recur["deleted_occurences"], $this->_getDayStartOfTimestamp($exception->exceptionstarttime));
+                        array_push($recur["deleted_occurences"], $this->getDayStartOfTimestamp($exception->exceptionstarttime));
                     } else {
                         // Change exception
-                        $mapiexception = array("basedate" => $this->_getDayStartOfTimestamp($exception->exceptionstarttime));
+                        $mapiexception = array("basedate" => $this->getDayStartOfTimestamp($exception->exceptionstarttime));
 
                         if(isset($exception->starttime))
-                            $mapiexception["start"] = $this->_getLocaltimeByTZ($exception->starttime, $tz);
+                            $mapiexception["start"] = $this->getLocaltimeByTZ($exception->starttime, $tz);
                         if(isset($exception->endtime))
-                            $mapiexception["end"] = $this->_getLocaltimeByTZ($exception->endtime, $tz);
+                            $mapiexception["end"] = $this->getLocaltimeByTZ($exception->endtime, $tz);
                         if(isset($exception->subject))
                             $mapiexception["subject"] = u2w($exception->subject);
                         if(isset($exception->location))
@@ -761,11 +718,11 @@ class MAPIProvider extends MAPIMapping{
 
         }
         else {
-            $isrecurringtag = $this->_getPropIDFromString("PT_BOOLEAN:{00062002-0000-0000-C000-000000000046}:0x8223");
-            mapi_setprops($mapimessage, array($isrecurringtag => false));
+            $props[$appointmentprops["isrecurring"]] = false;
         }
 
         // Do attendees
+        //TODO merge attendee resolve from trunk
         if(isset($appointment->attendees) && is_array($appointment->attendees)) {
             $recips = array();
 
@@ -781,150 +738,78 @@ class MAPIProvider extends MAPIMapping{
             }
 
             mapi_message_modifyrecipients($mapimessage, 0, $recips);
-            mapi_setprops($mapimessage, array(
-                PR_ICON_INDEX => 1026,
-                $this->_getPropIDFromString("PT_BOOLEAN:{00062002-0000-0000-C000-000000000046}:0x8229") => true
-                ));
+            $props[$appointmentprops["icon"]] = 1026;
+            $props[$appointmentprops["mrwassent"]] = true;
         }
+        mapi_setprops($mapimessage, $props);
     }
 
-    function _setContact($mapimessage, $contact) {
+    private function setContact($mapimessage, $contact) {
         mapi_setprops($mapimessage, array(PR_MESSAGE_CLASS => "IPM.Contact"));
 
-        $this->_setPropsInMAPI($mapimessage, $contact, $this->_contactmapping);
+        $contactmapping = MAPIMapping::GetContactMapping();
+        $contactprops = MAPIMapping::GetContactProperties();
+        $this->setPropsInMAPI($mapimessage, $contact, $contactmapping);
 
-        // Set display name and subject to a combined value of firstname and lastname
-        $cname = (isset($contact->prefix))?u2w($contact->prefix)." ":"";
-        $cname .= u2w($contact->firstname);
-        $cname .= (isset($contact->middlename))?" ". u2w($contact->middlename):"";
-        $cname .= " ". u2w($contact->lastname);
-        $cname .= (isset($contact->suffix))?" ". u2w($contact->suffix):"";
-        $cname = trim($cname);
+        ///set display name from contact's properties
+        $cname = $this->composeDisplayName($contact);
 
-        //set contact specific mapi properties
+        //get contact specific mapi properties and merge them with the AS properties
+        $contactprops = array_merge($this->getPropIdsFromStrings($contactmapping), $this->getPropIdsFromStrings($contactprops));
+
+        //contact specific properties to be set
         $props = array();
+
+        //need to be set in order to show contacts properly in outlook and wa
         $nremails = array();
         $abprovidertype = 0;
-        if (isset($contact->email1address)) {
-            $nremails[] = 0;
-            $abprovidertype |= 1;
-            $props[$this->_getPropIDFromString("PT_BINARY:{00062004-0000-0000-C000-000000000046}:0x8085")] = mapi_createoneoff($cname, "SMTP", $contact->email1address); //emailentryid
-            $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x8080")] = "$cname ({$contact->email1address})"; //displayname
-            $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x8082")] = "SMTP"; //emailadresstype
-            $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x8084")] = $contact->email1address; //original emailaddress
-        }
 
-        if (isset($contact->email2address)) {
-            $nremails[] = 1;
-            $abprovidertype |= 2;
-            $props[$this->_getPropIDFromString("PT_BINARY:{00062004-0000-0000-C000-000000000046}:0x8095")] = mapi_createoneoff($cname, "SMTP", $contact->email2address); //emailentryid
-            $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x8090")] = "$cname ({$contact->email2address})"; //displayname
-            $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x8092")] = "SMTP"; //emailadresstype
-            $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x8094")] = $contact->email2address; //original emailaddress
-        }
+        $this->setEmailAddress($contact->email1address, $cname, 1, $props, $contactprops, $nremails, $abprovidertype);
+        $this->setEmailAddress($contact->email2address, $cname, 2, $props, $contactprops, $nremails, $abprovidertype);
+        $this->setEmailAddress($contact->email3address, $cname, 3, $props, $contactprops, $nremails, $abprovidertype);
 
-        if (isset($contact->email3address)) {
-            $nremails[] = 2;
-            $abprovidertype |= 4;
-            $props[$this->_getPropIDFromString("PT_BINARY:{00062004-0000-0000-C000-000000000046}:0x80A5")] = mapi_createoneoff($cname, "SMTP", $contact->email3address); //emailentryid
-            $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x80A0")] = "$cname ({$contact->email3address})"; //displayname
-            $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x80A2")] = "SMTP"; //emailadresstype
-            $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x80A4")] = $contact->email3address; //original emailaddress
-        }
-
-
-        $props[$this->_getPropIDFromString("PT_LONG:{00062004-0000-0000-C000-000000000046}:0x8029")] = $abprovidertype;
-        $props[PR_DISPLAY_NAME] = $cname;
-        $props[PR_SUBJECT] = $cname;
+        $props[$contactprops["addressbooklong"]] = $abprovidertype;
+        $props[$contactprops["displayname"]] = $props[$contactprops["subject"]] = $cname;
 
         //pda multiple e-mail addresses bug fix for the contact
-        if (!empty($nremails))
-            $props[$this->_getPropIDFromString("PT_MV_LONG:{00062004-0000-0000-C000-000000000046}:0x8028")] = $nremails;
+        if (!empty($nremails)) $props[$contactprops["addressbookmv"]] = $nremails;
 
-        //addresses' fix
-        $homecity = $homecountry = $homepostalcode = $homestate = $homestreet = $homeaddress = "";
-        if (isset($contact->homecity))
-            $props[PR_HOME_ADDRESS_CITY] = $homecity = u2w($contact->homecity);
-        if (isset($contact->homecountry))
-            $props[PR_HOME_ADDRESS_COUNTRY] = $homecountry = u2w($contact->homecountry);
-        if (isset($contact->homepostalcode))
-            $props[PR_HOME_ADDRESS_POSTAL_CODE] = $homepostalcode = u2w($contact->homepostalcode);
-        if (isset($contact->homestate))
-            $props[PR_HOME_ADDRESS_STATE_OR_PROVINCE] = $homestate = u2w($contact->homestate);
-        if (isset($contact->homestreet))
-            $props[PR_HOME_ADDRESS_STREET] = $homestreet = u2w($contact->homestreet);
-        $homeaddress = buildAddressString($homestreet, $homepostalcode, $homecity, $homestate, $homecountry);
-        if ($homeaddress)
-            $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x801A")] = $homeaddress;
 
-        $businesscity = $businesscountry = $businesspostalcode = $businessstate = $businessstreet = $businessaddress = "";
-        if (isset($contact->businesscity))
-            $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x8046")] = $businesscity = u2w($contact->businesscity);
-        if (isset($contact->businesscountry))
-            $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x8049")] = $businesscountry = u2w($contact->businesscountry);
-        if (isset($contact->businesspostalcode))
-            $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x8048")] = $businesspostalcode = u2w($contact->businesspostalcode);
-        if (isset($contact->businessstate))
-            $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x8047")] = $businessstate = u2w($contact->businessstate);
-        if (isset($contact->businessstreet))
-            $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x8045")] = $businessstreet = u2w($contact->businessstreet);
-        $businessaddress = buildAddressString($businessstreet, $businesspostalcode, $businesscity, $businessstate, $businesscountry);
-        if ($businessaddress) $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x801B")] = $businessaddress;
+        //set addresses
+        $this->setAddress("home", u2w($contact->homecity), u2w($contact->homecountry), u2w($contact->homepostalcode), u2w($contact->homestate), u2w($contact->homestreet), $props, $contactprops);
+        $this->setAddress("business", u2w($contact->businesscity), u2w($contact->businesscountry), u2w($contact->businesspostalcode), u2w($contact->businessstate), u2w($contact->businessstreet), $props, $contactprops);
+        $this->setAddress("other", u2w($contact->othercity), u2w($contact->othercountry), u2w($contact->otherpostalcode), u2w($contact->otherstate), u2w($contact->otherstreet), $props, $contactprops);
 
-        $othercity = $othercountry = $otherpostalcode = $otherstate = $otherstreet = $otheraddress = "";
-        if (isset($contact->othercity))
-            $props[PR_OTHER_ADDRESS_CITY] = $othercity = u2w($contact->othercity);
-        if (isset($contact->othercountry))
-            $props[PR_OTHER_ADDRESS_COUNTRY] = $othercountry = u2w($contact->othercountry);
-        if (isset($contact->otherpostalcode))
-            $props[PR_OTHER_ADDRESS_POSTAL_CODE] = $otherpostalcode = u2w($contact->otherpostalcode);
-        if (isset($contact->otherstate))
-            $props[PR_OTHER_ADDRESS_STATE_OR_PROVINCE] = $otherstate = u2w($contact->otherstate);
-        if (isset($contact->otherstreet))
-            $props[PR_OTHER_ADDRESS_STREET] = $otherstreet = u2w($contact->otherstreet);
-        $otheraddress = buildAddressString($otherstreet, $otherpostalcode, $othercity, $otherstate, $othercountry);
-        if ($otheraddress)
-            $props[$this->_getPropIDFromString("PT_STRING8:{00062004-0000-0000-C000-000000000046}:0x801C")] = $otheraddress;
-
-           $mailingadresstype = 0;
-
-        if ($businessaddress) $mailingadresstype = 2;
-        elseif ($homeaddress) $mailingadresstype = 1;
-        elseif ($othercity) $mailingadresstype = 3;
-
-        if ($mailingadresstype) {
-            $props[$this->_getPropIDFromString("PT_LONG:{00062004-0000-0000-C000-000000000046}:0x8022")] = $mailingadresstype;
-
-            switch ($mailingadresstype) {
-                case 1:
-                    $this->_setMailingAdress($homestreet, $homepostalcode, $homecity, $homestate, $homecountry, $homeaddress, $props);
-                    break;
-                case 2:
-                    $this->_setMailingAdress($businessstreet, $businesspostalcode, $businesscity, $businessstate, $businesscountry, $businessaddress, $props);
-                    break;
-                case 3:
-                    $this->_setMailingAdress($otherstreet, $otherpostalcode, $othercity, $otherstate, $othercountry, $otheraddress, $props);
-                    break;
-                }
-            }
+//TODO change mailing address handling
+        //set the mailing address and its type
+        if (isset($props[$contactprops["businessaddress"]])) {
+            $props[$contactprops["mailingaddress"]] = 2;
+            $this->setMailingAddress($props[$contactprops["businesscity"]], $props[$contactprops["businesscountry"]], $props[$contactprops["businesspostalcode"]], $props[$contactprops["businessstate"]], $props[$contactprops["businessstreet"]], $props[$contactprops["businessaddress"]], $props, $contactprops);
+        }
+        elseif (isset($props[$contactprops["homeaddress"]])) {
+            $props[$contactprops["mailingaddress"]] = 1;
+            $this->setMailingAddress($props[$contactprops["homecity"]], $props[$contactprops["homecountry"]], $props[$contactprops["homepostalcode"]], $props[$contactprops["homestate"]], $props[$contactprops["homestreet"]], $props[$contactprops["homeaddress"]], $props, $contactprops);
+        }
+        elseif (isset($props[$contactprops["otheraddress"]])) {
+            $props[$contactprops["mailingaddress"]] = 3;
+            $this->setMailingAddress($props[$contactprops["othercity"]], $props[$contactprops["othercountry"]], $props[$contactprops["otherpostalcode"]], $props[$contactprops["otherstate"]], $props[$contactprops["otherstreet"]], $props[$contactprops["otheraddress"]], $props, $contactprops);
+        }
 
         if (isset($contact->picture)) {
             $picbinary = base64_decode($contact->picture);
             $picsize = strlen($picbinary);
             if ($picsize < MAX_EMBEDDED_SIZE) {
-                //set the has picture property to true
-                $haspic = $this->_getPropIDFromString("PT_BOOLEAN:{00062004-0000-0000-C000-000000000046}:0x8015");
+                $props[$contactprops["haspic"]] = false;
 
-                $props[$haspic] = false;
-
+                //TODO contact picture handling
                 //check if contact has already got a picture. delete it first in that case
                 //delete it also if it was removed on a mobile
-                $picprops = mapi_getprops($mapimessage, array($haspic));
-                if (isset($picprops[$haspic]) && $picprops[$haspic]) {
-                    writeLog(LOGLEVEL_DEBUG, "Contact already has a picture. Delete it");
+                $picprops = mapi_getprops($mapimessage, array($props[$contactprops["haspic"]]));
+                if (isset($picprops[$props[$contactprops["haspic"]]]) && $picprops[$props[$contactprops["haspic"]]]) {
+                    ZLog::Write(LOGLEVEL_DEBUG, "Contact already has a picture. Delete it");
 
                     $attachtable = mapi_message_getattachmenttable($mapimessage);
-                    mapi_table_restrict($attachtable, getContactPicRestriction());
+                    mapi_table_restrict($attachtable, MAPIUtils::GetContactPicRestriction());
                     $rows = mapi_table_queryallrows($attachtable, array(PR_ATTACH_NUM));
                     if (isset($rows) && is_array($rows)) {
                         foreach ($rows as $row) {
@@ -935,7 +820,7 @@ class MAPIProvider extends MAPIMapping{
 
                 //only set picture if there's data in the request
                 if ($picbinary !== false && $picsize > 0) {
-                    $props[$haspic] = true;
+                    $props[$contactprops["haspic"]] = true;
                     $pic = mapi_message_createattach($mapimessage);
                     // Set properties of the attachment
                     $picprops = array(
@@ -960,26 +845,27 @@ class MAPIProvider extends MAPIMapping{
         mapi_setprops($mapimessage, $props);
     }
 
-    function _setTask($mapimessage, $task) {
+    private function setTask($mapimessage, $task) {
         mapi_setprops($mapimessage, array(PR_MESSAGE_CLASS => "IPM.Task"));
 
-        $this->_setPropsInMAPI($mapimessage, $task, $this->_taskmapping);
+        $this->setPropsInMAPI($mapimessage, $task, MAPIMapping::GetTaskMapping());
+        $taskprops = MAPIMapping::GetTaskProperties();
+        $taskprops = $this->getPropIdsFromStrings($taskprops);
+
+        //task specific properties to be set
+        $props = array();
 
         if(isset($task->complete)) {
             if($task->complete) {
                 // Set completion to 100%
                 // Set status to 'complete'
-                mapi_setprops($mapimessage, array (
-                    $this->_getPropIDFromString("PT_DOUBLE:{00062003-0000-0000-C000-000000000046}:0x8102") => 1.0,
-                    $this->_getPropIDFromString("PT_LONG:{00062003-0000-0000-C000-000000000046}:0x8101") => 2 )
-                );
+                $props[$taskprops["completion"]] = 1.0;
+                $props[$taskprops["status"]] = 2;
             } else {
                 // Set completion to 0%
                 // Set status to 'not started'
-                mapi_setprops($mapimessage, array (
-                    $this->_getPropIDFromString("PT_DOUBLE:{00062003-0000-0000-C000-000000000046}:0x8102") => 0.0,
-                    $this->_getPropIDFromString("PT_LONG:{00062003-0000-0000-C000-000000000046}:0x8101") => 0 )
-                );
+                $props[$taskprops["completion"]] = 0.0;
+                $props[$taskprops["status"]] = 0;
             }
         }
         if (isset($task->recurrence) && class_exists('TaskRecurrence')) {
@@ -987,18 +873,15 @@ class MAPIProvider extends MAPIMapping{
             if (isset($task->recurrence->occurrences) && $task->recurrence->occurrences == 1) $deadoccur = true;
 
             // Set PR_ICON_INDEX to 1281 to show correct icon in category view
-            mapi_setprops($mapimessage, array(
-            PR_ICON_INDEX => 1281,
+            $props[$taskprops["icon"]] = 1281;
             //dead occur - false if new occurrences should be generated from the task
             //true - if it is the last ocurrence of the task
-            $this->_getPropIDFromString("PT_BOOLEAN:{00062003-0000-0000-C000-000000000046}:0x8109") => $deadoccur,
-            //isRecurring
-            $this->_getPropIDFromString("PT_BOOLEAN:{00062003-0000-0000-C000-000000000046}:0x8126") => true,
-            ));
+            $props[$taskprops["deadoccur"]] = $deadoccur;
+            $props[$taskprops["isrecurringtag"]] = true;
 
             $recurrence = new TaskRecurrence($this->_store, $mapimessage);
             $recur = array();
-            $this->_set_Recurrence($task, $recur);
+            $this->setRecurrence($task, $recur);
 
             //task specific recurrence properties which we need to set here
             // "start" and "end" are in GMT when passing to class.recurrence
@@ -1009,20 +892,355 @@ class MAPIProvider extends MAPIMapping{
             $recur["duedate"] = $task->duedate;
             $recurrence->setRecurrence($recur);
         }
-
-    }
-
-    function _setMailingAdress($street, $zip, $city, $state, $country, $address, &$props) {
-        $props[PR_STREET_ADDRESS] = $street;
-        $props[PR_LOCALITY] = $city;
-        $props[PR_COUNTRY] = $country;
-        $props[PR_POSTAL_CODE] = $zip;
-        $props[PR_STATE_OR_PROVINCE] = $state;
-        $props[PR_POSTAL_ADDRESS] = $address;
+        mapi_setprops($mapimessage, $props);
     }
 
 
-    function _set_Recurrence($message, &$recur) {
+    // ------------------- helper
+
+    private function GetTZOffset($ts)
+    {
+        $Offset = date("O", $ts);
+
+        $Parity = $Offset < 0 ? -1 : 1;
+        $Offset = $Parity * $Offset;
+        $Offset = ($Offset - ($Offset % 100)) / 100 * 60 + $Offset % 100;
+
+        return $Parity * $Offset;
+    }
+
+    private function gmtime($time)
+    {
+        $TZOffset = $this->GetTZOffset($time);
+
+        $t_time = $time - $TZOffset * 60; #Counter adjust for localtime()
+        $t_arr = localtime($t_time, 1);
+
+        return $t_arr;
+    }
+
+        // Sets the properties in a MAPI object according to an Sync object and a property mapping
+    private function setPropsInMAPI($mapimessage, $message, $mapping) {
+        $mapiprops = $this->getPropIdsFromStrings($mapping);
+        $propsToSet = array();
+
+        foreach ($mapiprops as $asprop => $mapiprop) {
+            if(isset($message->$asprop)) {
+
+                // UTF8->windows1252.. this is ok for all numerical values
+                if(mapi_prop_type($mapiprop) != PT_BINARY && mapi_prop_type($mapiprop) != PT_MV_BINARY) {
+                    if(is_array($message->$asprop))
+                        $value = array_map("u2wi", $message->$asprop);
+                    else
+                        $value = u2wi($message->$asprop);
+                } else {
+                    $value = $message->$asprop;
+                }
+
+                // Make sure the php values are the correct type
+                switch(mapi_prop_type($mapiprop)) {
+                    case PT_BINARY:
+                    case PT_STRING8:
+                        settype($value, "string");
+                        break;
+                    case PT_BOOLEAN:
+                        settype($value, "boolean");
+                        break;
+                    case PT_SYSTIME:
+                    case PT_LONG:
+                        settype($value, "integer");
+                        break;
+                }
+
+                // decode base64 value
+                if($mapiprop == PR_RTF_COMPRESSED) {
+                    $value = base64_decode($value);
+                    if(strlen($value) == 0)
+                        continue; // PDA will sometimes give us an empty RTF, which we'll ignore.
+
+                    // Note that you can still remove notes because when you remove notes it gives
+                    // a valid compressed RTF with nothing in it.
+
+                }
+                //all properties will be set at once
+                $propsToSet[$mapiprop] = $value;
+            }
+        }
+
+        mapi_setprops($mapimessage, $propsToSet);
+        if (mapi_last_hresult()) {
+            Zlog::Write(LOGLEVEL_WARN, sprintf("Failed to set properties, trying to set them separately. Error code was:%x", mapi_last_hresult()));
+            $this->setPropsIndividually($mapimessage, $propsToSet, $mapiprops);
+        }
+    }
+
+
+    private function setPropsIndividually(&$mapimessage, &$propsToSet, &$mapiprops) {
+        foreach ($propsToSet as $prop => $value) {
+            mapi_setprops($mapimessage, array($prop => $value));
+            if (mapi_last_hresult()) {
+                Zlog::Write(LOGLEVEL_ERROR, sprintf("Failed setting property [%s] with value [%s], error code was:%x", array_search($prop, $mapiprops), $value, mapi_last_hresult()));
+            }
+        }
+
+    }
+
+    // Gets the properties from a MAPI object and sets them in the Sync object according to mapping
+    private function getPropsFromMAPI(&$message, $mapimessage, $mapping) {
+
+        $messageprops = $this->getProps($mapimessage, $mapping);
+
+        foreach ($mapping as $asprop => $mapiprop) {
+             // Get long strings via openproperty
+            if (isset($messageprops[mapi_prop_tag(PT_ERROR, mapi_prop_id($mapiprop))])) {
+                if ($messageprops[mapi_prop_tag(PT_ERROR, mapi_prop_id($mapiprop))] == -2147024882 || // 32 bit
+                $messageprops[mapi_prop_tag(PT_ERROR, mapi_prop_id($mapiprop))] == 2147942414) {  // 64 bit
+                    $messageprops[$mapiprop] = MAPIUtils::readPropStream($mapimessage, $mapiprop);
+                }
+            }
+
+            if(isset($messageprops[$mapiprop])) {
+                if(mapi_prop_type($mapiprop) == PT_BOOLEAN) {
+                    // Force to actual '0' or '1'
+                    if($messageprops[$mapiprop])
+                        $message->$asprop = 1;
+                    else
+                        $message->$asprop = 0;
+                } else {
+                    // Special handling for PR_MESSAGE_FLAGS
+                    if($mapiprop == PR_MESSAGE_FLAGS)
+                        $message->$asprop = $messageprops[$mapiprop] & 1; // only look at 'read' flag
+                    else if($mapiprop == PR_RTF_COMPRESSED)
+                        //do not send rtf to the mobile
+                        continue;
+                    else if(is_array($messageprops[$mapiprop]))
+                        $message->$asprop = array_map("w2u", $messageprops[$mapiprop]);
+                    else {
+                        if(mapi_prop_type($mapiprop) != PT_BINARY && mapi_prop_type($mapiprop) != PT_MV_BINARY)
+                            $message->$asprop = w2u($messageprops[$mapiprop]);
+                        else
+                            $message->$asprop = $messageprops[$mapiprop];
+                    }
+                }
+            }
+        }
+    }
+
+    private function getPropIdsFromStrings(&$mapiprops) {
+        return getPropIdsFromStrings($this->_store, $mapiprops);
+    }
+
+    protected function getProps($mapimessage, &$mapiproperties) {
+        $mapiproperties = $this->getPropIdsFromStrings($mapiproperties);
+        return mapi_getprops($mapimessage, $mapiproperties);
+    }
+
+    private function getGMTTZ() {
+        $tz = array("bias" => 0, "stdbias" => 0, "dstbias" => 0, "dstendyear" => 0, "dstendmonth" =>0, "dstendday" =>0, "dstendweek" => 0, "dstendhour" => 0, "dstendminute" => 0, "dstendsecond" => 0, "dstendmillis" => 0,
+                                      "dststartyear" => 0, "dststartmonth" =>0, "dststartday" =>0, "dststartweek" => 0, "dststarthour" => 0, "dststartminute" => 0, "dststartsecond" => 0, "dststartmillis" => 0);
+
+        return $tz;
+    }
+
+    // Unpack timezone info from MAPI
+    private function getTZFromMAPIBlob($data) {
+        $unpacked = unpack("lbias/lstdbias/ldstbias/" .
+                           "vconst1/vdstendyear/vdstendmonth/vdstendday/vdstendweek/vdstendhour/vdstendminute/vdstendsecond/vdstendmillis/" .
+                           "vconst2/vdststartyear/vdststartmonth/vdststartday/vdststartweek/vdststarthour/vdststartminute/vdststartsecond/vdststartmillis", $data);
+
+        return $unpacked;
+    }
+
+    // Unpack timezone info from Sync
+    private function getTZFromSyncBlob($data) {
+        $tz = unpack(    "lbias/a64name/vdstendyear/vdstendmonth/vdstendday/vdstendweek/vdstendhour/vdstendminute/vdstendsecond/vdstendmillis/" .
+                        "lstdbias/a64name/vdststartyear/vdststartmonth/vdststartday/vdststartweek/vdststarthour/vdststartminute/vdststartsecond/vdststartmillis/" .
+                        "ldstbias", $data);
+
+        // Make the structure compatible with class.recurrence.php
+        $tz["timezone"] = $tz["bias"];
+        $tz["timezonedst"] = $tz["dstbias"];
+
+        return $tz;
+    }
+
+    // Pack timezone info for Sync
+    private function getSyncBlobFromTZ($tz) {
+        $packed = pack("la64vvvvvvvv" . "la64vvvvvvvv" . "l",
+                $tz["bias"], "", 0, $tz["dstendmonth"], $tz["dstendday"], $tz["dstendweek"], $tz["dstendhour"], $tz["dstendminute"], $tz["dstendsecond"], $tz["dstendmillis"],
+                $tz["stdbias"], "", 0, $tz["dststartmonth"], $tz["dststartday"], $tz["dststartweek"], $tz["dststarthour"], $tz["dststartminute"], $tz["dststartsecond"], $tz["dststartmillis"],
+                $tz["dstbias"]);
+
+        return $packed;
+    }
+
+    // Pack timezone info for MAPI
+    private function getMAPIBlobFromTZ($tz) {
+        $packed = pack("lll" . "vvvvvvvvv" . "vvvvvvvvv",
+                      $tz["bias"], $tz["stdbias"], $tz["dstbias"],
+                      0, 0, $tz["dstendmonth"], $tz["dstendday"], $tz["dstendweek"], $tz["dstendhour"], $tz["dstendminute"], $tz["dstendsecond"], $tz["dstendmillis"],
+                      0, 0, $tz["dststartmonth"], $tz["dststartday"], $tz["dststartweek"], $tz["dststarthour"], $tz["dststartminute"], $tz["dststartsecond"], $tz["dststartmillis"]);
+
+        return $packed;
+    }
+
+    // Checks the date to see if it is in DST, and returns correct GMT date accordingly
+    private function getGMTTimeByTZ($localtime, $tz) {
+        if(!isset($tz) || !is_array($tz))
+            return $localtime;
+
+        if($this->isDST($localtime, $tz))
+            return $localtime + $tz["bias"]*60 + $tz["dstbias"]*60;
+        else
+            return $localtime + $tz["bias"]*60;
+    }
+
+    // Returns the local time for the given GMT time, taking account of the given timezone
+    private function getLocaltimeByTZ($gmttime, $tz) {
+        if(!isset($tz) || !is_array($tz))
+            return $gmttime;
+
+        if($this->isDST($gmttime - $tz["bias"]*60, $tz)) // may bug around the switch time because it may have to be 'gmttime - bias - dstbias'
+            return $gmttime - $tz["bias"]*60 - $tz["dstbias"]*60;
+        else
+            return $gmttime - $tz["bias"]*60;
+    }
+
+    // Returns TRUE if it is the summer and therefore DST is in effect
+    private function isDST($localtime, $tz) {
+        if(!isset($tz) || !is_array($tz))
+            return false;
+
+        $year = gmdate("Y", $localtime);
+        $start = $this->getTimestampOfWeek($year, $tz["dststartmonth"], $tz["dststartweek"], $tz["dststartday"], $tz["dststarthour"], $tz["dststartminute"], $tz["dststartsecond"]);
+        $end = $this->getTimestampOfWeek($year, $tz["dstendmonth"], $tz["dstendweek"], $tz["dstendday"], $tz["dstendhour"], $tz["dstendminute"], $tz["dstendsecond"]);
+
+        if($start < $end) {
+            // northern hemisphere (july = dst)
+          if($localtime >= $start && $localtime < $end)
+              $dst = true;
+          else
+              $dst = false;
+        } else {
+            // southern hemisphere (january = dst)
+          if($localtime >= $end && $localtime < $start)
+              $dst = false;
+          else
+              $dst = true;
+        }
+
+        return $dst;
+    }
+
+    // Returns the local timestamp for the $week'th $wday of $month in $year at $hour:$minute:$second
+    private function getTimestampOfWeek($year, $month, $week, $wday, $hour, $minute, $second)
+    {
+        $date = gmmktime($hour, $minute, $second, $month, 1, $year);
+
+        // Find first day in month which matches day of the week
+        while(1) {
+            $wdaynow = gmdate("w", $date);
+            if($wdaynow == $wday)
+                break;
+            $date += 24 * 60 * 60;
+        }
+
+        // Forward $week weeks (may 'overflow' into the next month)
+        $date = $date + $week * (24 * 60 * 60 * 7);
+
+        // Reverse 'overflow'. Eg week '10' will always be the last week of the month in which the
+        // specified weekday exists
+        while(1) {
+            $monthnow = gmdate("n", $date) - 1; // gmdate returns 1-12
+            if($monthnow > $month)
+                $date = $date - (24 * 7 * 60 * 60);
+            else
+                break;
+        }
+
+        return $date;
+    }
+
+    // Normalize the given timestamp to the start of the day
+    private function getDayStartOfTimestamp($timestamp) {
+        return $timestamp - ($timestamp % (60 * 60 * 24));
+    }
+
+    private function getSMTPAddressFromEntryID($entryid) {
+        $ab = mapi_openaddressbook($this->_session);
+
+        $mailuser = mapi_ab_openentry($ab, $entryid);
+        if(!$mailuser)
+            return "";
+
+        $props = mapi_getprops($mailuser, array(PR_ADDRTYPE, PR_SMTP_ADDRESS, PR_EMAIL_ADDRESS));
+
+        $addrtype = isset($props[PR_ADDRTYPE]) ? $props[PR_ADDRTYPE] : "";
+
+        if(isset($props[PR_SMTP_ADDRESS]))
+            return $props[PR_SMTP_ADDRESS];
+
+        if($addrtype == "SMTP" && isset($props[PR_EMAIL_ADDRESS]))
+            return $props[PR_EMAIL_ADDRESS];
+
+        return "";
+    }
+
+
+    private function composeDisplayName(&$contact) {
+        // Set display name and subject to a combined value of firstname and lastname
+        $cname = (isset($contact->prefix))?u2w($contact->prefix)." ":"";
+        $cname .= u2w($contact->firstname);
+        $cname .= (isset($contact->middlename))?" ". u2w($contact->middlename):"";
+        $cname .= " ". u2w($contact->lastname);
+        $cname .= (isset($contact->suffix))?" ". u2w($contact->suffix):"";
+        return trim($cname);
+    }
+
+
+    private function setEmailAddress($emailAddress, $displayName, $cnt, &$props, &$properties, &$nremails, &$abprovidertype){
+        if (isset($emailAddress)){
+            $name = (isset($displayName)) ? $displayName : $emailAddress;
+
+            $props[$properties["emailaddress$cnt"]] = $emailAddress;
+            $props[$properties["emailaddressdemail$cnt"]] = $emailAddress;
+            $props[$properties["emailaddressdname$cnt"]] = $name;
+            $props[$properties["emailaddresstype$cnt"]] = "SMTP";
+            $props[$properties["emailaddressentryid$cnt"]] = mapi_createoneoff($name, "SMTP", $emailAddress);
+            $nremails[] = $cnt - 1;
+            $abprovidertype |= 2 ^ ($cnt - 1);
+        }
+    }
+
+
+    private function setAddress($type, $city, $country, $postalcode, $state, $street, &$props, &$properties) {
+        if (isset($city)) $props[$properties[$type."city"]] = $city;
+
+        if (isset($country)) $props[$properties[$type."country"]] = $country;
+
+        if (isset($postalcode)) $props[$properties[$type."postalcode"]] = $postalcode;
+
+        if (isset($state)) $props[$properties[$type."state"]] = $state;
+
+        if (isset($street)) $props[$properties[$type."street"]] = $street;
+
+        //set composed address
+        $address = buildAddressString($street, $postalcode, $city, $state, $country);
+        if ($address) $props[$properties[$type."address"]] = $address;
+    }
+
+
+    private function setMailingAddress($city, $country, $postalcode,  $state, $street, $address, &$props, &$properties) {
+        if (isset($city)) $props[$properties["city"]] = $city;
+        if (isset($country)) $props[$properties["country"]] = $country;
+        if (isset($postalcode)) $props[$properties["postalcode"]] = $postalcode;
+        if (isset($state)) $props[$properties["state"]] = $state;
+        if (isset($street)) $props[$properties["street"]] = $street;
+        if (isset($address)) $props[$properties["postaladdress"]] = $address;
+    }
+
+
+    private function setRecurrence($message, &$recur) {
         if (isset($message->complete)) {
             $recur["complete"] = $message->complete;
         }
@@ -1073,7 +1291,7 @@ class MAPIProvider extends MAPIMapping{
         }
 
         // "start" and "end" are in GMT when passing to class.recurrence
-        $recur["end"] = $this->_getDayStartOfTimestamp(0x7fffffff); // Maximum GMT value for end by default
+        $recur["end"] = $this->getDayStartOfTimestamp(0x7fffffff); // Maximum GMT value for end by default
 
         if(isset($message->recurrence->until)) {
             $recur["term"] = 0x21;

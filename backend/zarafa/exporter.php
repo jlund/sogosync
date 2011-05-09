@@ -89,9 +89,9 @@ class ExportChangesICS implements IExportChanges{
         if(!$entryid) {
             // TODO: throw exception with status
             if ($folderid)
-                writeLog(LOGLEVEL_WARN, "ExportChangesICS->Constructor: Folder not found: " . bin2hex($folderid));
+                ZLog::Write(LOGLEVEL_FATAL, "ExportChangesICS->Constructor: Folder not found: " . bin2hex($folderid));
             else
-                writeLog(LOGLEVEL_WARN, "ExportChangesICS->Constructor: Store root not found");
+                ZLog::Write(LOGLEVEL_FATAL, "ExportChangesICS->Constructor: Store root not found");
 
             $this->importer = false;
             return;
@@ -101,7 +101,7 @@ class ExportChangesICS implements IExportChanges{
         if(!$folder) {
             $this->exporter = false;
             // TODO: return status if available
-            writeLog(LOGLEVEL_WARN, "ExportChangesICS->Constructor: can not open folder:".bin2hex($folderid));
+            ZLog::Write(LOGLEVEL_FATAL, "ExportChangesICS->Constructor: can not open folder:".bin2hex($folderid).sprintf(" last error:%X", mapi_last_hresult()));
             return;
         }
 
@@ -132,7 +132,7 @@ class ExportChangesICS implements IExportChanges{
 
         if ($this->exporter === false) {
             // TODO: throw exception with status
-            writeLog(LOGLEVEL_FATAL, "ExportChangesICS->Config failed. Exporter not available.");
+            ZLog::Write(LOGLEVEL_FATAL, "ExportChangesICS->Config failed. Exporter not available.");
             return false;
         }
 
@@ -144,7 +144,7 @@ class ExportChangesICS implements IExportChanges{
             // we check the change ID of the syncstate (0 at initial sync)
             // On subsequent syncs, we do want to receive delete events.
             if(strlen($syncstate) == 0 || bin2hex(substr($syncstate,4,4)) == "00000000") {
-                writeLog(LOGLEVEL_DEBUG, "synching inital data");
+                ZLog::Write(LOGLEVEL_DEBUG, "synching inital data");
                 $this->_exporterflags |= SYNC_NO_SOFT_DELETIONS | SYNC_NO_DELETIONS;
             }
         }
@@ -176,10 +176,10 @@ class ExportChangesICS implements IExportChanges{
     public function ConfigContentParameters($mclass, $restrict, $truncation) {
         switch($mclass) {
             case "Email":
-                $this->_restriction = $this->_getEmailRestriction(getCutOffDate($restrict));
+                $this->_restriction = MAPIUtils::GetEmailRestriction(getCutOffDate($restrict));
                 break;
             case "Calendar":
-                $this->_restriction = $this->_getCalendarRestriction(getCutOffDate($restrict));
+                $this->_restriction = MAPIUtils::GetCalendarRestriction($this->_store, getCutOffDate($restrict));
                 break;
             default:
             case "Contacts":
@@ -211,7 +211,7 @@ class ExportChangesICS implements IExportChanges{
         if($this->exporter === false || !isset($this->statestream) || !isset($this->_flags) || !isset($this->_exporterflags) ||
             ($this->_folderid && (!isset($this->_restriction)  || !isset($this->_truncation))) ) {
             // TODO: throw exception with status
-            writeLog(LOGLEVEL_WARN, "ExportChangesICS->Config failed. Exporter not available.!!!!!!!!!!!!!");
+            ZLog::Write(LOGLEVEL_WARN, "ExportChangesICS->Config failed. Exporter not available.!!!!!!!!!!!!!");
             return false;
         }
 
@@ -236,12 +236,11 @@ class ExportChangesICS implements IExportChanges{
         if($ret) {
             $changes = mapi_exportchanges_getchangecount($this->exporter);
             if($changes || !($this->_flags & BACKEND_DISCARD_DATA))
-                writeLog(LOGLEVEL_INFO, "Exporter configured successfully. " . $changes . " changes ready to sync.");
+                ZLog::Write(LOGLEVEL_DEBUG, "Exporter configured successfully. " . $changes . " changes ready to sync.");
         }
         else
             // TODO: throw exception with status
-            writeLog(LOGLEVEL_ERROR, "Exporter could not be configured: result: " . sprintf("%X", mapi_last_hresult()));
-
+            ZLog::Write(LOGLEVEL_ERROR, "Exporter could not be configured: result: " . sprintf("%X", mapi_last_hresult()));
         return $ret;
     }
 
@@ -255,13 +254,13 @@ class ExportChangesICS implements IExportChanges{
     public function GetState() {
         if(!isset($this->statestream) || $this->exporter === false) {
             // TODO: throw status?
-            writeLog(LOGLEVEL_WARN, "Error getting state from Exporter. Not initialized.");
+            ZLog::Write(LOGLEVEL_WARN, "Error getting state from Exporter. Not initialized.");
             return false;
         }
 
         if(mapi_exportchanges_updatestate($this->exporter, $this->statestream) != true) {
             // TODO: throw status?
-            writeLog(LOGLEVEL_WARN, "Unable to update state: " . sprintf("%X", mapi_last_hresult()));
+            ZLog::Write(LOGLEVEL_WARN, "Unable to update state: " . sprintf("%X", mapi_last_hresult()));
             return false;
         }
 
@@ -301,141 +300,8 @@ class ExportChangesICS implements IExportChanges{
     public function Synchronize() {
         if ($this->exporter) {
             return mapi_exportchanges_synchronize($this->exporter);
-        }else
-           return false;
-    }
-
-    /**----------------------------------------------------------------------------------------------------------
-     * private methods
-     */
-    // TODO: refactor to  mapiutils?
-
-
-    /**
-     * Create a MAPI restriction to use within an email folder which will
-    // return all messages since since $timestamp
-     *
-     * @param long       $timestamp     Timestamp since when to include messages
-     *
-     * @access private
-     * @return array
-     */
-    private function _getEmailRestriction($timestamp) {
-        $restriction = array ( RES_PROPERTY,
-                          array (    RELOP => RELOP_GE,
-                                    ULPROPTAG => PR_MESSAGE_DELIVERY_TIME,
-                                    VALUE => $timestamp
-                          )
-                      );
-
-        return $restriction;
-    }
-
-    /**
-     * MAPI returns the propertyid from the propertystring
-     *
-     * @param string       Mapi property string
-     *
-     * @access private
-     * @return string
-     */
-    private function _getPropIDFromString($stringprop) {
-        return GetPropIDFromString($this->_store, $stringprop);
-    }
-
-    /**
-     * Create a MAPI restriction to use in the calendar which will
-    // return all future calendar items, plus those since $timestamp
-     *
-     * @param long       $timestamp     Timestamp since when to include messages
-     *
-     * @access private
-     * @return array
-     */
-    private function _getCalendarRestriction($timestamp) {
-        // This is our viewing window
-        $start = $timestamp;
-        $end = 0x7fffffff; // infinite end
-
-        $restriction = Array(RES_OR,
-             Array(
-                   // OR
-                   // item.end > window.start && item.start < window.end
-                   Array(RES_AND,
-                         Array(
-                               Array(RES_PROPERTY,
-                                     Array(RELOP => RELOP_LE,
-                                           ULPROPTAG => $this->_getPropIDFromString("PT_SYSTIME:{00062002-0000-0000-C000-000000000046}:0x820d"),
-                                           VALUE => $end
-                                           )
-                                     ),
-                               Array(RES_PROPERTY,
-                                     Array(RELOP => RELOP_GE,
-                                           ULPROPTAG => $this->_getPropIDFromString("PT_SYSTIME:{00062002-0000-0000-C000-000000000046}:0x820e"),
-                                           VALUE => $start
-                                           )
-                                     )
-                               )
-                         ),
-                   // OR
-                   Array(RES_OR,
-                         Array(
-                               // OR
-                               // (EXIST(recurrence_enddate_property) && item[isRecurring] == true && item[end] >= start)
-                               Array(RES_AND,
-                                     Array(
-                                           Array(RES_EXIST,
-                                                 Array(ULPROPTAG => $this->_getPropIDFromString("PT_SYSTIME:{00062002-0000-0000-C000-000000000046}:0x8236"),
-                                                       )
-                                                 ),
-                                           Array(RES_PROPERTY,
-                                                 Array(RELOP => RELOP_EQ,
-                                                       ULPROPTAG => $this->_getPropIDFromString("PT_BOOLEAN:{00062002-0000-0000-C000-000000000046}:0x8223"),
-                                                       VALUE => true
-                                                       )
-                                                 ),
-                                           Array(RES_PROPERTY,
-                                                 Array(RELOP => RELOP_GE,
-                                                       ULPROPTAG => $this->_getPropIDFromString("PT_SYSTIME:{00062002-0000-0000-C000-000000000046}:0x8236"),
-                                                       VALUE => $start
-                                                       )
-                                                 )
-                                           )
-                                     ),
-                               // OR
-                               // (!EXIST(recurrence_enddate_property) && item[isRecurring] == true && item[start] <= end)
-                               Array(RES_AND,
-                                     Array(
-                                           Array(RES_NOT,
-                                                 Array(
-                                                       Array(RES_EXIST,
-                                                             Array(ULPROPTAG => $this->_getPropIDFromString("PT_SYSTIME:{00062002-0000-0000-C000-000000000046}:0x8236")
-                                                                   )
-                                                             )
-                                                       )
-                                                 ),
-                                           Array(RES_PROPERTY,
-                                                 Array(RELOP => RELOP_LE,
-                                                       ULPROPTAG => $this->_getPropIDFromString("PT_SYSTIME:{00062002-0000-0000-C000-000000000046}:0x820d"),
-                                                       VALUE => $end
-                                                       )
-                                                 ),
-                                           Array(RES_PROPERTY,
-                                                 Array(RELOP => RELOP_EQ,
-                                                       ULPROPTAG => $this->_getPropIDFromString("PT_BOOLEAN:{00062002-0000-0000-C000-000000000046}:0x8223"),
-                                                       VALUE => true
-                                                       )
-                                                 )
-                                           )
-                                     )
-                               )
-                         ) // EXISTS OR
-                   )
-             );        // global OR
-
-        return $restriction;
+        }
+            return false;
     }
 }
-
-
 ?>

@@ -83,7 +83,7 @@ class PHPContentsWrapper extends MAPIMapping {
             return SYNC_E_IGNORE;
 
         $mapimessage = mapi_msgstore_openentry($this->_store, $entryid);
-        $message = $this->_getMessage($mapimessage, $this->_truncation);
+        $message = $this->GetMessage($mapimessage, $this->_truncation);
 
         // substitute the MAPI SYNC_NEW_MESSAGE flag by a z-push proprietary flag
         if ($flags == SYNC_NEW_MESSAGE) $message->flags = SYNC_NEWMESSAGE;
@@ -113,9 +113,9 @@ class PHPContentsWrapper extends MAPIMapping {
 
 	// TODO check if refactoring possible as not part of IImportChanges
 	// directly called by fetch in request
-    function _getMessage($mapimessage, $truncation) {
+    function GetMessage($mapimessage, $truncation) {
         $mapiprovider = new MAPIProvider($this->_session, $this->_store);
-        return $mapiprovider->_getMessage($mapimessage, $truncation);
+        return $mapiprovider->GetMessage($mapimessage, $truncation);
     }
 };
 
@@ -174,7 +174,7 @@ class PHPHierarchyWrapper {
            !isset($folderprops[PR_ENTRYID]) ||
            !isset($folderprops[PR_PARENT_SOURCE_KEY]) ||
            !isset($storeprops[PR_IPM_SUBTREE_ENTRYID])) {
-            writeLog(LOGLEVEL_ERROR, "Missing properties on folder");
+            ZLog::Write(LOGLEVEL_ERROR, "Missing properties on folder");
             return false;
         }
 

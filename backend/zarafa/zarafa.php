@@ -70,10 +70,14 @@ include_once('include/z_ical.php');
 
 // components of Zarafa backend
 include_once('mapiutils.php');
+include_once('mapimapping.php');
 include_once('mapiprovider.php');
 include_once('mapiphpwrapper.php');
 include_once('importer.php');
 include_once('exporter.php');
+// TODO use own mapi include and recurrence classes files
+// TODO use this define in the own file
+if (!defined("PSETID_AirSync")) define ("PSETID_AirSync", makeguid("{71035549-0739-4DCB-9163-00F0580DBBDF}"));
 
 
 class BackendZarafa implements IBackend, ISearchProvider {
@@ -141,7 +145,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         }
 
         if($this->_session === false) {
-            writeLog(LOGLEVEL_WARN, "logon failed for user $user");
+            ZLog::Write(LOGLEVEL_WARN, "logon failed for user $user");
             $this->_defaultstore = false;
             return false;
         }
@@ -159,10 +163,10 @@ class BackendZarafa implements IBackend, ISearchProvider {
             $this->_storeName = $user;
         }
 
-        writeLog(LOGLEVEL_INFO, sprintf("ZarafaBackend->Logon(): User '%s' is authenticated",$user));
+        ZLog::Write(LOGLEVEL_INFO, sprintf("ZarafaBackend->Logon(): User '%s' is authenticated",$user));
 
         // check if this is a Zarafa 7 store with unicode support
-        $this->_isUnicodeStore();
+        MAPIUtils::IsUnicodeStore($this->_store);
         return true;
     }
 
@@ -319,11 +323,11 @@ class BackendZarafa implements IBackend, ISearchProvider {
      * @return object(ImportChanges)
      */
     public function GetImporter($folderid = false) {
-        writeLog(LOGLEVEL_DEBUG, sprintf("BackendZarafa->GetImporter() folderid: '%s'", Utils::PrintAsString($folderid)));
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("BackendZarafa->GetImporter() folderid: '%s'", Utils::PrintAsString($folderid)));
         if($folderid !== false) {
             // check if the user of the current store has permissions to import to this folderid
             if ($this->_storeName != $this->_mainUser && !$this->hasSecretaryACLs($this->_store, $folderid)) {
-                writeLog(LOGLEVEL_DEBUG, sprintf("BackendZarafa->GetImporter(): missing permissions on folderid: '%s'.", Utils::PrintAsString($folderid)));
+                ZLog::Write(LOGLEVEL_DEBUG, sprintf("BackendZarafa->GetImporter(): missing permissions on folderid: '%s'.", Utils::PrintAsString($folderid)));
                 return false;
             }
             $this->_importedFolders[$folderid] = $this->_store;
@@ -346,7 +350,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         if($folderid !== false) {
             // check if the user of the current store has permissions to export from this folderid
             if ($this->_storeName != $this->_mainUser && !$this->hasSecretaryACLs($this->_store, $folderid)) {
-                writeLog(LOGLEVEL_DEBUG, sprintf("BackendZarafa->GetExporter(): missing permissions on folderid: '%s'.", Utils::PrintAsString($folderid)));
+                ZLog::Write(LOGLEVEL_DEBUG, sprintf("BackendZarafa->GetExporter(): missing permissions on folderid: '%s'.", Utils::PrintAsString($folderid)));
                 return false;
             }
             return new ExportChangesICS($this->_session, $this->_store, hex2bin($folderid));
@@ -371,9 +375,9 @@ class BackendZarafa implements IBackend, ISearchProvider {
      // TODO implement , $saveInSent = true
     public function SendMail($rfc822, $forward = false, $reply = false, $parent = false, $saveInSent = true) {
         if (WBXML_DEBUG == true) {
-            writeLog(LOGLEVEL_WBXML, "SendMail: forward: $forward   reply: $reply   parent: $parent");
-            foreach(preg_split("/(\r?\n)/", $rfc822) as $rfc822line)
-                writeLog(LOGLEVEL_WBXML, "SendMail RFC822:". $rfc822line);
+            ZLog::Write(LOGLEVEL_WBXML, "SendMail: forward: $forward   reply: $reply   parent: $parent");
+            foreach(preg_split("/((\r)?\n)/", $rfc822) as $rfc822line)
+                ZLog::Write(LOGLEVEL_WBXML, "SendMail RFC822:". $rfc822line);
         }
 
         $mimeParams = array('decode_headers' => true,
@@ -387,14 +391,14 @@ class BackendZarafa implements IBackend, ISearchProvider {
         // Open the outbox and create the message there
         $storeprops = mapi_getprops($this->_store, array(PR_IPM_OUTBOX_ENTRYID, PR_IPM_SENTMAIL_ENTRYID));
         if(!isset($storeprops[PR_IPM_OUTBOX_ENTRYID])) {
-            writeLog(LOGLEVEL_ERROR, "Outbox not found to create message");
+            ZLog::Write(LOGLEVEL_ERROR, "Outbox not found to create message");
             return false;
         }
 
         $outbox = mapi_msgstore_openentry($this->_store, $storeprops[PR_IPM_OUTBOX_ENTRYID]);
         if(!$outbox) {
             // TODO: this should throw a hard error, stop all further syncs and notify the administrator
-            writeLog(LOGLEVEL_ERROR, "Unable to open outbox");
+            ZLog::Write(LOGLEVEL_ERROR, "Unable to open outbox");
             return false;
         }
 
@@ -488,28 +492,36 @@ class BackendZarafa implements IBackend, ISearchProvider {
                 }
                 // TNEF
                 elseif($part->ctype_primary == "ms-tnef" || $part->ctype_secondary == "ms-tnef") {
-                    $zptnef = new ZPush_tnef($this->_store);
+                    if (!isset($tnefAndIcalProps)) {
+                        $tnefAndIcalProps = MAPIMapping::GetTnefAndIcalProperties();
+                        $tnefAndIcalProps = getPropIdsFromStrings($this->_store, $tnefAndIcalProps);
+                    }
+                    $zptnef = new ZPush_tnef($this->_store, $tnefAndIcalProps);
                     $mapiprops = array();
+
                     $zptnef->extractProps($part->body, $mapiprops);
                     if (is_array($mapiprops) && !empty($mapiprops)) {
                         //check if it is a recurring item
-                        $tnefrecurr = GetPropIDFromString($this->_store, "PT_BOOLEAN:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x5");
-                        if (isset($mapiprops[$tnefrecurr])) {
-                            $this -> _handleRecurringItem($mapimessage, $mapiprops);
+                        if (isset($mapiprops[$tnefAndIcalProps["tnefrecurr"]])) {
+                            MAPIUtils::handleRecurringItem($mapiprops, $tnefAndIcalProps);
                         }
                         mapi_setprops($mapimessage, $mapiprops);
                     }
-                    else writeLog(LOGLEVEL_WARN, "TNEF: Mapi props array was empty");
+                    else ZLog::Write(LOGLEVEL_WARN, "TNEF: Mapi props array was empty");
                 }
                 // iCalendar
                 elseif($part->ctype_primary == "text" && $part->ctype_secondary == "calendar") {
-                    $zpical = new ZPush_ical($this->_store);
+                    if (!isset($tnefAndIcalProps)) {
+                        $tnefAndIcalProps = MAPIMapping::GetTnefAndIcalProperties();
+                        $tnefAndIcalProps = getPropIdsFromStrings($this->_store, $tnefAndIcalProps);
+                    }
+                    $zpical = new ZPush_ical($this->_store, $tnefAndIcalProps);
                     $mapiprops = array();
                     $zpical->extractProps($part->body, $mapiprops);
 
                     // iPhone sends a second ICS which we ignore if we can
                     if (!isset($mapiprops[PR_MESSAGE_CLASS]) && strlen(trim($body)) == 0) {
-                        writeLog(LOGLEVEL_WARN, "Secondary iPhone response is being ignored!! Mail dropped!");
+                        ZLog::Write(LOGLEVEL_WARN, "Secondary iPhone response is being ignored!! Mail dropped!");
                         return true;
                     }
 
@@ -521,7 +533,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
                         //see Utils::IcalTimezoneFix() in utils.php for more information
                         $part->body = Utils::IcalTimezoneFix($part->body);
                         $this->_storeAttachment($mapimessage, $part);
-                        writeLog(LOGLEVEL_INFO, "Sending ICS file as attachment");
+                        ZLog::Write(LOGLEVEL_INFO, "Sending ICS file as attachment");
                     }
                 }
                 // any other type, store as attachment
@@ -534,7 +546,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
         // some devices only transmit a html body
         if (strlen($body) == 0 && strlen($body_html)>0) {
-            writeLog(LOGLEVEL_INFO, "only html body sent, transformed into plain text");
+            ZLog::Write(LOGLEVEL_INFO, "only html body sent, transformed into plain text");
             $body = strip_tags($body_html);
         }
 
@@ -612,7 +624,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
             }
             else {
                 // TODO: this should throw a hard error (status code?). This message can NEVER be forwarded
-                writeLog(LOGLEVEL_WARN, "Unable to open item with id $orig for forward/reply");
+                ZLog::Write(LOGLEVEL_WARN, "Unable to open item with id $orig for forward/reply");
             }
         }
 
@@ -686,7 +698,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         $entryid = mapi_msgstore_entryidfromsourcekey($this->_store, hex2bin($folderid), hex2bin($id));
         if(!$entryid) {
             // TODO: this should trigger a folder resync (status)
-            writeLog(LOGLEVEL_WARN, "Unknown ID passed to Fetch");
+            ZLog::Write(LOGLEVEL_WARN, "Unknown ID passed to Fetch");
             return false;
         }
 
@@ -694,13 +706,13 @@ class BackendZarafa implements IBackend, ISearchProvider {
         $message = mapi_msgstore_openentry($this->_store, $entryid);
         if(!$message) {
             // TODO: this should trigger a folder resync (status)
-            writeLog(LOGLEVEL_WARN, "Unable to open message for Fetch command");
+            ZLog::Write(LOGLEVEL_WARN, "Unable to open message for Fetch command");
             return false;
         }
 
         // convert the mapi message into a SyncObject and return it
         $mapiprovider = new MAPIProvider($this->_session, $this->_store);
-        return $mapiprovider->_getMessage($message, SYNC_TRUNCATION_ALL, $mimesupport);
+        return $mapiprovider->GetMessage($message, SYNC_TRUNCATION_ALL, $mimesupport);
     }
 
     /**
@@ -734,25 +746,25 @@ class BackendZarafa implements IBackend, ISearchProvider {
         // TODO: errors must trigger status codes
         $entryid = mapi_msgstore_entryidfromsourcekey($this->_store, $foldersourcekey, $sourcekey);
         if(!$entryid) {
-            writeLog(LOGLEVEL_WARN, "Attachment requested for non-existing item $attname");
+            ZLog::Write(LOGLEVEL_WARN, "Attachment requested for non-existing item $attname");
             return false;
         }
 
         $message = mapi_msgstore_openentry($this->_store, $entryid);
         if(!$message) {
-            writeLog(LOGLEVEL_WARN, "Unable to open item for attachment data for " . bin2hex($entryid));
+            ZLog::Write(LOGLEVEL_WARN, "Unable to open item for attachment data for " . bin2hex($entryid));
             return false;
         }
 
         $attach = mapi_message_openattach($message, $attachnum);
         if(!$attach) {
-            writeLog(LOGLEVEL_WARN, "Unable to open attachment number $attachnum");
+            ZLog::Write(LOGLEVEL_WARN, "Unable to open attachment number $attachnum");
             return false;
         }
 
         $stream = mapi_openpropertytostream($attach, PR_ATTACH_DATA_BIN);
         if(!$stream) {
-            writeLog(LOGLEVEL_WARN, "Unable to open attachment data stream");
+            ZLog::Write(LOGLEVEL_WARN, "Unable to open attachment data stream");
             return false;
         }
 
@@ -785,19 +797,19 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
         // TODO: trigger status codes
         if(!$mapimessage) {
-            writeLog(LOGLEVEL_WARN, "Unable to open request message for response");
+            ZLog::Write(LOGLEVEL_WARN, "Unable to open request message for response");
             return false;
         }
 
         $meetingrequest = new Meetingrequest($this->_store, $mapimessage);
 
         if(!$meetingrequest->isMeetingRequest()) {
-            writeLog(LOGLEVEL_WARN, "Attempt to respond to non-meeting request");
+            ZLog::Write(LOGLEVEL_WARN, "Attempt to respond to non-meeting request");
             return false;
         }
 
         if($meetingrequest->isLocalOrganiser()) {
-            writeLog(LOGLEVEL_WARN, "Attempt to response to meeting request that we organized");
+            ZLog::Write(LOGLEVEL_WARN, "Attempt to response to meeting request that we organized");
             return false;
         }
 
@@ -827,24 +839,25 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
         // on recurring items, the MeetingRequest class responds with a wrong entryid
         if ($requestid == $calendarid) {
-            writeLog(LOGLEVEL_DEBUG, "returned calender id is the same as the requestid - re-searching");
-            $goidprop = GetPropIDFromString($this->_store, "PT_BINARY:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x3");
+            ZLog::Write(LOGLEVEL_DEBUG, "returned calender id is the same as the requestid - re-searching");
+            $props = MAPIMapping::GetMeetingRequestProperties();
+            $props = getPropIdsFromStrings($this->_store, $props);
 
-            $messageprops = mapi_getprops($mapimessage, Array($goidprop, PR_OWNER_APPT_ID));
-                $goid = $messageprops[$goidprop];
-                if(isset($messageprops[PR_OWNER_APPT_ID]))
-                    $apptid = $messageprops[PR_OWNER_APPT_ID];
-                else
-                    $apptid = false;
+            $messageprops = mapi_getprops($mapimessage, Array($props["goidtag"], PR_OWNER_APPT_ID));
+            $goid = $messageprops[$props["goidtag"]];
+            if(isset($messageprops[PR_OWNER_APPT_ID]))
+                $apptid = $messageprops[PR_OWNER_APPT_ID];
+            else
+                $apptid = false;
 
-                $items = $meetingrequest->findCalendarItems($goid, $apptid);
+            $items = $meetingrequest->findCalendarItems($goid, $apptid);
 
-                if (is_array($items)) {
-                   $newitem = mapi_msgstore_openentry($this->_store, $items[0]);
-                   $newprops = mapi_getprops($newitem, array(PR_SOURCE_KEY));
-                   $calendarid = bin2hex($newprops[PR_SOURCE_KEY]);
-                   writeLog(LOGLEVEL_DEBUG, "found other calendar entryid");
-                }
+            if (is_array($items)) {
+               $newitem = mapi_msgstore_openentry($this->_store, $items[0]);
+               $newprops = mapi_getprops($newitem, array(PR_SOURCE_KEY));
+               $calendarid = bin2hex($newprops[PR_SOURCE_KEY]);
+               ZLog::Write(LOGLEVEL_DEBUG, "found other calendar entryid");
+            }
         }
 
 
@@ -915,7 +928,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         $ab_dir = mapi_ab_openentry($addrbook, $ab_entryid);
 
         $table = mapi_folder_getcontentstable($ab_dir);
-        $restriction = $this->_getSearchRestriction(u2w($searchquery));
+        $restriction = MAPIUtils::GetSearchRestriction(u2w($searchquery));
         mapi_table_restrict($table, $restriction);
         mapi_table_sort($table, array(PR_DISPLAY_NAME => TABLE_SORT_ASCEND));
 
@@ -1133,83 +1146,18 @@ class BackendZarafa implements IBackend, ISearchProvider {
                 $part->body = base64_decode($part->body);
         }
 
-        // Set filename and attachment type
-        mapi_setprops($attach, array(PR_ATTACH_LONG_FILENAME => u2wi($filename), PR_ATTACH_METHOD => ATTACH_BY_VALUE));
-
-        // Set attachment data
-        mapi_setprops($attach, array(PR_ATTACH_DATA_BIN => $part->body));
-
-        // Set MIME type
-        mapi_setprops($attach, array(PR_ATTACH_MIME_TAG => $part->ctype_primary . "/" . $part->ctype_secondary));
+        mapi_setprops($attach, array(
+            // Set filename and attachment type
+            PR_ATTACH_LONG_FILENAME => u2wi($filename),
+            PR_ATTACH_METHOD => ATTACH_BY_VALUE,
+            // Set attachment data
+            PR_ATTACH_DATA_BIN => $part->body,
+            // Set MIME type
+            PR_ATTACH_MIME_TAG => $part->ctype_primary . "/" . $part->ctype_secondary));
 
         mapi_savechanges($attach);
     }
 
-    // TODO: handleRecurringItem() should go into MAPIutils
-    //handles recurring item for meeting request
-    protected function _handleRecurringItem(&$mapimessage, &$mapiprops) {
-        $props = array();
-        //set isRecurring flag to true
-        $props[0] = "PT_BOOLEAN:{00062002-0000-0000-C000-000000000046}:0x8223";
-        // Set named prop 8510, unknown property, but enables deleting a single occurrence of a recurring type in OLK2003.
-        $props[1] = "PT_LONG:{00062008-0000-0000-C000-000000000046}:0x8510";
-        //goid and goid2 from tnef
-        $props[2] = "PT_BINARY:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x3";
-        $props[3] = "PT_BINARY:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x23";
-        $props[4] = "PT_STRING8:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x24"; //type
-        $props[5] = "PT_LONG:{00062002-0000-0000-C000-000000000046}:0x8205"; //busystatus
-        $props[6] = "PT_LONG:{00062002-0000-0000-C000-000000000046}:0x8217"; //meeting status
-        $props[7] = "PT_LONG:{00062002-0000-0000-C000-000000000046}:0x8218"; //response status
-        $props[8] = "PT_BOOLEAN:{00062008-0000-0000-C000-000000000046}:0x8582";
-        $props[9] = "PT_BOOLEAN:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0xa"; //is exception
-
-        $props[10] = "PT_I2:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x11"; //day interval
-        $props[11] = "PT_I2:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x12"; //week interval
-        $props[12] = "PT_I2:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x13"; //month interval
-        $props[13] = "PT_I2:{6ED8DA90-450B-101B-98DA-00AA003F1305}:0x14"; //year interval
-
-        $props = getPropIdsFromStrings($this->_store, $props);
-
-        $mapiprops[$props[0]] = true;
-        $mapiprops[$props[1]] = 369;
-        //both goids have the same value
-        $mapiprops[$props[3]] = $mapiprops[$props[2]];
-        $mapiprops[$props[4]] = "IPM.Appointment";
-        $mapiprops[$props[5]] = 1; //tentative
-        $mapiprops[PR_RESPONSE_REQUESTED] = true;
-        $mapiprops[PR_ICON_INDEX] = 1027;
-        $mapiprops[$props[6]] = olMeetingReceived; // The recipient is receiving the request
-        $mapiprops[$props[7]] = olResponseNotResponded;
-        $mapiprops[$props[8]] = true;
-    }
-
-    protected function _getSearchRestriction($query) {
-        return array(RES_AND,
-                    array(
-                        array(RES_OR,
-                            array(
-                                array(RES_CONTENT, array(FUZZYLEVEL => FL_SUBSTRING | FL_IGNORECASE, ULPROPTAG => PR_DISPLAY_NAME, VALUE => $query)),
-                                array(RES_CONTENT, array(FUZZYLEVEL => FL_SUBSTRING | FL_IGNORECASE, ULPROPTAG => PR_ACCOUNT, VALUE => $query)),
-                            ), // RES_OR
-                        ),
-                        array(
-                            RES_PROPERTY,
-                            array(RELOP => RELOP_EQ, ULPROPTAG => PR_OBJECT_TYPE, VALUE => MAPI_MAILUSER)
-                        )
-                    ) // RES_AND
-        );
-    }
-
-
-    protected function _isUnicodeStore() {
-        $supportmask = mapi_getprops($this->_store, array(PR_STORE_SUPPORT_MASK));
-        if (isset($supportmask[PR_STORE_SUPPORT_MASK]) && ($supportmask[PR_STORE_SUPPORT_MASK] & STORE_UNICODE_OK)) {
-            writeLog(LOGLEVEL_DEBUG, "Store supports properties containing Unicode characters.");
-            define('STORE_SUPPORTS_UNICODE', true);
-            //setlocale to UTF-8 in order to support properties containing Unicode characters
-            setlocale(LC_CTYPE, "en_US.UTF-8");
-        }
-    }
 }
 
 /**

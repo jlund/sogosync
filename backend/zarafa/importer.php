@@ -84,9 +84,9 @@ class ImportChangesICS implements IImportChanges {
         if(!$entryid) {
             // TODO: throw exception with status
             if ($folderid)
-                writeLog(LOGLEVEL_WARN, "Folder not found: " . bin2hex($folderid));
+                ZLog::Write(LOGLEVEL_WARN, "Folder not found: " . bin2hex($folderid));
             else
-                writeLog(LOGLEVEL_WARN, "Store root not found");
+                ZLog::Write(LOGLEVEL_WARN, "Store root not found");
 
             $this->importer = false;
             return;
@@ -95,7 +95,7 @@ class ImportChangesICS implements IImportChanges {
         $folder = mapi_msgstore_openentry($store, $entryid);
         if(!$folder) {
             // TODO: throw exception with status
-            writeLog(LOGLEVEL_WARN, "Unable to open folder: " . sprintf("%x", mapi_last_hresult()));
+            ZLog::Write(LOGLEVEL_WARN, "Unable to open folder: " . sprintf("%x", mapi_last_hresult()));
             $this->importer = false;
             return;
         }
@@ -144,14 +144,14 @@ class ImportChangesICS implements IImportChanges {
      */
     public function GetState() {
         if(!isset($this->statestream)) {
-            writeLog(LOGLEVEL_WARN, "Error getting state from Importer. Not initialized.");
+            ZLog::Write(LOGLEVEL_WARN, "Error getting state from Importer. Not initialized.");
             return false;
         }
 
         if ($this->_folderid !== false && function_exists("mapi_importcontentschanges_updatestate")) {
-            writeLog(LOGLEVEL_DEBUG, "before getting state, using 'mapi_importcontentschanges_updatestate()'");
+            ZLog::Write(LOGLEVEL_DEBUG, "before getting state, using 'mapi_importcontentschanges_updatestate()'");
             if(mapi_importcontentschanges_updatestate($this->importer, $this->statestream) != true) {
-                writeLog(LOGLEVEL_WARN, "Unable to update state: " . sprintf("%X", mapi_last_hresult()));
+                ZLog::Write(LOGLEVEL_WARN, "Unable to update state: " . sprintf("%X", mapi_last_hresult()));
                 return false;
             }
         }
@@ -188,7 +188,7 @@ class ImportChangesICS implements IImportChanges {
     public function LoadConflicts($mclass, $filtertype, $state) {
         if (!isset($this->_session) || !isset($this->_store) || !isset($this->_folderid)) {
             // TODO: trigger resync? data could be lost!! TEST!
-            writeLog(LOGLEVEL_ERROR, "Warning: can not load changes for conflict detections. Session, store or folder information not available");
+            ZLog::Write(LOGLEVEL_ERROR, "Warning: can not load changes for conflict detections. Session, store or folder information not available");
             return false;
         }
 
@@ -227,14 +227,14 @@ class ImportChangesICS implements IImportChanges {
             if($this->_memChanges->isChanged($id)) {
                 if ($this->_flags & SYNC_CONFLICT_OVERWRITE_PIM) {
                     // TODO: in these cases the status 7 should be returned, so the client can inform the user (ASCMD 2.2.1.19.1.22)
-                    writeLog(LOGLEVEL_INFO, "Conflict detected. Data from PIM will be dropped! Server overwrites PIM.");
+                    ZLog::Write(LOGLEVEL_INFO, "Conflict detected. Data from PIM will be dropped! Server overwrites PIM.");
                     return false;
                 }
                 else
-                   writeLog(LOGLEVEL_INFO, "Conflict detected. Data from Server will be dropped! PIM overwrites server.");
+                    ZLog::Write(LOGLEVEL_INFO, "Conflict detected. Data from Server will be dropped! PIM overwrites server.");
             }
             if($this->_memChanges->isDeleted($id)) {
-                writeLog(LOGLEVEL_INFO, "Conflict detected. Data from PIM will be dropped! Object was deleted on server.");
+                ZLog::Write(LOGLEVEL_INFO, "Conflict detected. Data from PIM will be dropped! Object was deleted on server.");
                 return false;
             }
         }
@@ -244,13 +244,13 @@ class ImportChangesICS implements IImportChanges {
         if(mapi_importcontentschanges_importmessagechange($this->importer, $props, $flags, $mapimessage)) {
             // TODO: MAPIProvider could be static
             $mapiprovider = new MAPIProvider($this->_session, $this->_store);
-            $mapiprovider->_setMessage($mapimessage, $message);
+            $mapiprovider->SetMessage($mapimessage, $message);
             mapi_message_savechanges($mapimessage);
 
             $sourcekeyprops = mapi_getprops($mapimessage, array (PR_SOURCE_KEY));
         } else {
             // TODO: throw feasible status, if available
-            writeLog(LOGLEVEL_WARN, "Unable to update object $id:" . sprintf("%x", mapi_last_hresult()));
+            ZLog::Write(LOGLEVEL_WARN, "Unable to update object $id:" . sprintf("%x", mapi_last_hresult()));
             return false;
         }
 
@@ -269,7 +269,7 @@ class ImportChangesICS implements IImportChanges {
     public function ImportMessageDeletion($objid) {
         // check for conflicts
         if($this->_memChanges->isChanged($objid)) {
-           writeLog(LOGLEVEL_INFO, "Conflict detected. Data from Server will be dropped! PIM deleted object.");
+            ZLog::Write(LOGLEVEL_INFO, "Conflict detected. Data from Server will be dropped! PIM deleted object.");
         }
         // do a 'soft' delete so people can un-delete if necessary
         mapi_importcontentschanges_importmessagedeletion($this->importer, 1, array(hex2bin($objid)));
@@ -290,7 +290,7 @@ class ImportChangesICS implements IImportChanges {
         $ret = mapi_importcontentschanges_importperuserreadstatechange($this->importer, array ($readstate) );
         if($ret == false)
             // TODO throw feasible status, if available
-            writeLog(LOGLEVEL_WARN, "Unable to set read state: " . sprintf("%x", mapi_last_hresult()));
+            ZLog::Write(LOGLEVEL_WARN, "Unable to set read state: " . sprintf("%x", mapi_last_hresult()));
     }
 
     /**
@@ -312,68 +312,68 @@ class ImportChangesICS implements IImportChanges {
     public function ImportMessageMove($id, $newfolder) {
         if (strtolower($newfolder) == strtolower(bin2hex($this->_folderid)) ) {
             //TODO: status value 4
-            writeLog(LOGLEVEL_WARN, "Source and destination are equal");
+            ZLog::Write(LOGLEVEL_WARN, "Source and destination are equal");
             return false;
         }
         // Get the entryid of the message we're moving
         $entryid = mapi_msgstore_entryidfromsourcekey($this->_store, $this->_folderid, hex2bin($id));
         if(!$entryid) {
-            writeLog(LOGLEVEL_WARN, "Unable to resolve source message id");
+            ZLog::Write(LOGLEVEL_WARN, "Unable to resolve source message id");
             return false;
         }
 
         //open the source message
         $srcmessage = mapi_msgstore_openentry($this->_store, $entryid);
         if (!$srcmessage) {
-            writeLog(LOGLEVEL_WARN, "Unable to open source message:".sprintf("%x", mapi_last_hresult()));
+            ZLog::Write(LOGLEVEL_WARN, "Unable to open source message:".sprintf("%x", mapi_last_hresult()));
             return false;
         }
         $dstentryid = mapi_msgstore_entryidfromsourcekey($this->_store, hex2bin($newfolder));
         if(!$dstentryid) {
-            writeLog(LOGLEVEL_WARN, "Unable to resolve destination folder");
+            ZLog::Write(LOGLEVEL_WARN, "Unable to resolve destination folder");
             return false;
         }
 
         $dstfolder = mapi_msgstore_openentry($this->_store, $dstentryid);
         if(!$dstfolder) {
-            writeLog(LOGLEVEL_WARN, "Unable to open destination folder");
+            ZLog::Write(LOGLEVEL_WARN, "Unable to open destination folder");
             return false;
         }
 
         $newmessage = mapi_folder_createmessage($dstfolder);
         if (!$newmessage) {
-            writeLog(LOGLEVEL_WARN, "Unable to create message in destination folder:".sprintf("%x", mapi_last_hresult()));
+            ZLog::Write(LOGLEVEL_WARN, "Unable to create message in destination folder:".sprintf("%x", mapi_last_hresult()));
             return false;
         }
         // Copy message
         mapi_copyto($srcmessage, array(), array(), $newmessage);
         if (mapi_last_hresult()){
-            writeLog(LOGLEVEL_WARN, "copy to failed:".sprintf("%x", mapi_last_hresult()));
+            ZLog::Write(LOGLEVEL_WARN, "copy to failed:".sprintf("%x", mapi_last_hresult()));
             return false;
         }
 
         $srcfolderentryid = mapi_msgstore_entryidfromsourcekey($this->_store, $this->_folderid);
         if(!$srcfolderentryid) {
-            writeLog(LOGLEVEL_WARN, "Unable to resolve source folder");
+            ZLog::Write(LOGLEVEL_WARN, "Unable to resolve source folder");
             return false;
         }
 
         $srcfolder = mapi_msgstore_openentry($this->_store, $srcfolderentryid);
         if (!$srcfolder) {
-            writeLog(LOGLEVEL_WARN, "Unable to open source folder:".sprintf("%x", mapi_last_hresult()));
+            ZLog::Write(LOGLEVEL_WARN, "Unable to open source folder:".sprintf("%x", mapi_last_hresult()));
             return false;
         }
 
         // Save changes
         mapi_savechanges($newmessage);
         if (mapi_last_hresult()){
-            writeLog(LOGLEVEL_WARN, "mapi_savechanges failed:".sprintf("%x", mapi_last_hresult()));
+            ZLog::Write(LOGLEVEL_WARN, "mapi_savechanges failed:".sprintf("%x", mapi_last_hresult()));
             return false;
         }
 
         // Delete the old message
         if (!mapi_folder_deletemessages($srcfolder, array($entryid))) {
-            writeLog(LOGLEVEL_WARN, "Failed to delete source message. Possible duplicates");
+            ZLog::Write(LOGLEVEL_WARN, "Failed to delete source message. Possible duplicates");
         }
 
         $sourcekeyprops = mapi_getprops($newmessage, array (PR_SOURCE_KEY));
@@ -413,7 +413,7 @@ class ImportChangesICS implements IImportChanges {
 
         // 'type' is ignored because you can only create email (standard) folders
         mapi_importhierarchychanges_importfolderchange($this->importer, array(PR_SOURCE_KEY => hex2bin($id), PR_PARENT_SOURCE_KEY => hex2bin($parent), PR_DISPLAY_NAME => $displayname));
-        writeLog(LOGLEVEL_DEBUG, "Imported changes for folder: $id");
+        ZLog::Write(LOGLEVEL_DEBUG, "Imported changes for folder: $id");
         return $id;
     }
 
@@ -427,11 +427,8 @@ class ImportChangesICS implements IImportChanges {
      * @return int          SYNC_FOLDERHIERARCHY_STATUS
      */
     public function ImportFolderDeletion($id, $parent = false) {
-        writeLog(LOGLEVEL_DEBUG, "Imported folder deletetion: $id");
+        ZLog::Write(LOGLEVEL_DEBUG, "Imported folder deletetion: $id");
         return mapi_importhierarchychanges_importfolderdeletion ($this->importer, 0, array(PR_SOURCE_KEY => hex2bin($id)) );
     }
-
-    /**----------------------------------------------------------------------------------------------------------  */
-
 }
 ?>
