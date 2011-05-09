@@ -87,7 +87,7 @@ class Request {
         self::$userIsAuthenticated = false;
 
         // try to open stdin & stdout
-        self::$input = fopen("php://input", "w+");
+        self::$input = fopen("php://input", "r");
         self::$output = fopen("php://output", "w+");
 
         // Parse the standard GET parameters
@@ -497,7 +497,9 @@ class RequestProcessor {
         self::$backend = ZPush::GetBackend();
         self::$deviceManager = ZPush::GetDeviceManager();
 
-        self::$decoder = new WBXMLDecoder(Request::getInputStream());
+        if (!ZPush::CommandNeedsPlainInput(Request::getCommand()))
+            self::$decoder = new WBXMLDecoder(Request::getInputStream());
+
         self::$encoder = new WBXMLEncoder(Request::getOutputStream());
     }
 
@@ -1272,7 +1274,7 @@ class RequestProcessor {
                             $n++;
 
                             if($n >= $collection["windowsize"]) {
-                            	ZLog::Write(LOGLEVEL_DEBUG, "Exported maxItems of messages: ". $collection["windowsize"] . " / ". $changecount);
+                                ZLog::Write(LOGLEVEL_DEBUG, "Exported maxItems of messages: ". $collection["windowsize"] . " / ". $changecount);
                                 break;
                             }
 

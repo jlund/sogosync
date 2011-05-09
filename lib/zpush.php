@@ -48,13 +48,14 @@ class ZPush {
     const WEBSERVICECOMMAND = 4;
     const HIERARCHYCOMMAND = 5;
     const REQUIRESPROTOCOLVERSION = 6;
+    const PLAININPUT = 7;
 
     static private $supportedASVersions = array("1.0","2.0","2.1","2.5");
     static private $supportedCommands = array(
                                             'Sync' => false,
-                                            'SendMail' => false,
-                                            'SmartForward' => false,
-                                            'SmartReply' => false,
+                                            'SendMail' => array(self::PLAININPUT),
+                                            'SmartForward' => array(self::PLAININPUT),
+                                            'SmartReply' => array(self::PLAININPUT),
                                             'GetAttachment' => false,
                                             'GetHierarchy' => array(self::HIERARCHYCOMMAND),
                                             'CreateCollection' => false,
@@ -448,8 +449,24 @@ END;
      * @return boolean
      */
     static public function CommandNeedsProvisioning($command) {
-        $stat =  ! self::checkCommandOptions($command, self::UNPROVISIONED);
+        $stat = ! self::checkCommandOptions($command, self::UNPROVISIONED);
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::CommandNeedsProvisioning('%s'): ", Utils::PrintAsString($stat)));
+        return $stat;
+    }
+
+
+
+    /**
+     * Indicates if these commands expect plain text input instead of wbxml
+     *
+     * @param string $command
+     *
+     * @access public
+     * @return boolean
+     */
+    static public function CommandNeedsPlainInput($command) {
+        $stat = self::checkCommandOptions($command, self::PLAININPUT);
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::CommandNeedsPlainInput('%s'): ", Utils::PrintAsString($stat)));
         return $stat;
     }
 
