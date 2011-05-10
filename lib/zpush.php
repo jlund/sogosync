@@ -101,7 +101,8 @@ class ZPush {
         global $specialLogUsers, $additionalFolders;
 
         // check the php version
-        if (strnatcmp(phpversion(),'5.1.0') < 0)
+
+        if (version_compare(phpversion(),'5.1.0') < 0)
             throw new FatalException("The configured PHP version is to old. Please make sure at least PHP 5.1 is used.");
 
         // some basic checks
@@ -436,7 +437,7 @@ END;
      */
     static public function CommandNeedsAuthentication($command) {
         $stat = ! self::checkCommandOptions($command, self::UNAUTHENTICATED);
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::CommandNeedsAuthentication('%s'): ", Utils::PrintAsString($stat)));
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::CommandNeedsAuthentication('%s'): %s", $command, Utils::PrintAsString($stat)));
         return $stat;
     }
 
@@ -450,11 +451,9 @@ END;
      */
     static public function CommandNeedsProvisioning($command) {
         $stat = ! self::checkCommandOptions($command, self::UNPROVISIONED);
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::CommandNeedsProvisioning('%s'): ", Utils::PrintAsString($stat)));
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::CommandNeedsProvisioning('%s'): %s", $command, Utils::PrintAsString($stat)));
         return $stat;
     }
-
-
 
     /**
      * Indicates if these commands expect plain text input instead of wbxml
@@ -466,7 +465,7 @@ END;
      */
     static public function CommandNeedsPlainInput($command) {
         $stat = self::checkCommandOptions($command, self::PLAININPUT);
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::CommandNeedsPlainInput('%s'): ", Utils::PrintAsString($stat)));
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::CommandNeedsPlainInput('%s'): %s", $command, Utils::PrintAsString($stat)));
         return $stat;
     }
 
@@ -480,7 +479,7 @@ END;
      */
     static public function HierarchyCommand($command) {
         $stat = self::checkCommandOptions($command, self::HIERARCHYCOMMAND);
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::HierarchyCommand('%s'): ", Utils::PrintAsString($stat)));
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::HierarchyCommand('%s'): %s", $command, Utils::PrintAsString($stat)));
         return $stat;
     }
 
