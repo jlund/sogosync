@@ -215,21 +215,22 @@ class ExportChangesICS implements IExportChanges{
             return false;
         }
 
+        // PHP wrapper
+        $phpwrapper = new PHPWrapper($this->_session, $this->_store, $importer);
+
+        // with a folderid we are going to get content
         if($this->_folderid) {
-            // PHP wrapper
-            $phpwrapper = new PHPContentsWrapper($this->_session, $this->_store, $this->_folderid, $importer, $this->_truncation);
+            // TODO this might be refactored into an own class, as more options will be necessary
+            $phpwrapper->ConfigContentParameters(false, false, $this->_truncation);
 
             // ICS c++ wrapper
             $mapiimporter = mapi_wrap_importcontentschanges($phpwrapper);
-        } else {
-            $phpwrapper = new PHPHierarchyWrapper($this->_store, $importer);
-            $mapiimporter = mapi_wrap_importhierarchychanges($phpwrapper);
-        }
-
-        if($this->_folderid)
             $includeprops = false;
-        else
+        }
+        else {
+            $mapiimporter = mapi_wrap_importhierarchychanges($phpwrapper);
             $includeprops = array(PR_SOURCE_KEY, PR_DISPLAY_NAME);
+        }
 
         $ret = mapi_exportchanges_config($this->exporter, $this->statestream, $this->_exporterflags, $mapiimporter, $this->_restriction, $includeprops, false, 1);
 

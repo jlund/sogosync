@@ -574,6 +574,78 @@ class MAPIProvider {
         return $message;
     }
 
+    // TODO: GetFolder() could have more refactoring
+
+    public function GetFolder($mapifolder) {
+        $folder = new SyncFolder();
+
+        $folderprops = mapi_getprops($mapifolder, array(PR_DISPLAY_NAME, PR_PARENT_ENTRYID, PR_SOURCE_KEY, PR_PARENT_SOURCE_KEY, PR_ENTRYID, PR_CONTAINER_CLASS));
+        $storeprops = mapi_getprops($this->_store, array(PR_IPM_SUBTREE_ENTRYID));
+
+        if(!isset($folderprops[PR_DISPLAY_NAME]) ||
+           !isset($folderprops[PR_PARENT_ENTRYID]) ||
+           !isset($folderprops[PR_SOURCE_KEY]) ||
+           !isset($folderprops[PR_ENTRYID]) ||
+           !isset($folderprops[PR_PARENT_SOURCE_KEY]) ||
+           !isset($storeprops[PR_IPM_SUBTREE_ENTRYID])) {
+            ZLog::Write(LOGLEVEL_ERROR, "Missing properties on folder");
+            return false;
+        }
+
+        $folder->serverid = bin2hex($folderprops[PR_SOURCE_KEY]);
+        if($folderprops[PR_PARENT_ENTRYID] == $storeprops[PR_IPM_SUBTREE_ENTRYID])
+            $folder->parentid = "0";
+        else
+            $folder->parentid = bin2hex($folderprops[PR_PARENT_SOURCE_KEY]);
+        $folder->displayname = w2u($folderprops[PR_DISPLAY_NAME]);
+        $folder->type = $this->getFolderType($folderprops[PR_ENTRYID], isset($folderprops[PR_CONTAINER_CLASS])?$folderprops[PR_CONTAINER_CLASS]:false);
+
+        return $folder;
+    }
+
+    // Gets the folder type by checking the default folders in MAPI
+    private function getFolderType($entryid, $class = false) {
+        $storeprops = mapi_getprops($this->_store, array(PR_IPM_OUTBOX_ENTRYID, PR_IPM_WASTEBASKET_ENTRYID, PR_IPM_SENTMAIL_ENTRYID));
+        $inbox = mapi_msgstore_getreceivefolder($this->_store);
+        $inboxprops = mapi_getprops($inbox, array(PR_ENTRYID, PR_IPM_DRAFTS_ENTRYID, PR_IPM_TASK_ENTRYID, PR_IPM_APPOINTMENT_ENTRYID, PR_IPM_CONTACT_ENTRYID, PR_IPM_NOTE_ENTRYID, PR_IPM_JOURNAL_ENTRYID));
+
+        if($entryid == $inboxprops[PR_ENTRYID])
+            return SYNC_FOLDER_TYPE_INBOX;
+        if($entryid == $inboxprops[PR_IPM_DRAFTS_ENTRYID])
+            return SYNC_FOLDER_TYPE_DRAFTS;
+        if($entryid == $storeprops[PR_IPM_WASTEBASKET_ENTRYID])
+            return SYNC_FOLDER_TYPE_WASTEBASKET;
+        if($entryid == $storeprops[PR_IPM_SENTMAIL_ENTRYID])
+            return SYNC_FOLDER_TYPE_SENTMAIL;
+        if($entryid == $storeprops[PR_IPM_OUTBOX_ENTRYID])
+            return SYNC_FOLDER_TYPE_OUTBOX;
+        if($entryid == $inboxprops[PR_IPM_TASK_ENTRYID])
+            return SYNC_FOLDER_TYPE_TASK;
+        if($entryid == $inboxprops[PR_IPM_APPOINTMENT_ENTRYID])
+            return SYNC_FOLDER_TYPE_APPOINTMENT;
+        if($entryid == $inboxprops[PR_IPM_CONTACT_ENTRYID])
+            return SYNC_FOLDER_TYPE_CONTACT;
+        if($entryid == $inboxprops[PR_IPM_NOTE_ENTRYID])
+            return SYNC_FOLDER_TYPE_NOTE;
+        if($entryid == $inboxprops[PR_IPM_JOURNAL_ENTRYID])
+            return SYNC_FOLDER_TYPE_JOURNAL;
+
+        // user created folders
+        if ($class == "IPF.Note")
+            return SYNC_FOLDER_TYPE_USER_MAIL;
+        if ($class == "IPF.Task")
+            return SYNC_FOLDER_TYPE_USER_TASK;
+        if ($class == "IPF.Appointment")
+            return SYNC_FOLDER_TYPE_USER_APPOINTMENT;
+        if ($class == "IPF.Contact")
+            return SYNC_FOLDER_TYPE_USER_CONTACT;
+        if ($class == "IPF.StickyNote")
+            return SYNC_FOLDER_TYPE_USER_NOTE;
+        if ($class == "IPF.Journal")
+            return  SYNC_FOLDER_TYPE_USER_JOURNAL;
+
+        return SYNC_FOLDER_TYPE_OTHER;
+    }
 
 
 

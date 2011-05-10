@@ -293,7 +293,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
     public function GetHierarchy() {
         $folders = array();
         $importer = false;
-        $himp= new PHPHierarchyWrapper($this->_store, $importer);
+        $mapiprovider = new MAPIProvider($this->_session, $this->_store);
 
         $rootfolder = mapi_msgstore_openentry($this->_store);
         $rootfolderprops = mapi_getprops($rootfolder, array(PR_SOURCE_KEY));
@@ -304,7 +304,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
         foreach ($rows as $row) {
             $mapifolder = mapi_msgstore_openentry($this->_store, $row[PR_ENTRYID]);
-            $folder = $himp->_getFolder($mapifolder);
+            $folder = $mapiprovider->GetFolder($mapifolder);
 
             if (isset($folder->parentid) && $folder->parentid != $rootfoldersourcekey)
                 $folders[] = $folder;
