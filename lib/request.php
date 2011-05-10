@@ -994,6 +994,12 @@ class RequestProcessor {
                 }
             }
 
+            // limit items to be synchronized to the mobiles if configured
+            if (defined('SYNC_FILTERTIME_MAX') && SYNC_FILTERTIME_MAX > SYNC_FILTERTYPE_ALL &&
+                (!isset($collection["filtertype"]) || $collection["filtertype"] > SYNC_FILTERTIME_MAX)) {
+                    $collection["filtertype"] = SYNC_FILTERTIME_MAX;
+            }
+
             // compatibility mode AS 1.0 - get folderid which was sent during GetHierarchy()
             if (!isset($collection["collectionid"])) {
                 $collection["collectionid"] = self::$deviceManager->GetFolderIdFromCacheByClass($collection["class"]);

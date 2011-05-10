@@ -59,7 +59,7 @@ class ZPush_ical{
             "REQ-PARTICIPANT"   => array("class" => "IPM.Schedule.Meeting.Request", "icon" => 0x404), //nokia
         );
 
-        $aical = array_map("rtrim", preg_split("/[\n]/", $ical));
+        $aical = preg_split("/[\n]/", $ical);
         $elemcount = count($aical);
         $i=0;
         $nextline = $aical[0];
@@ -67,17 +67,15 @@ class ZPush_ical{
         //last element is empty
         while ($i < $elemcount - 1) {
             $line = $nextline;
-            //if a line starts with a space or a tab it belongs to the previous line
             $nextline = $aical[$i+1];
-            if (strlen($nextline) == 0) {
-                $i++;
-                continue;
-            }
 
-            while ($nextline{0} == " " || $nextline{0} == "\t") {
-                $line .= substr($nextline, 1);
+            //if a line starts with a space or a tab it belongs to the previous line
+            while (strlen($nextline) > 0 && ($nextline{0} == " " || $nextline{0} == "\t")) {
+                $line = rtrim($line) . substr($nextline, 1);
                 $nextline = $aical[++$i + 1];
             }
+            $line = rtrim($line);
+
             switch (strtoupper($line)) {
                 case "BEGIN:VCALENDAR":
                 case "BEGIN:VEVENT":
@@ -106,7 +104,7 @@ class ZPush_ical{
                                 break;
 
                             case 'UID':
-                                $mapiprops[$this->_props["goidtag"]] = $mapiprops[$this->_props["goid2tag"]] = hex2bin($data);
+                                $mapiprops[$this->_props["goidtag"]] = $mapiprops[$this->_props["goid2tag"]] = getOLUidFromICalUid($data);
                                 break;
 
                             case 'ATTENDEE':
