@@ -82,7 +82,7 @@ class ExportHierarchyChangesCombined{
             }
 
             if(!isset($this->_importwraps[$i])){
-                $this->_importwraps[$i] = new ImportHierarchyChangesCombinedWrap($i, &$this->_backend ,&$importer);
+                $this->_importwraps[$i] = new ImportHierarchyChangesCombinedWrap($i, $this->_backend, $importer);
             }
 
             $this->_exporters[$i] = $this->_backend->_backends[$i]->GetExporter();
@@ -479,7 +479,7 @@ class BackendCombined extends Backend{
 //          TODO this is deprecated - GetContentsImporter
             $importer = $backend->GetContentsImporter($this->GetBackendFolder($folderid));
             if($importer){
-                return new ImportContentsChangesCombinedWrap($folderid, &$this, &$importer);
+                return new ImportContentsChangesCombinedWrap($folderid, $this, $importer);
             }
             return false;
         }
@@ -507,7 +507,7 @@ class BackendCombined extends Backend{
                 return false;
             return $backend->GetExporter($this->GetBackendFolder($folderid));
         }
-        return new ExportHierarchyChangesCombined(&$this);
+        return new ExportHierarchyChangesCombined($this);
     }
 
     //
