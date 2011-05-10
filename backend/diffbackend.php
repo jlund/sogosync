@@ -523,6 +523,7 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
     public function InitializeExporter(&$importer) {
         $this->_changes = array();
         $this->_step = 0;
+        $this->_importer = $importer;
 
         if($this->_folderid) {
             // Get the changes since the last sync
