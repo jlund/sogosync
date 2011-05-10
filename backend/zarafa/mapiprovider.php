@@ -42,16 +42,40 @@
 ************************************************/
 
 class MAPIProvider {
-    var $_session;
-    var $_store;
+    private $session;
+    private $store;
 
+    /**
+     * Constructor of the MAPI Provider
+     * Almost all methods of this class require a MAPI session and/or store
+     *
+     * @param ressource         $session
+     * @param ressource         $store
+     *
+     * @access public
+     */
     function MAPIProvider($session, $store) {
-        $this->_session = $session;
-        $this->_store = $store;
+        $this->session = $session;
+        $this->store = $store;
     }
 
 
-    // ------------------- getter
+    /**----------------------------------------------------------------------------------------------------------
+     * GETTER
+     */
+
+    /**
+     * Reads a message from MAPI
+     * Depending on the message class, a contact, appointment, task or email is read
+     *
+     * @param mixed             $mapimessage
+     * @param int               $truncflag
+     * @param int               $mimesupport
+     *
+     * // TODO parameters might be refactored into an own class, as more options will be necessary
+     * @access public
+     * @return SyncObject
+     */
     public function GetMessage($mapimessage, $truncflag, $mimesupport = 0) {
         // Gets the Sync object from a MAPI object according to its message class
 
@@ -72,7 +96,17 @@ class MAPIProvider {
             return $this->getEmail($mapimessage, $truncsize, $mimesupport);
     }
 
-    // Get an SyncContact object
+    /**
+     * Reads a contact object from MAPI
+     *
+     * @param mixed             $mapimessage
+     * @param int               $truncflag
+     * @param int               $mimesupport    (opt)
+     *
+     * // TODO parameters might be refactored into an own class, as more options will be necessary
+     * @access private
+     * @return SyncContact
+     */
     private function getContact($mapimessage, $truncsize, $mimesupport = 0) {
         $message = new SyncContact();
 
@@ -103,7 +137,17 @@ class MAPIProvider {
         return $message;
     }
 
-    // Get an SyncTask object
+    /**
+     * Reads a task object from MAPI
+     *
+     * @param mixed             $mapimessage
+     * @param int               $truncflag
+     * @param int               $mimesupport    (opt)
+     *
+     * // TODO parameters might be refactored into an own class, as more options will be necessary
+     * @access private
+     * @return SyncTask
+     */
     private function getTask($mapimessage, $truncsize, $mimesupport = 0) {
         $message = new SyncTask();
 
@@ -133,7 +177,17 @@ class MAPIProvider {
         return $message;
     }
 
-    // Get an SyncAppointment object
+    /**
+     * Reads an appointment object from MAPI
+     *
+     * @param mixed             $mapimessage
+     * @param int               $truncflag
+     * @param int               $mimesupport    (opt)
+     *
+     * // TODO parameters might be refactored into an own class, as more options will be necessary
+     * @access private
+     * @return SyncAppointment
+     */
     private function getAppointment($mapimessage, $truncsize, $mimesupport = 0) {
         $message = new SyncAppointment();
 
@@ -201,7 +255,7 @@ class MAPIProvider {
                     $attendee->email = w2u($row[PR_EMAIL_ADDRESS]);
                 //if address type is ZARAFA, the PR_EMAIL_ADDRESS contains username
                 elseif ($row[PR_ADDRTYPE] == "ZARAFA") {
-                    $userinfo = mapi_zarafa_getuser_by_name($this->_store, $row[PR_EMAIL_ADDRESS]);
+                    $userinfo = mapi_zarafa_getuser_by_name($this->store, $row[PR_EMAIL_ADDRESS]);
                     if (is_array($userinfo) && isset($userinfo["emailaddress"]))
                         $attendee->email = w2u($userinfo["emailaddress"]);
                 }
@@ -220,12 +274,23 @@ class MAPIProvider {
         return $message;
     }
 
-    // Get an approprotate SyncRecurrence
+    /**
+     * Reads recurrence information from MAPI
+     *
+     * @param mixed             $mapimessage
+     * @param array             $recurprops
+     * @param SyncObject        &$syncMessage       the message
+     * @param SyncObject        &$syncRecurrence    the  recurrene message
+     * @param array             $tz                 timezone information
+     *
+     * @access private
+     * @return
+     */
     private function getRecurrence($mapimessage, $recurprops, &$syncMessage, &$syncRecurrence, $tz) {
         if (class_exists('TaskRecurrence') && $syncRecurrence instanceof SyncTaskRecurrence)
-            $recurrence = new TaskRecurrence($this->_store, $recurprops);
+            $recurrence = new TaskRecurrence($this->store, $recurprops);
         else
-            $recurrence = new Recurrence($this->_store, $recurprops);
+            $recurrence = new Recurrence($this->store, $recurprops);
 
 
         switch($recurrence->recur["type"]) {
@@ -354,8 +419,17 @@ class MAPIProvider {
         }
     }
 
-
-    // Get an SyncEmail object
+    /**
+     * Reads an email object from MAPI
+     *
+     * @param mixed             $mapimessage
+     * @param int               $truncflag
+     * @param int               $mimesupport    (opt)
+     *
+     * // TODO parameters might be refactored into an own class, as more options will be necessary
+     * @access private
+     * @return SyncEmail
+     */
     private function getEmail($mapimessage, $truncsize, $mimesupport = 0) {
         $message = new SyncMail();
 
@@ -483,7 +557,6 @@ class MAPIProvider {
                 $message->meetingrequest->sensitivity = 0;
         }
 
-
         // Add attachments
         $attachtable = mapi_message_getattachmenttable($mapimessage);
         $rows = mapi_table_queryallrows($attachtable, array(PR_ATTACH_NUM));
@@ -558,8 +631,8 @@ class MAPIProvider {
             $message->body = " ";
 
         if ($mimesupport == 2 && function_exists("mapi_inetmapi_imtoinet")) {
-            $addrBook = mapi_openaddressbook($this->_session);
-            $mstream = mapi_inetmapi_imtoinet($this->_session, $addrBook, $mapimessage, array());
+            $addrBook = mapi_openaddressbook($this->session);
+            $mstream = mapi_inetmapi_imtoinet($this->session, $addrBook, $mapimessage, array());
 
             $mstreamstat = mapi_stream_stat($mstream);
             if ($mstreamstat['cb'] < MAX_EMBEDDED_SIZE) {
@@ -574,13 +647,19 @@ class MAPIProvider {
         return $message;
     }
 
-    // TODO: GetFolder() could have more refactoring
-
+    /**
+     * Reads a folder object from MAPI
+     *
+     * @param mixed             $mapimessage
+     *
+     * @access public
+     * @return SyncFolder
+     */
     public function GetFolder($mapifolder) {
         $folder = new SyncFolder();
 
         $folderprops = mapi_getprops($mapifolder, array(PR_DISPLAY_NAME, PR_PARENT_ENTRYID, PR_SOURCE_KEY, PR_PARENT_SOURCE_KEY, PR_ENTRYID, PR_CONTAINER_CLASS));
-        $storeprops = mapi_getprops($this->_store, array(PR_IPM_SUBTREE_ENTRYID));
+        $storeprops = mapi_getprops($this->store, array(PR_IPM_SUBTREE_ENTRYID));
 
         if(!isset($folderprops[PR_DISPLAY_NAME]) ||
            !isset($folderprops[PR_PARENT_ENTRYID]) ||
@@ -603,10 +682,19 @@ class MAPIProvider {
         return $folder;
     }
 
-    // Gets the folder type by checking the default folders in MAPI
+    /**
+     * Returns the foldertype for an entryid
+     * Gets the folder type by checking the default folders in MAPI
+     *
+     * @param string            $entryid
+     * @param string            $class      (opt)
+     *
+     * @access private
+     * @return long
+     */
     private function getFolderType($entryid, $class = false) {
-        $storeprops = mapi_getprops($this->_store, array(PR_IPM_OUTBOX_ENTRYID, PR_IPM_WASTEBASKET_ENTRYID, PR_IPM_SENTMAIL_ENTRYID));
-        $inbox = mapi_msgstore_getreceivefolder($this->_store);
+        $storeprops = mapi_getprops($this->store, array(PR_IPM_OUTBOX_ENTRYID, PR_IPM_WASTEBASKET_ENTRYID, PR_IPM_SENTMAIL_ENTRYID));
+        $inbox = mapi_msgstore_getreceivefolder($this->store);
         $inboxprops = mapi_getprops($inbox, array(PR_ENTRYID, PR_IPM_DRAFTS_ENTRYID, PR_IPM_TASK_ENTRYID, PR_IPM_APPOINTMENT_ENTRYID, PR_IPM_CONTACT_ENTRYID, PR_IPM_NOTE_ENTRYID, PR_IPM_JOURNAL_ENTRYID));
 
         if($entryid == $inboxprops[PR_ENTRYID])
@@ -648,12 +736,22 @@ class MAPIProvider {
     }
 
 
+    /**----------------------------------------------------------------------------------------------------------
+     * SETTER
+     */
 
-
-
-    // ------------------- setter
-
+    /**
+     * Writes a SyncObject to MAPI
+     * Depending on the message class, a contact, appointment, task or email is written
+     *
+     * @param mixed             $mapimessage
+     * @param SyncObject        $message
+     *
+     * @access public
+     * @return boolean
+     */
     public function SetMessage($mapimessage, $message) {
+        // TODO check with instanceof
         switch(strtolower(get_class($message))) {
             case "synccontact":
                 return $this->setContact($mapimessage, $message);
@@ -662,10 +760,22 @@ class MAPIProvider {
             case "synctask":
                 return $this->setTask($mapimessage, $message);
             default:
+                ZLog::Write(LOGLEVEL_ERROR, "Not possible to save message of type: ". get_class($message));
+                return false;
+                // TODO setEmail is not implemented
                 return $this->setEmail($mapimessage, $message); // In fact, this is unimplemented. It never happens. You can't save or modify an email from the PDA (except readflags)
         }
     }
 
+    /**
+     * Writes a SyncAppointment to MAPI
+     *
+     * @param mixed             $mapimessage
+     * @param SyncAppointment   $message
+     *
+     * @access private
+     * @return boolean
+     */
     private function setAppointment($mapimessage, $appointment) {
         // Get timezone info
         if(isset($appointment->timezone))
@@ -727,7 +837,7 @@ class MAPIProvider {
             // Set PR_ICON_INDEX to 1025 to show correct icon in category view
             $props[$appointmentprops["icon"]] = 1025;
 
-            $recurrence = new Recurrence($this->_store, $mapimessage);
+            $recurrence = new Recurrence($this->store, $mapimessage);
             $recur = array();
             $this->setRecurrence($appointment, $recur);
 
@@ -787,7 +897,6 @@ class MAPIProvider {
             }
 
             $recurrence->setRecurrence($tz, $recur);
-
         }
         else {
             $props[$appointmentprops["isrecurring"]] = false;
@@ -816,6 +925,15 @@ class MAPIProvider {
         mapi_setprops($mapimessage, $props);
     }
 
+    /**
+     * Writes a SyncContact to MAPI
+     *
+     * @param mixed             $mapimessage
+     * @param SyncContact       $contact
+     *
+     * @access private
+     * @return boolean
+     */
     private function setContact($mapimessage, $contact) {
         mapi_setprops($mapimessage, array(PR_MESSAGE_CLASS => "IPM.Contact"));
 
@@ -873,9 +991,9 @@ class MAPIProvider {
             if ($picsize < MAX_EMBEDDED_SIZE) {
                 $props[$contactprops["haspic"]] = false;
 
-                //TODO contact picture handling
-                //check if contact has already got a picture. delete it first in that case
-                //delete it also if it was removed on a mobile
+                // TODO contact picture handling
+                // check if contact has already got a picture. delete it first in that case
+                // delete it also if it was removed on a mobile
                 $picprops = mapi_getprops($mapimessage, array($props[$contactprops["haspic"]]));
                 if (isset($picprops[$props[$contactprops["haspic"]]]) && $picprops[$props[$contactprops["haspic"]]]) {
                     ZLog::Write(LOGLEVEL_DEBUG, "Contact already has a picture. Delete it");
@@ -890,7 +1008,7 @@ class MAPIProvider {
                     }
                 }
 
-                //only set picture if there's data in the request
+                // only set picture if there's data in the request
                 if ($picbinary !== false && $picsize > 0) {
                     $props[$contactprops["haspic"]] = true;
                     $pic = mapi_message_createattach($mapimessage);
@@ -917,6 +1035,15 @@ class MAPIProvider {
         mapi_setprops($mapimessage, $props);
     }
 
+    /**
+     * Writes a SyncTask to MAPI
+     *
+     * @param mixed             $mapimessage
+     * @param SyncTask          $task
+     *
+     * @access private
+     * @return boolean
+     */
     private function setTask($mapimessage, $task) {
         mapi_setprops($mapimessage, array(PR_MESSAGE_CLASS => "IPM.Task"));
 
@@ -924,7 +1051,7 @@ class MAPIProvider {
         $taskprops = MAPIMapping::GetTaskProperties();
         $taskprops = $this->getPropIdsFromStrings($taskprops);
 
-        //task specific properties to be set
+        // task specific properties to be set
         $props = array();
 
         if(isset($task->complete)) {
@@ -946,18 +1073,18 @@ class MAPIProvider {
 
             // Set PR_ICON_INDEX to 1281 to show correct icon in category view
             $props[$taskprops["icon"]] = 1281;
-            //dead occur - false if new occurrences should be generated from the task
-            //true - if it is the last ocurrence of the task
+            // dead occur - false if new occurrences should be generated from the task
+            // true - if it is the last ocurrence of the task
             $props[$taskprops["deadoccur"]] = $deadoccur;
             $props[$taskprops["isrecurringtag"]] = true;
 
-            $recurrence = new TaskRecurrence($this->_store, $mapimessage);
+            $recurrence = new TaskRecurrence($this->store, $mapimessage);
             $recur = array();
             $this->setRecurrence($task, $recur);
 
-            //task specific recurrence properties which we need to set here
+            // task specific recurrence properties which we need to set here
             // "start" and "end" are in GMT when passing to class.recurrence
-            //set recurrence start here because it's calculated differently for tasks and appointments
+            // set recurrence start here because it's calculated differently for tasks and appointments
             $recur["start"] = $task->recurrence->start;
             $recur["regen"] = $task->regenerate;
             //Also add dates to $recur
@@ -968,10 +1095,19 @@ class MAPIProvider {
     }
 
 
-    // ------------------- helper
+    /**----------------------------------------------------------------------------------------------------------
+     * HELPER
+     */
 
-    private function GetTZOffset($ts)
-    {
+    /**
+     * Returns the tiemstamp offset
+     *
+     * @param string            $ts
+     *
+     * @access private
+     * @return long
+     */
+    private function GetTZOffset($ts) {
         $Offset = date("O", $ts);
 
         $Parity = $Offset < 0 ? -1 : 1;
@@ -981,8 +1117,15 @@ class MAPIProvider {
         return $Parity * $Offset;
     }
 
-    private function gmtime($time)
-    {
+    /**
+     * Localtime of the timestamp
+     *
+     * @param long              $time
+     *
+     * @access private
+     * @return array
+     */
+    private function gmtime($time) {
         $TZOffset = $this->GetTZOffset($time);
 
         $t_time = $time - $TZOffset * 60; #Counter adjust for localtime()
@@ -991,7 +1134,16 @@ class MAPIProvider {
         return $t_arr;
     }
 
-        // Sets the properties in a MAPI object according to an Sync object and a property mapping
+    /**
+     * Sets the properties in a MAPI object according to an Sync object and a property mapping
+     *
+     * @param mixed             $mapimessage
+     * @param SyncObject        $message
+     * @param array             $mapping
+     *
+     * @access private
+     * @return
+     */
     private function setPropsInMAPI($mapimessage, $message, $mapping) {
         $mapiprops = $this->getPropIdsFromStrings($mapping);
         $unsetVars = $message->getUnsetVars();
@@ -1036,7 +1188,7 @@ class MAPIProvider {
                     // a valid compressed RTF with nothing in it.
 
                 }
-                //all properties will be set at once
+                // all properties will be set at once
                 $propsToSet[$mapiprop] = $value;
             }
             elseif (in_array($asprop, $unsetVars)) {
@@ -1056,7 +1208,16 @@ class MAPIProvider {
         unset($unsetVars, $propsToDelete);
     }
 
-
+    /**
+     * Sets the properties one by one in a MAPI object
+     *
+     * @param mixed             &$mapimessage
+     * @param array             &$propsToSet
+     * @param array             &$mapiprops
+     *
+     * @access private
+     * @return
+     */
     private function setPropsIndividually(&$mapimessage, &$propsToSet, &$mapiprops) {
         foreach ($propsToSet as $prop => $value) {
             mapi_setprops($mapimessage, array($prop => $value));
@@ -1067,11 +1228,18 @@ class MAPIProvider {
 
     }
 
-    // Gets the properties from a MAPI object and sets them in the Sync object according to mapping
+    /**
+     * Gets the properties from a MAPI object and sets them in the Sync object according to mapping
+     *
+     * @param SyncObject        &$message
+     * @param mixed             $mapimessage
+     * @param array             $mapping
+     *
+     * @access private
+     * @return
+     */
     private function getPropsFromMAPI(&$message, $mapimessage, $mapping) {
-
         $messageprops = $this->getProps($mapimessage, $mapping);
-
         foreach ($mapping as $asprop => $mapiprop) {
              // Get long strings via openproperty
             if (isset($messageprops[mapi_prop_tag(PT_ERROR, mapi_prop_id($mapiprop))])) {
@@ -1108,34 +1276,68 @@ class MAPIProvider {
         }
     }
 
+    /**
+     * Wraps getPropIdsFromStrings() calls
+     *
+     * @param mixed             &$mapiprops
+     *
+     * @access private
+     * @return
+     */
     private function getPropIdsFromStrings(&$mapiprops) {
-        return getPropIdsFromStrings($this->_store, $mapiprops);
+        return getPropIdsFromStrings($this->store, $mapiprops);
     }
 
+    /**
+     * Wraps mapi_getprops() calls
+     *
+     * @param mixed             &$mapiprops
+     *
+     * @access private
+     * @return
+     */
     protected function getProps($mapimessage, &$mapiproperties) {
         $mapiproperties = $this->getPropIdsFromStrings($mapiproperties);
         return mapi_getprops($mapimessage, $mapiproperties);
     }
 
+    /**
+     * Returns an GMT timezone array
+     *
+     * @access private
+     * @return array
+     */
     private function getGMTTZ() {
         $tz = array("bias" => 0, "stdbias" => 0, "dstbias" => 0, "dstendyear" => 0, "dstendmonth" =>0, "dstendday" =>0, "dstendweek" => 0, "dstendhour" => 0, "dstendminute" => 0, "dstendsecond" => 0, "dstendmillis" => 0,
                                       "dststartyear" => 0, "dststartmonth" =>0, "dststartday" =>0, "dststartweek" => 0, "dststarthour" => 0, "dststartminute" => 0, "dststartsecond" => 0, "dststartmillis" => 0);
-
         return $tz;
     }
 
-    // Unpack timezone info from MAPI
+    /**
+     * Unpack timezone info from MAPI
+     *
+     * @param string    $data
+     *
+     * @access private
+     * @return array
+     */
     private function getTZFromMAPIBlob($data) {
         $unpacked = unpack("lbias/lstdbias/ldstbias/" .
                            "vconst1/vdstendyear/vdstendmonth/vdstendday/vdstendweek/vdstendhour/vdstendminute/vdstendsecond/vdstendmillis/" .
                            "vconst2/vdststartyear/vdststartmonth/vdststartday/vdststartweek/vdststarthour/vdststartminute/vdststartsecond/vdststartmillis", $data);
-
         return $unpacked;
     }
 
-    // Unpack timezone info from Sync
+    /**
+     * Unpack timezone info from Sync
+     *
+     * @param string    $data
+     *
+     * @access private
+     * @return array
+     */
     private function getTZFromSyncBlob($data) {
-        $tz = unpack(    "lbias/a64name/vdstendyear/vdstendmonth/vdstendday/vdstendweek/vdstendhour/vdstendminute/vdstendsecond/vdstendmillis/" .
+        $tz = unpack(   "lbias/a64name/vdstendyear/vdstendmonth/vdstendday/vdstendweek/vdstendhour/vdstendminute/vdstendsecond/vdstendmillis/" .
                         "lstdbias/a64name/vdststartyear/vdststartmonth/vdststartday/vdststartweek/vdststarthour/vdststartminute/vdststartsecond/vdststartmillis/" .
                         "ldstbias", $data);
 
@@ -1146,7 +1348,14 @@ class MAPIProvider {
         return $tz;
     }
 
-    // Pack timezone info for Sync
+    /**
+     * Pack timezone info for Sync
+     *
+     * @param array     $tz
+     *
+     * @access private
+     * @return string
+     */
     private function getSyncBlobFromTZ($tz) {
         $packed = pack("la64vvvvvvvv" . "la64vvvvvvvv" . "l",
                 $tz["bias"], "", 0, $tz["dstendmonth"], $tz["dstendday"], $tz["dstendweek"], $tz["dstendhour"], $tz["dstendminute"], $tz["dstendsecond"], $tz["dstendmillis"],
@@ -1156,7 +1365,14 @@ class MAPIProvider {
         return $packed;
     }
 
-    // Pack timezone info for MAPI
+    /**
+     * Pack timezone info for MAPI
+     *
+     * @param array     $tz
+     *
+     * @access private
+     * @return string
+     */
     private function getMAPIBlobFromTZ($tz) {
         $packed = pack("lll" . "vvvvvvvvv" . "vvvvvvvvv",
                       $tz["bias"], $tz["stdbias"], $tz["dstbias"],
@@ -1166,7 +1382,15 @@ class MAPIProvider {
         return $packed;
     }
 
-    // Checks the date to see if it is in DST, and returns correct GMT date accordingly
+    /**
+     * Checks the date to see if it is in DST, and returns correct GMT date accordingly
+     *
+     * @param long      $localtime
+     * @param array     $tz
+     *
+     * @access private
+     * @return long
+     */
     private function getGMTTimeByTZ($localtime, $tz) {
         if(!isset($tz) || !is_array($tz))
             return $localtime;
@@ -1177,7 +1401,15 @@ class MAPIProvider {
             return $localtime + $tz["bias"]*60;
     }
 
-    // Returns the local time for the given GMT time, taking account of the given timezone
+    /**
+     * Returns the local time for the given GMT time, taking account of the given timezone
+     *
+     * @param long      $gmttime
+     * @param array     $tz
+     *
+     * @access private
+     * @return long
+     */
     private function getLocaltimeByTZ($gmttime, $tz) {
         if(!isset($tz) || !is_array($tz))
             return $gmttime;
@@ -1188,7 +1420,15 @@ class MAPIProvider {
             return $gmttime - $tz["bias"]*60;
     }
 
-    // Returns TRUE if it is the summer and therefore DST is in effect
+    /**
+     * Returns TRUE if it is the summer and therefore DST is in effect
+     *
+     * @param long      $localtime
+     * @param array     $tz
+     *
+     * @access private
+     * @return boolean
+     */
     private function isDST($localtime, $tz) {
         if(!isset($tz) || !is_array($tz))
             return false;
@@ -1214,7 +1454,20 @@ class MAPIProvider {
         return $dst;
     }
 
-    // Returns the local timestamp for the $week'th $wday of $month in $year at $hour:$minute:$second
+    /**
+     * Returns the local timestamp for the $week'th $wday of $month in $year at $hour:$minute:$second
+     *
+     * @param int       $year
+     * @param int       $month
+     * @param int       $week
+     * @param int       $wday
+     * @param int       $hour
+     * @param int       $minute
+     * @param int       $second
+     *
+     * @access private
+     * @return long
+     */
     private function getTimestampOfWeek($year, $month, $week, $wday, $hour, $minute, $second)
     {
         $date = gmmktime($hour, $minute, $second, $month, 1, $year);
@@ -1243,13 +1496,28 @@ class MAPIProvider {
         return $date;
     }
 
-    // Normalize the given timestamp to the start of the day
+    /**
+     * Normalize the given timestamp to the start of the day
+     *
+     * @param long      $timestamp
+     *
+     * @access private
+     * @return long
+     */
     private function getDayStartOfTimestamp($timestamp) {
         return $timestamp - ($timestamp % (60 * 60 * 24));
     }
 
+    /**
+     * Returns an SMTP address from an entry id
+     *
+     * @param string    $entryid
+     *
+     * @access private
+     * @return string
+     */
     private function getSMTPAddressFromEntryID($entryid) {
-        $ab = mapi_openaddressbook($this->_session);
+        $ab = mapi_openaddressbook($this->session);
 
         $mailuser = mapi_ab_openentry($ab, $entryid);
         if(!$mailuser)
@@ -1268,7 +1536,14 @@ class MAPIProvider {
         return "";
     }
 
-
+    /**
+     * Builds a displayname from several separated values
+     *
+     * @param SyncContact       $contact
+     *
+     * @access private
+     * @return string
+     */
     private function composeDisplayName(&$contact) {
         // Set display name and subject to a combined value of firstname and lastname
         $cname = (isset($contact->prefix))?u2w($contact->prefix)." ":"";
@@ -1279,7 +1554,20 @@ class MAPIProvider {
         return trim($cname);
     }
 
-
+    /**
+     * Sets all dependent properties for an email address
+     *
+     * @param string            $emailAddress
+     * @param string            $displayName
+     * @param int               $cnt
+     * @param array             &$props
+     * @param array             &$properties
+     * @param array             &$nremails
+     * @param int               &$abprovidertype
+     *
+     * @access private
+     * @return
+     */
     private function setEmailAddress($emailAddress, $displayName, $cnt, &$props, &$properties, &$nremails, &$abprovidertype){
         if (isset($emailAddress)){
             $name = (isset($displayName)) ? $displayName : $emailAddress;
@@ -1294,8 +1582,22 @@ class MAPIProvider {
         }
     }
 
-
-    private function setAddress($type, $city, $country, $postalcode, $state, $street, &$props, &$properties) {
+    /**
+     * Sets the properties for an address string
+     *
+     * @param string            $type               which address is being set
+     * @param string            $city
+     * @param string            $country
+     * @param string            $postalcode
+     * @param string            $state
+     * @param string            $street
+     * @param array             &$props
+     * @param array             &$properties
+     *
+     * @access private
+     * @return
+     */
+     private function setAddress($type, $city, $country, $postalcode, $state, $street, &$props, &$properties) {
         if (isset($city)) $props[$properties[$type."city"]] = $city;
 
         if (isset($country)) $props[$properties[$type."country"]] = $country;
@@ -1311,7 +1613,21 @@ class MAPIProvider {
         if ($address) $props[$properties[$type."address"]] = $address;
     }
 
-
+    /**
+     * Sets the properties for a mailing address
+     *
+     * @param string            $city
+     * @param string            $country
+     * @param string            $postalcode
+     * @param string            $state
+     * @param string            $street
+     * @param string            $address
+     * @param array             &$props
+     * @param array             &$properties
+     *
+     * @access private
+     * @return
+     */
     private function setMailingAddress($city, $country, $postalcode,  $state, $street, $address, &$props, &$properties) {
         if (isset($city)) $props[$properties["city"]] = $city;
         if (isset($country)) $props[$properties["country"]] = $country;
@@ -1321,7 +1637,15 @@ class MAPIProvider {
         if (isset($address)) $props[$properties["postaladdress"]] = $address;
     }
 
-
+    /**
+     * Sets data in a recurrence array
+     *
+     * @param SyncObject        $message
+     * @param array             &$recur
+     *
+     * @access private
+     * @return
+     */
     private function setRecurrence($message, &$recur) {
         if (isset($message->complete)) {
             $recur["complete"] = $message->complete;
