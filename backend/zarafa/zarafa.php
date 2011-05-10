@@ -1087,31 +1087,6 @@ class BackendZarafa implements IBackend, ISearchProvider {
         return false;
     }
 
-    // Adds all folders in $mapifolder to $list, recursively
-    protected function _getFoldersRecursive($mapifolder, $parent, &$list) {
-        $hierarchytable = mapi_folder_gethierarchytable($mapifolder);
-        $folderprops = mapi_getprops($mapifolder, array(PR_ENTRYID));
-        if(!$hierarchytable)
-            return false;
-
-        $rows = mapi_table_queryallrows($hierarchytable, array(PR_DISPLAY_NAME, PR_SUBFOLDERS, PR_ENTRYID));
-
-        foreach($rows as $row) {
-            $folder = array();
-            $folder["mod"] = $row[PR_DISPLAY_NAME];
-            $folder["id"] = bin2hex($row[PR_ENTRYID]);
-            $folder["parent"] = $parent;
-
-            array_push($list, $folder);
-
-            if(isset($row[PR_SUBFOLDERS]) && $row[PR_SUBFOLDERS]) {
-                $this->_getFoldersRecursive(mapi_msgstore_openentry($this->_store, $row[PR_ENTRYID]), $folderprops[PR_ENTRYID], $list);
-            }
-        }
-
-        return true;
-    }
-
     // TODO: _storeAttachment() should go into MAPIutils
     // gets attachment from a parsed email and stores it to MAPI
     protected function _storeAttachment($mapimessage, $part) {
