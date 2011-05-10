@@ -532,13 +532,13 @@ class BackendZarafa implements IBackend, ISearchProvider {
                         // store ics as attachment
                         //see Utils::IcalTimezoneFix() in utils.php for more information
                         $part->body = Utils::IcalTimezoneFix($part->body);
-                        $this->_storeAttachment($mapimessage, $part);
+                        MAPIUtils::StoreAttachment($mapimessage, $part);
                         ZLog::Write(LOGLEVEL_INFO, "Sending ICS file as attachment");
                     }
                 }
                 // any other type, store as attachment
                 else
-                    $this->_storeAttachment($mapimessage, $part);
+                    MAPIUtils::StoreAttachment($mapimessage, $part);
             }
         } else {
             $body = u2wi($message->body);
@@ -680,6 +680,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         mapi_savechanges($mapimessage);
         mapi_message_submitmessage($mapimessage);
 
+        ZLog::Write(LOGLEVEL_DEBUG, "ZarafaBackend->SendMail(): email submitted");
         return true;
     }
 
@@ -1085,52 +1086,6 @@ class BackendZarafa implements IBackend, ISearchProvider {
             return true;
         }
         return false;
-    }
-
-    // TODO: _storeAttachment() should go into MAPIutils
-    // gets attachment from a parsed email and stores it to MAPI
-    protected function _storeAttachment($mapimessage, $part) {
-        // attachment
-        $attach = mapi_message_createattach($mapimessage);
-
-        $filename = "";
-        // Filename is present in both Content-Type: name=.. and in Content-Disposition: filename=
-        if(isset($part->ctype_parameters["name"]))
-            $filename = $part->ctype_parameters["name"];
-        else if(isset($part->d_parameters["name"]))
-            $filename = $part->d_parameters["filename"];
-        else if (isset($part->d_parameters["filename"])) // sending appointment with nokia & android only filename is set
-            $filename = $part->d_parameters["filename"];
-        // filenames with more than 63 chars as splitted several strings
-        else if (isset($part->d_parameters["filename*0"])) {
-            for ($i=0; $i< count($part->d_parameters); $i++)
-               if (isset($part->d_parameters["filename*".$i]))
-                   $filename .= $part->d_parameters["filename*".$i];
-        }
-        else
-            $filename = "untitled";
-
-        // Android just doesn't send content-type, so mimeDecode doesn't performs base64 decoding
-        // on meeting requests text/calendar somewhere inside content-transfer-encoding
-        if (isset($part->headers['content-transfer-encoding']) && strpos($part->headers['content-transfer-encoding'], 'base64')) {
-            if (strpos($part->headers['content-transfer-encoding'], 'text/calendar') !== false) {
-                $part->ctype_primary = 'text';
-                $part->ctype_secondary = 'calendar';
-            }
-            if (!isset($part->headers['content-type']))
-                $part->body = base64_decode($part->body);
-        }
-
-        mapi_setprops($attach, array(
-            // Set filename and attachment type
-            PR_ATTACH_LONG_FILENAME => u2wi($filename),
-            PR_ATTACH_METHOD => ATTACH_BY_VALUE,
-            // Set attachment data
-            PR_ATTACH_DATA_BIN => $part->body,
-            // Set MIME type
-            PR_ATTACH_MIME_TAG => $part->ctype_primary . "/" . $part->ctype_secondary));
-
-        mapi_savechanges($attach);
     }
 
 }
