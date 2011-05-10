@@ -54,7 +54,7 @@ include_once('mapi/mapitags.php');
 include_once('mapi/mapicode.php');
 include_once('mapi/mapiguid.php');
 //task recurrence support in php-mapi is available since ZCP 6.40.4
-if (checkMapiExtVersion('6.40.4')) {
+if (Utils::CheckMapiExtVersion('6.40.4')) {
     include_once('mapi/class.baserecurrence.php');
     include_once('mapi/class.taskrecurrence.php');
 }
@@ -525,7 +525,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
                         return true;
                     }
 
-                    if (!checkMapiExtVersion("6.30") && is_array($mapiprops) && !empty($mapiprops)) {
+                    if (! Utils::CheckMapiExtVersion("6.30") && is_array($mapiprops) && !empty($mapiprops)) {
                         mapi_setprops($mapimessage, $mapiprops);
                     }
                     else {

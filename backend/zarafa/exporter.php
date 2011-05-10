@@ -176,10 +176,10 @@ class ExportChangesICS implements IExportChanges{
     public function ConfigContentParameters($mclass, $restrict, $truncation) {
         switch($mclass) {
             case "Email":
-                $this->_restriction = MAPIUtils::GetEmailRestriction(getCutOffDate($restrict));
+                $this->_restriction = MAPIUtils::GetEmailRestriction(Utils::GetCutOffDate($restrict));
                 break;
             case "Calendar":
-                $this->_restriction = MAPIUtils::GetCalendarRestriction($this->_store, getCutOffDate($restrict));
+                $this->_restriction = MAPIUtils::GetCalendarRestriction($this->_store, Utils::GetCutOffDate($restrict));
                 break;
             default:
             case "Contacts":

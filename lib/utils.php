@@ -41,7 +41,6 @@
 * Consult LICENSE file for details
 ************************************************/
 
-
 class Utils {
     /**
      * Prints a variable as string
@@ -106,20 +105,237 @@ class Utils {
         return $ical;
     }
 
+    /**
+     * Build an address string from the components
+     *
+     * @param string    $street     the street
+     * @param string    $zip        the zip code
+     * @param string    $city       the city
+     * @param string    $state      the state
+     * @param string    $country    the country
+     *
+     * @access public
+     * @return string   the address string or null
+     */
+    static public function BuildAddressString($street, $zip, $city, $state, $country) {
+        $out = "";
+
+        if (isset($country) && $street != "") $out = $country;
+
+        $zcs = "";
+        if (isset($zip) && $zip != "") $zcs = $zip;
+        if (isset($city) && $city != "") $zcs .= (($zcs)?" ":"") . $city;
+        if (isset($state) && $state != "") $zcs .= (($zcs)?" ":"") . $state;
+        if ($zcs) $out = $zcs . "\r\n" . $out;
+
+        if (isset($street) && $street != "") $out = $street . (($out)?"\r\n\r\n". $out: "") ;
+
+        return ($out)?$out:null;
+    }
+
+    /**
+     * Checks if the PHP-MAPI extension is available and in a requested version
+     *
+     * @param string    $version    the version to be checked ("6.30.10-18495", parts or build number)
+     *
+     * @access public
+     * @return boolean installed version is superior to the checked strin
+     */
+    static public function CheckMapiExtVersion($version = "") {
+        // compare build number if requested
+        if (preg_match('/^\d+$/', $version) && strlen($version) > 3) {
+            $vs = preg_split('/-/', phpversion("mapi"));
+            return ($version <= $vs[1]);
+        }
+
+        if (extension_loaded("mapi")){
+            if (version_compare(phpversion("mapi"), $version) == -1){
+                return false;
+            }
+        }
+        else
+            return false;
+
+        return true;
+    }
+
+    /**
+     * Parses and returns an ecoded vCal-Uid from an
+     * OL compatible GlobalObjectID
+     *
+     * @param string    $olUid      an OL compatible GlobalObjectID
+     *
+     * @access public
+     * @return string   the vCal-Uid if available in the olUid, else the original olUid as HEX
+     */
+    static public function GetICalUidFromOLUid($olUid){
+        //check if "vCal-Uid" is somewhere in outlookid case-insensitive
+        $icalUid = stristr($olUid, "vCal-Uid");
+        if ($icalUid !== false) {
+            //get the length of the ical id - go back 4 position from where "vCal-Uid" was found
+            $begin = unpack("V", substr($olUid, strlen($icalUid) * (-1) - 4, 4));
+            //remove "vCal-Uid" and packed "1" and use the ical id length
+            return substr($icalUid, 12, ($begin[1] - 13));
+        }
+        return strtoupper(bin2hex($olUid));
+    }
+
+    /**
+     * Checks the given UID if it is an OL compatible GlobalObjectID
+     * If not, the given UID is encoded inside the GlobalObjectID
+     *
+     * @param string    $icalUid    an appointment uid as HEX
+     *
+     * @access public
+     * @return string   an OL compatible GlobalObjectID
+     *
+     */
+    static public function GetOLUidFromICalUid($icalUid) {
+        if (strlen($icalUid) <= 64) {
+            $len = 13 + strlen($icalUid);
+            $OLUid = pack("V", $len);
+            $OLUid .= "vCal-Uid";
+            $OLUid .= pack("V", 1);
+            $OLUid .= $icalUid;
+            return hex2bin("040000008200E00074C5B7101A82E0080000000000000000000000000000000000000000". bin2hex($OLUid). "00");
+        }
+        else
+           return hex2bin($icalUid);
+    }
+
+    /**
+     * Extracts the basedate of the GlobalObjectID and the RecurStartTime
+     *
+     * @param string    $goid           OL compatible GlobalObjectID
+     * @param long      $recurStartTime
+     *
+     * @access public
+     * @return long     basedate
+     */
+    static public function ExtractBaseDate($goid, $recurStartTime) {
+        $hexbase = substr(bin2hex($goid), 32, 8);
+        $day = hexdec(substr($hexbase, 6, 2));
+        $month = hexdec(substr($hexbase, 4, 2));
+        $year = hexdec(substr($hexbase, 0, 4));
+
+        if ($day && $month && $year) {
+            $h = $recurStartTime >> 12;
+            $m = ($recurStartTime - $h * 4096) >> 6;
+            $s = $recurStartTime - $h * 4096 - $m * 64;
+
+            return gmmktime($h, $m, $s, $month, $day, $year);
+        }
+        else
+            return false;
+    }
+
+    /**
+     * Converts SYNC_FILTERTYPE into a timestamp
+     *
+     * @param int       Filtertype
+     *
+     * @access public
+     * @return long
+     */
+    static public function GetCutOffDate($restrict) {
+        switch($restrict) {
+            case SYNC_FILTERTYPE_1DAY:
+                $back = 60 * 60 * 24;
+                break;
+            case SYNC_FILTERTYPE_3DAYS:
+                $back = 60 * 60 * 24 * 3;
+                break;
+            case SYNC_FILTERTYPE_1WEEK:
+                $back = 60 * 60 * 24 * 7;
+                break;
+            case SYNC_FILTERTYPE_2WEEKS:
+                $back = 60 * 60 * 24 * 14;
+                break;
+            case SYNC_FILTERTYPE_1MONTH:
+                $back = 60 * 60 * 24 * 31;
+                break;
+            case SYNC_FILTERTYPE_3MONTHS:
+                $back = 60 * 60 * 24 * 31 * 3;
+                break;
+            case SYNC_FILTERTYPE_6MONTHS:
+                $back = 60 * 60 * 24 * 31 * 6;
+                break;
+            default:
+                break;
+        }
+
+        if(isset($back)) {
+            $date = time() - $back;
+            return $date;
+        } else
+            return 0; // unlimited
+    }
+
+    /**
+     * Converts SYNC_TRUNCATION into bytes
+     *
+     * @param int       SYNC_TRUNCATION
+     *
+     * @return long
+     */
+    static public function GetTruncSize($truncation) {
+        switch($truncation) {
+            case SYNC_TRUNCATION_HEADERS:
+                return 0;
+            case SYNC_TRUNCATION_512B:
+                return 512;
+            case SYNC_TRUNCATION_1K:
+                return 1024;
+            case SYNC_TRUNCATION_5K:
+                return 5*1024;
+            case SYNC_TRUNCATION_SEVEN:
+            case SYNC_TRUNCATION_ALL:
+                return 1024*1024; // We'll limit to 1MB anyway
+            default:
+                return 1024; // Default to 1Kb
+        }
+    }
+
+    /**
+     * Truncate an UTF-8 encoded sting correctly
+     *
+     * If it's not possible to truncate properly, an empty string is returned
+     *
+     * @param string $string - the string
+     * @param string $length - position where string should be cut
+     * @return string truncated string
+     */
+    static public function Utf8_truncate($string, $length) {
+        if (strlen($string) <= $length)
+            return $string;
+
+        while($length >= 0) {
+            if ((ord($string[$length]) < 0x80) || (ord($string[$length]) >= 0xC0))
+                return substr($string, 0, $length);
+
+            $length--;
+        }
+        return "";
+    }
 }
 
-// TODO utils functions have to be refactored into Utils class
 
 /**
- * Function which converts a hex entryid to a binary entryid.
- * @param string @data the hexadecimal string
+ * Complementary function to bin2hey() which converts a hex entryid to a binary entryid.
+ * hex2bin() is not part of the Utils class
+ *
+ * @param string    $data   the hexadecimal string
+ *
+ * @returns string
  */
 function hex2bin($data) {
     return pack("H*", $data);
 }
 
-function utf8_to_windows1252($string, $option = "")
-{
+
+// TODO Win1252/UTF8 functions are deprecated and will be removed sometime
+
+function utf8_to_windows1252($string, $option = "") {
     //if the store supports unicode return the string without converting it
     if (defined('STORE_SUPPORTS_UNICODE') && STORE_SUPPORTS_UNICODE == true) return $string;
 
@@ -134,8 +350,7 @@ function utf8_to_windows1252($string, $option = "")
     }
 }
 
-function windows1252_to_utf8($string, $option = "")
-{
+function windows1252_to_utf8($string, $option = "") {
     //if the store supports unicode return the string without converting it
     if (defined('STORE_SUPPORTS_UNICODE') && STORE_SUPPORTS_UNICODE == true) return $string;
 
@@ -152,209 +367,5 @@ function u2w($string) { return utf8_to_windows1252($string); }
 function w2ui($string) { return windows1252_to_utf8($string, "//TRANSLIT"); }
 function u2wi($string) { return utf8_to_windows1252($string, "//TRANSLIT"); }
 
-/**
- * Truncate an UTF-8 encoded sting correctly
- *
- * If it's not possible to truncate properly, an empty string is returned
- *
- * @param string $string - the string
- * @param string $length - position where string should be cut
- * @return string truncated string
- */
-function utf8_truncate($string, $length) {
-    if (strlen($string) <= $length)
-        return $string;
 
-    while($length >= 0) {
-        if ((ord($string[$length]) < 0x80) || (ord($string[$length]) >= 0xC0))
-            return substr($string, 0, $length);
-
-        $length--;
-    }
-    return "";
-}
-
-
-/**
- * Build an address string from the components
- *
- * @param string $street - the street
- * @param string $zip - the zip code
- * @param string $city - the city
- * @param string $state - the state
- * @param string $country - the country
- * @return string the address string or null
- */
-function buildAddressString($street, $zip, $city, $state, $country) {
-    $out = "";
-
-    if (isset($country) && $street != "") $out = $country;
-
-    $zcs = "";
-    if (isset($zip) && $zip != "") $zcs = $zip;
-    if (isset($city) && $city != "") $zcs .= (($zcs)?" ":"") . $city;
-    if (isset($state) && $state != "") $zcs .= (($zcs)?" ":"") . $state;
-    if ($zcs) $out = $zcs . "\r\n" . $out;
-
-    if (isset($street) && $street != "") $out = $street . (($out)?"\r\n\r\n". $out: "") ;
-
-    return ($out)?$out:null;
-}
-
-/**
- * Checks if the PHP-MAPI extension is available and in a requested version
- *
- * @param string $version - the version to be checked ("6.30.10-18495", parts or build number)
- * @return boolean installed version is superior to the checked strin
- */
-function checkMapiExtVersion($version = "") {
-    // compare build number if requested
-    if (preg_match('/^\d+$/', $version) && strlen($version) > 3) {
-        $vs = preg_split('/-/', phpversion("mapi"));
-        return ($version <= $vs[1]);
-    }
-
-    if (extension_loaded("mapi")){
-        if (version_compare(phpversion("mapi"), $version) == -1){
-            return false;
-        }
-    }
-    else
-        return false;
-
-    return true;
-}
-
-/**
- * Parses and returns an ecoded vCal-Uid from an
- * OL compatible GlobalObjectID
- *
- * @param string $olUid - an OL compatible GlobalObjectID
- * @return string the vCal-Uid if available in the olUid, else the original olUid as HEX
- */
-function getICalUidFromOLUid($olUid){
-    //check if "vCal-Uid" is somewhere in outlookid case-insensitive
-    $icalUid = stristr($olUid, "vCal-Uid");
-    if ($icalUid !== false) {
-        //get the length of the ical id - go back 4 position from where "vCal-Uid" was found
-        $begin = unpack("V", substr($olUid, strlen($icalUid) * (-1) - 4, 4));
-        //remove "vCal-Uid" and packed "1" and use the ical id length
-        return substr($icalUid, 12, ($begin[1] - 13));
-    }
-    return strtoupper(bin2hex($olUid));
-}
-
-/**
- * Checks the given UID if it is an OL compatible GlobalObjectID
- * If not, the given UID is encoded inside the GlobalObjectID
- *
- * @param string $icalUid - an appointment uid as HEX
- * @return string an OL compatible GlobalObjectID
- *
- */
-function getOLUidFromICalUid($icalUid) {
-	if (strlen($icalUid) <= 64) {
-		$len = 13 + strlen($icalUid);
-		$OLUid = pack("V", $len);
-		$OLUid .= "vCal-Uid";
-		$OLUid .= pack("V", 1);
-		$OLUid .= $icalUid;
-		return hex2bin("040000008200E00074C5B7101A82E0080000000000000000000000000000000000000000". bin2hex($OLUid). "00");
-	}
-	else
-	   return hex2bin($icalUid);
-}
-
-/**
- * Extracts the basedate of the GlobalObjectID and the RecurStartTime
- *
- * @param string $goid - OL compatible GlobalObjectID
- * @param long $recurStartTime - RecurStartTime
- * @return long basedate
- *
- */
-function extractBaseDate($goid, $recurStartTime) {
-    $hexbase = substr(bin2hex($goid), 32, 8);
-    $day = hexdec(substr($hexbase, 6, 2));
-    $month = hexdec(substr($hexbase, 4, 2));
-    $year = hexdec(substr($hexbase, 0, 4));
-
-    if ($day && $month && $year) {
-		$h = $recurStartTime >> 12;
-		$m = ($recurStartTime - $h * 4096) >> 6;
-		$s = $recurStartTime - $h * 4096 - $m * 64;
-
-        return gmmktime($h, $m, $s, $month, $day, $year);
-    }
-    else
-        return false;
-}
-
-
-/**
- * Converts SYNC_FILTERTYPE into a timestamp
- *
- * @param int       Filtertype
- *
- * @return long
- */
-function getCutOffDate($restrict) {
-    switch($restrict) {
-        case SYNC_FILTERTYPE_1DAY:
-            $back = 60 * 60 * 24;
-            break;
-        case SYNC_FILTERTYPE_3DAYS:
-            $back = 60 * 60 * 24 * 3;
-            break;
-        case SYNC_FILTERTYPE_1WEEK:
-            $back = 60 * 60 * 24 * 7;
-            break;
-        case SYNC_FILTERTYPE_2WEEKS:
-            $back = 60 * 60 * 24 * 14;
-            break;
-        case SYNC_FILTERTYPE_1MONTH:
-            $back = 60 * 60 * 24 * 31;
-            break;
-        case SYNC_FILTERTYPE_3MONTHS:
-            $back = 60 * 60 * 24 * 31 * 3;
-            break;
-        case SYNC_FILTERTYPE_6MONTHS:
-            $back = 60 * 60 * 24 * 31 * 6;
-            break;
-        default:
-            break;
-    }
-
-    if(isset($back)) {
-        $date = time() - $back;
-        return $date;
-    } else
-        return 0; // unlimited
-}
-
-
-/**
- * Converts SYNC_TRUNCATION into bytes
- *
- * @param int       SYNC_TRUNCATION
- *
- * @return long
- */
-function getTruncSize($truncation) {
-    switch($truncation) {
-        case SYNC_TRUNCATION_HEADERS:
-            return 0;
-        case SYNC_TRUNCATION_512B:
-            return 512;
-        case SYNC_TRUNCATION_1K:
-            return 1024;
-        case SYNC_TRUNCATION_5K:
-            return 5*1024;
-        case SYNC_TRUNCATION_SEVEN:
-        case SYNC_TRUNCATION_ALL:
-            return 1024*1024; // We'll limit to 1MB anyway
-        default:
-            return 1024; // Default to 1Kb
-    }
-}
 ?>

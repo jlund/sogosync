@@ -508,7 +508,7 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
         $this->_restrict = $restrict;
         $this->_truncation = $truncation;
 
-        $this->_cutoffdate = getCutOffDate($restrict);
+        $this->_cutoffdate = Utils::GetCutOffDate($restrict);
     }
 
     /**
@@ -627,7 +627,7 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
 
                 switch($change["type"]) {
                     case "change":
-                        $truncsize = getTruncSize($this->_truncation);
+                        $truncsize = Utils::GetTruncSize($this->_truncation);
 
                         // Note: because 'parseMessage' and 'statMessage' are two seperate
                         // calls, we have a chance that the message has changed between both

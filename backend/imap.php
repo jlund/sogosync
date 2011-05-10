@@ -808,7 +808,7 @@ class BackendIMAP extends BackendDiff {
             $body = $this->getBody($message);
             // truncate body, if requested
             if(strlen($body) > $truncsize) {
-                $body = utf8_truncate($body, $truncsize);
+                $body = Utils::Utf8_truncate($body, $truncsize);
                 $output->bodytruncated = 1;
             } else {
                 $body = $body;

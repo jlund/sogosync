@@ -79,7 +79,7 @@ class MAPIProvider {
     public function GetMessage($mapimessage, $truncflag, $mimesupport = 0) {
         // Gets the Sync object from a MAPI object according to its message class
 
-        $truncsize = getTruncSize($truncflag);
+        $truncsize = Utils::GetTruncSize($truncflag);
         $props = mapi_getprops($mapimessage, array(PR_MESSAGE_CLASS));
         if(isset($props[PR_MESSAGE_CLASS]))
             $messageclass = $props[PR_MESSAGE_CLASS];
@@ -211,7 +211,7 @@ class MAPIProvider {
         if(!isset($message->uid))
             $message->uid = bin2hex($messageprops[$appointmentprops["sourcekey"]]);
         else
-            $message->uid = getICalUidFromOLUid($message->uid);
+            $message->uid = Utils::GetICalUidFromOLUid($message->uid);
 
         // Get organizer information if it is a meetingrequest
         if(isset($messageprops[$appointmentprops["meetingstatus"]]) &&
@@ -441,7 +441,7 @@ class MAPIProvider {
         // Override 'body' for truncation
         $body = mapi_openproperty($mapimessage, PR_BODY);
         if(strlen($body) > $truncsize) {
-            $body = utf8_truncate($body, $truncsize);
+            $body = Utils::Utf8_truncate($body, $truncsize);
             $message->bodytruncated = 1;
             $message->bodysize = strlen($body);
         } else {
@@ -505,7 +505,7 @@ class MAPIProvider {
                     if (!isset($props[$meetingrequestproperties["goidtag"]]) || !isset($props[$meetingrequestproperties["recurStartTime"]]) || !isset($props[$meetingrequestproperties["timezonetag"]]))
                         ZLog::Write(LOGLEVEL_WARN, "Missing property to set correct basedate for exception");
                     else {
-                        $basedate = extractBaseDate($props[$meetingrequestproperties["goidtag"]], $props[$meetingrequestproperties["recurStartTime"]]);
+                        $basedate = Utils::ExtractBaseDate($props[$meetingrequestproperties["goidtag"]], $props[$meetingrequestproperties["recurStartTime"]]);
                         $message->meetingrequest->recurrenceid = $this->getGMTTimeByTZ($basedate, $tz);
                     }
                 }
@@ -798,7 +798,7 @@ class MAPIProvider {
 
         // is the transmitted UID OL compatible?
         // if not, encapsulate the transmitted uid
-        $appointment->uid = getOLUidFromICalUid($appointment->uid);
+        $appointment->uid = Utils::GetOLUidFromICalUid($appointment->uid);
 
         mapi_setprops($mapimessage, array(PR_MESSAGE_CLASS => "IPM.Appointment"));
 
@@ -1609,7 +1609,7 @@ class MAPIProvider {
         if (isset($street)) $props[$properties[$type."street"]] = $street;
 
         //set composed address
-        $address = buildAddressString($street, $postalcode, $city, $state, $country);
+        $address = Utils::BuildAddressString($street, $postalcode, $city, $state, $country);
         if ($address) $props[$properties[$type."address"]] = $address;
     }
 
