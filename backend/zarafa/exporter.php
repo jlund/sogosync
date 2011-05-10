@@ -54,13 +54,13 @@
  */
 
 class ExportChangesICS implements IExportChanges{
-    private $_folderid;
-    private $_store;
-    private $_session;
-    private $_restriction;
-    private $_truncation;
-    private $_flags;
-    private $_exporterflags;
+    private $folderid;
+    private $store;
+    private $session;
+    private $restriction;
+    private $truncation;
+    private $flags;
+    private $exporterflags;
     private $exporter;
 
     /**
@@ -74,14 +74,14 @@ class ExportChangesICS implements IExportChanges{
      */
     public function ExportChangesICS($session, $store, $folderid = false) {
         // Open a hierarchy or a contents exporter depending on whether a folderid was specified
-        $this->_session = $session;
-        $this->_folderid = $folderid;
-        $this->_store = $store;
+        $this->session = $session;
+        $this->folderid = $folderid;
+        $this->store = $store;
 
         if($folderid) {
             $entryid = mapi_msgstore_entryidfromsourcekey($store, $folderid);
         } else {
-            $storeprops = mapi_getprops($this->_store, array(PR_IPM_SUBTREE_ENTRYID));
+            $storeprops = mapi_getprops($this->store, array(PR_IPM_SUBTREE_ENTRYID));
             $entryid = $storeprops[PR_IPM_SUBTREE_ENTRYID];
         }
 
@@ -97,7 +97,7 @@ class ExportChangesICS implements IExportChanges{
             return;
         }
 
-        $folder = mapi_msgstore_openentry($this->_store, $entryid);
+        $folder = mapi_msgstore_openentry($this->store, $entryid);
         if(!$folder) {
             $this->exporter = false;
             // TODO: return status if available
@@ -127,8 +127,8 @@ class ExportChangesICS implements IExportChanges{
      * @return boolean
      */
     public function Config($syncstate, $flags = 0) {
-        $this->_exporterflags = 0;
-        $this->_flags = $flags;
+        $this->exporterflags = 0;
+        $this->flags = $flags;
 
         if ($this->exporter === false) {
             // TODO: throw exception with status
@@ -137,20 +137,20 @@ class ExportChangesICS implements IExportChanges{
         }
 
         // change exporterflags if we are doing a ContentExport
-        if($this->_folderid) {
-            $this->_exporterflags |= SYNC_NORMAL | SYNC_READ_STATE;
+        if($this->folderid) {
+            $this->exporterflags |= SYNC_NORMAL | SYNC_READ_STATE;
 
             // Initial sync, we don't want deleted items. If the initial sync is chunked
             // we check the change ID of the syncstate (0 at initial sync)
             // On subsequent syncs, we do want to receive delete events.
             if(strlen($syncstate) == 0 || bin2hex(substr($syncstate,4,4)) == "00000000") {
                 ZLog::Write(LOGLEVEL_DEBUG, "synching inital data");
-                $this->_exporterflags |= SYNC_NO_SOFT_DELETIONS | SYNC_NO_DELETIONS;
+                $this->exporterflags |= SYNC_NO_SOFT_DELETIONS | SYNC_NO_DELETIONS;
             }
         }
 
-        if($this->_flags & BACKEND_DISCARD_DATA)
-            $this->_exporterflags |= SYNC_CATCHUP;
+        if($this->flags & BACKEND_DISCARD_DATA)
+            $this->exporterflags |= SYNC_CATCHUP;
 
         // Put the state information in a stream that can be used by ICS
         $stream = mapi_stream_create();
@@ -176,20 +176,20 @@ class ExportChangesICS implements IExportChanges{
     public function ConfigContentParameters($mclass, $restrict, $truncation) {
         switch($mclass) {
             case "Email":
-                $this->_restriction = ($restrict || !checkMapiExtVersion('7')) ? MAPIUtils::GetEmailRestriction(Utils::GetCutOffDate($restrict)) : false;
+                $this->restriction = ($restrict || !checkMapiExtVersion('7')) ? MAPIUtils::GetEmailRestriction(Utils::GetCutOffDate($restrict)) : false;
                 break;
             case "Calendar":
-                $this->_restriction = ($restrict || !checkMapiExtVersion('7')) ? MAPIUtils::GetCalendarRestriction($this->_store, Utils::GetCutOffDate($restrict)) : false;
+                $this->restriction = ($restrict || !checkMapiExtVersion('7')) ? MAPIUtils::GetCalendarRestriction($this->_store, Utils::GetCutOffDate($restrict)) : false;
                 break;
             default:
             case "Contacts":
             case "Tasks":
-                $this->_restriction = false;
+                $this->restriction = false;
                 break;
         }
 
-        $this->_restriction = $restrict;
-        $this->_truncation = $truncation;
+        $this->restriction = $restrict;
+        $this->truncation = $truncation;
     }
 
 
@@ -208,20 +208,20 @@ class ExportChangesICS implements IExportChanges{
         // which removes all MAPI dependency, and then wrap that class with a C++ wrapper so we can
         // pass it to ICS
 
-        if($this->exporter === false || !isset($this->statestream) || !isset($this->_flags) || !isset($this->_exporterflags) ||
-            ($this->_folderid && (!isset($this->_restriction)  || !isset($this->_truncation))) ) {
+        if($this->exporter === false || !isset($this->statestream) || !isset($this->flags) || !isset($this->exporterflags) ||
+            ($this->folderid && (!isset($this->restriction)  || !isset($this->truncation))) ) {
             // TODO: throw exception with status
             ZLog::Write(LOGLEVEL_WARN, "ExportChangesICS->Config failed. Exporter not available.!!!!!!!!!!!!!");
             return false;
         }
 
         // PHP wrapper
-        $phpwrapper = new PHPWrapper($this->_session, $this->_store, $importer);
+        $phpwrapper = new PHPWrapper($this->session, $this->store, $importer);
 
         // with a folderid we are going to get content
-        if($this->_folderid) {
+        if($this->folderid) {
             // TODO this might be refactored into an own class, as more options will be necessary
-            $phpwrapper->ConfigContentParameters(false, false, $this->_truncation);
+            $phpwrapper->ConfigContentParameters(false, false, $this->truncation);
 
             // ICS c++ wrapper
             $mapiimporter = mapi_wrap_importcontentschanges($phpwrapper);
@@ -232,11 +232,11 @@ class ExportChangesICS implements IExportChanges{
             $includeprops = array(PR_SOURCE_KEY, PR_DISPLAY_NAME);
         }
 
-        $ret = mapi_exportchanges_config($this->exporter, $this->statestream, $this->_exporterflags, $mapiimporter, $this->_restriction, $includeprops, false, 1);
+        $ret = mapi_exportchanges_config($this->exporter, $this->statestream, $this->exporterflags, $mapiimporter, $this->restriction, $includeprops, false, 1);
 
         if($ret) {
             $changes = mapi_exportchanges_getchangecount($this->exporter);
-            if($changes || !($this->_flags & BACKEND_DISCARD_DATA))
+            if($changes || !($this->flags & BACKEND_DISCARD_DATA))
                 ZLog::Write(LOGLEVEL_DEBUG, "Exporter configured successfully. " . $changes . " changes ready to sync.");
         }
         else
