@@ -922,6 +922,8 @@ class MAPIProvider {
         // Sets the properties in a MAPI object according to an Sync object and a property mapping
     private function setPropsInMAPI($mapimessage, $message, $mapping) {
         $mapiprops = $this->getPropIdsFromStrings($mapping);
+        $unsetVars = $message->getUnsetVars();
+        $propsToDelete = array();
         $propsToSet = array();
 
         foreach ($mapiprops as $asprop => $mapiprop) {
@@ -965,6 +967,9 @@ class MAPIProvider {
                 //all properties will be set at once
                 $propsToSet[$mapiprop] = $value;
             }
+            elseif (in_array($asprop, $unsetVars)) {
+                $propsToDelete[] = $mapiprop;
+            }
         }
 
         mapi_setprops($mapimessage, $propsToSet);
@@ -972,6 +977,11 @@ class MAPIProvider {
             Zlog::Write(LOGLEVEL_WARN, sprintf("Failed to set properties, trying to set them separately. Error code was:%x", mapi_last_hresult()));
             $this->setPropsIndividually($mapimessage, $propsToSet, $mapiprops);
         }
+
+        mapi_deleteprops($mapimessage, $propsToDelete);
+
+        //clean up
+        unset($unsetVars, $propsToDelete);
     }
 
 

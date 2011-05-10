@@ -161,6 +161,16 @@ abstract class SyncObject extends Streamer {
 
         return $str;
     }
+
+    /**
+     * Returns the properties which have to be unset on the server
+     *
+     * @access public
+     * @return array
+     */
+    public function getUnsetVars() {
+        return $this->unsetVars;
+    }
 }
 
 
