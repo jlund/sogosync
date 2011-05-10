@@ -202,15 +202,10 @@ class ZLog {
  * Legacy debug stuff
  */
 
-// TODO replace all writeLog() with ZLog::Write()
-function writeLog($loglevel, $message) {
-    ZLog::Write($loglevel, $message);
-}
-
 // deprecated
 // backwards compatible
 function debugLog($message) {
-    ZLog::write(LOGLEVEL_DEBUG, $message);
+    ZLog::Write(LOGLEVEL_DEBUG, $message);
 }
 
 // TODO review error handler

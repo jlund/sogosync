@@ -673,12 +673,12 @@ class DeviceManager {
      * @return boolean
      */
     public function TolerateException(Exception $ex) {
-        debugLog("DeviceManager->TolerateException()");
+        ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->TolerateException()");
         // Android devices send erroneous deviceid which can cause exceptions during the first sync
         // As the state1 is empty by default, we can tolerate this exception
         if ($ex instanceof StateNotFoundException)
             if ($this->oldStateCounter == 1) {
-                debugLog("Exception tolerated!!!");
+                ZLog::Write(LOGLEVEL_DEBUG,"Exception tolerated!!!");
                 return true;
             }
         return false;
