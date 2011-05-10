@@ -236,7 +236,7 @@ class ZPush {
             else
                 $aSearchProvider = self::GetBackend()->GetSearchProvider();
 
-            if (in_array('IStateMachine', class_implements($aSearchProvider)))
+            if (in_array('ISearchProvider', class_implements($aSearchProvider)))
                 ZPush::$searchProvider = $aSearchProvider;
             else
                 throw new FatalNotImplementedException("Instantiated SearchProvider does not implement the ISearchProvider interface!");
