@@ -736,24 +736,18 @@ class BackendZarafa implements IBackend, ISearchProvider {
      * @return boolean
      */
     public function GetAttachmentData($attname) {
-        list($folderid, $id, $attachnum) = explode(":", $attname);
+        list($id, $attachnum) = explode(":", $attname);
 
-        if(!isset($id) || !isset($attachnum))
-            return false;
-
-        $sourcekey = hex2bin($id);
-        $foldersourcekey = hex2bin($folderid);
-
-        // TODO: errors must trigger status codes
-        $entryid = mapi_msgstore_entryidfromsourcekey($this->store, $foldersourcekey, $sourcekey);
-        if(!$entryid) {
+        if(!isset($id) || !isset($attachnum)) {
             ZLog::Write(LOGLEVEL_WARN, "Attachment requested for non-existing item $attname");
             return false;
         }
 
+        // TODO: errors must trigger status codes
+        $entryid = hex2bin($id);
         $message = mapi_msgstore_openentry($this->store, $entryid);
         if(!$message) {
-            ZLog::Write(LOGLEVEL_WARN, "Unable to open item for attachment data for " . bin2hex($entryid));
+            ZLog::Write(LOGLEVEL_WARN, "Unable to open item for attachment data for $id");
             return false;
         }
 

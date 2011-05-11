@@ -201,6 +201,7 @@ class MAPIMapping {
             "representingname"      => PR_SENT_REPRESENTING_NAME,
             "representingentryid"   => PR_SENT_REPRESENTING_ENTRYID,
             "sourcekey"             => PR_SOURCE_KEY,
+            "entryid"               => PR_ENTRYID,
         );
     }
 

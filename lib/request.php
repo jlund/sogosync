@@ -57,6 +57,7 @@ class Request {
     const WORDCHAR_ONLY = 3;
     const NUMBERS_ONLY = 4;
     const NUMBERSDOT_ONLY = 5;
+    const HEX_EXTENDED = 6;
 
     static private $input;
     static private $output;
@@ -247,7 +248,7 @@ class Request {
     static public function getGETAttachmentName() {
         // TODO AttachmentName should be e.g. HEX_ONLY -> needs work in backends
         // false disables the filterEvilInput for the moment
-        return (isset($_GET["AttachmentName"]))? self::filterEvilInput($_GET["AttachmentName"], false) : false;
+        return (isset($_GET["AttachmentName"]))? self::filterEvilInput($_GET["AttachmentName"], self::HEX_EXTENDED) : false;
     }
 
     /**
@@ -474,6 +475,7 @@ class Request {
         else if ($filter == self::WORDCHAR_ONLY)      $re = "/[^A-Za-z0-9]/";
         else if ($filter == self::NUMBERS_ONLY)       $re = "/[^0-9]/";
         else if ($filter == self::NUMBERSDOT_ONLY)    $re = "/[^0-9\.]/";
+        else if ($filter == self::HEX_EXTENDED)       $re = "/[^A-Fa-f0-9\:]/";
 
         return ($re) ? preg_replace($re, $replacevalue, $input) : '';
     }

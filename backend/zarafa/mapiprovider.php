@@ -561,6 +561,7 @@ class MAPIProvider {
         // Add attachments
         $attachtable = mapi_message_getattachmenttable($mapimessage);
         $rows = mapi_table_queryallrows($attachtable, array(PR_ATTACH_NUM));
+        $entryid = bin2hex($messageprops[$emailproperties["entryid"]]);
 
         foreach($rows as $row) {
             if(isset($row[PR_ATTACH_NUM])) {
@@ -576,7 +577,7 @@ class MAPIProvider {
 
                     $attach->attsize = $stat["cb"];
                     $attach->displayname = w2u((isset($attachprops[PR_ATTACH_LONG_FILENAME]))?$attachprops[PR_ATTACH_LONG_FILENAME]:((isset($attachprops[PR_ATTACH_FILENAME]))?$attachprops[PR_ATTACH_FILENAME]:"attachment.bin"));
-                    $attach->attname = bin2hex($this->_folderid) . ":" . bin2hex($sourcekey) . ":" . $row[PR_ATTACH_NUM];
+                    $attach->attname = $entryid.":".$row[PR_ATTACH_NUM];
 
                     if(!isset($message->attachments))
                         $message->attachments = array();
