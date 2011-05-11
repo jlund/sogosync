@@ -121,7 +121,7 @@ include_once('version.php');
             // permissions on GETUser store. Only then the Setup() will be sucessfull.
             // This allows the user 'john' do operations as user 'joe' if he has sufficient privileges.
             if($backend->Setup(Request::getGETUser(), true) == false)
-                throw new AuthenticationRequiredException(sprintf("Not enough priviledges of '%s' to setup for user '%s': Permission denied", Request::getAuthUser(), Request::getGETUser()),
+                throw new AuthenticationRequiredException(sprintf("Not enough privileges of '%s' to setup for user '%s': Permission denied", Request::getAuthUser(), Request::getGETUser()),
                             AuthenticationRequiredException::SETUP_FAILED);
         }
 
