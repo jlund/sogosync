@@ -4,39 +4,59 @@ Installing Z-Push
 Requirements
 ------------
 
-Z-Push runs on either PHP4 or PHP5. 
-Version prior to 1.2.2 require the 'Mail' package from PEAR.
-Newer versions don't have this dependency anymore.
+Z-Push 2 runs only on PHP 5.1 or later
+A PEAR dependency as in previous versions does not exist in Z-Push 2.
+
+The PHP version requirement is met in these distributions and versions (or later).
+
+Debian      4.0 (etch)
+Ubuntu      8.04 (hardy heron)
+RHEL/CentOS 5.5
+Fedora      5 (bordeaux)
+OpenSuse    10.1
+Slackware   12.0
+Gentoo      2006.1
+FreeBSD     6.1
+OpenBSD     4.0
+Mandriva    2007
+
 
 Additional informations can be found in the Zarafa Administrator Manual:
-http://doc.zarafa.com/trunk/Administrator_Manual/en-US/html/index.html
+http://doc.zarafa.com/trunk/Administrator_Manual/en-US/html/_zpush.html
 
 
 How to install
 --------------
 
-To Install Z-Push, simply untar the z-push tar to your webroot,
-e.g. with
+To install Z-Push, simply untar the z-push tar, e.g. with:
+   tar -xzvf z-push-[version]-{buildnr}.tar.gz
+   
+The tar contains a folder with the structure:
+    z-push-[version]-{buildnr}
+    
+The contents of this folder should be copied to /usr/share/z-push.
+Case this folder does not exist yet, create it with:
+    mkdir /usr/share/z-push
 
-tar -xzvf z-push-<version>.tar.gz -C /var/www
+    cp -R z-push-[version]-{buildnr}/* /usr/share/z-push/
 
 Now, edit the config.php file in the directory to reflect your local system.
-For MAPI use with Zarafa, you needn't change any settings and should work
-as-is.
-
+For MAPI use with Zarafa, you do not need to change any settings. It should work as-is.
 Please also set your timezone in the config.php file.
 
-Make sure that the 'state' directory is writeable for your webserver
-process, so either change the owner of the 'state' directory to the UID of
-your apache process, or make the directory world writeable:
+The state directory is by default /var/lib/z-push, the log directory /var/log/z-push.
+Make sure that these directories exist and are writeable for your webserver
+process, so either change the owner of these directories to the UID of
+your apache process or make the directory world writeable:
 
-chmod 777 /var/www/z-push/state
+    chmod 777 /var/lib/z-push
+    chmod 777 /var/log/z-push
 
 Now, you must configure Apache to redirect the URL
 'Microsoft-Server-ActiveSync' to the index.php file in the Z-Push
-directory. This can be done by adding the line
+directory. This can be done by adding the line:
 
-Alias /Microsoft-Server-ActiveSync /var/www/z-push/index.php
+    Alias /Microsoft-Server-ActiveSync /usr/share/z-push/index.php
 
 to your httpd.conf file. Make sure that you are adding the line to the
 correct part of your Apache configuration, taking care of virtual hosts and
@@ -48,10 +68,10 @@ PDA, which will definitely break your PDA synchronisation.
 
 Lastly, make sure that PHP has the following settings:
 
-php_flag magic_quotes_gpc off
-php_flag register_globals off
-php_flag magic_quotes_runtime off
-php_flag short_open_tag on
+    php_flag magic_quotes_gpc off
+    php_flag register_globals off
+    php_flag magic_quotes_runtime off
+    php_flag short_open_tag on
 
 You can set this in the httpd.conf, in php.ini or in an .htaccess file in
 the root of z-push. If you don't set this up correctly, you will not be
@@ -66,23 +86,12 @@ Update to newer Z-Push versions
 Upgrading to a newer Z-Push version follows the same path as the initial 
 installation.
 
-When upgrading to a new minor version e.g. from Z-Push 1.4 to Z-Push 1.4.1, 
-the existing Z-Push directory can be overwritten when extracting the archive.
-When installing a new major version it is recommended to extract the tarball 
-to another directory and to copy the state from the existing installation.
-
-IMPORTANT: It is crucial to always keep the data of the state directory in 
-order to ensure data consistency on already synchronized mobiles.
-
-Without the state information mobile devices, which already have an ActiveSync 
-profile, will receive duplicate items or the synchronization will break completely.
-
-Please also observe the published release notes of the new Z-Push version.
+Please observe the published release notes of the new Z-Push version.
 For some releases it is necessary to e.g. resynchronize the mobile.
 
 
-Setting up your PocketPC
-------------------------
+Setting up your mobile device
+-----------------------------
 
 This is simply a case of adding an 'exchange server' to your activesync
 server list, specifying the IP address of the Z-Push apache server,
@@ -91,8 +100,9 @@ setting the correct username & password (the domain is ignored, you can
 simply specify 'domain' or some other random string), and then going through
 the standard activesync settings.
 
-Once you have done this, you should be able to synchronise your PocketPC
-simply by clicking the 'Sync' button in ActiveSync on your PocketPC.
+Once you have done this, you should be able to synchronise your mobile
+simply by clicking the 'Sync' button in ActiveSync on your mobile.
+
 
 Troubleshooting
 ---------------
@@ -102,21 +112,17 @@ your Apache setup is working correctly, you can simply type the Z-Push URL
 in your browser, to see if apache is correctly redirecting your request to
 z-push. You can simply use:
 
-http://<serverip>/Microsoft-Server-ActiveSync
+    http://<serverip>/Microsoft-Server-ActiveSync
 
-If correctly configured, you should see a username/password request, and
-when you specify a valid username & password, you should see a string like
-
-"Your device requested the Z-Push URL without the required GET parameters"
+If correctly configured, you should see a username/password request and
+when you specify a valid username & password, you should see a Z-Push
+information page, saying that this kind of requests are not supported.
+Without authentication credentials, Z-Push displays general information.
 
 If not, then check your PHP and Apache settings.
 
-If you have other synchronisation problems, you can create the file
-'debug.txt' in the root directory of z-push, which should also be
-world-writable:
+If you have other synchronisation problems, you can increase the LOGLEVEL
+parameter in the config e.g. to LOGLEVEL_DEBUG or LOGLEVEL_WBXML.
 
-touch /var/www/z-push/debug.txt
-chmod 777 /var/www/z-push/debug.txt
-
-The debug.txt file will then collect debug information from your
+The z-push.log file will then collect detailed debug information from your
 synchronisation.
