@@ -159,14 +159,63 @@ class FileStateMachine implements IStateMachine {
         else
             $users = array();
 
-        // add user/device to the list
-        if (!isset($users[$username]))
-            $users[$username] = array();
-        if (!in_array($devid, $users[$username]))
-            $users[$username][] = $devid;
+        $changed = false;
 
-        $bytes = file_put_contents($this->userfilename, serialize($users));
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("FileStateMachine->LinkUserDevice(): wrote %d bytes to users file", $bytes));
+        // add user/device to the list
+        if (!isset($users[$username])) {
+            $users[$username] = array();
+            $changed = true;
+        }
+        if (!isset($users[$username][$devid])) {
+            $users[$username][$devid] = 1;
+            $changed = true;
+        }
+
+        if ($changed) {
+            $bytes = file_put_contents($this->userfilename, serialize($users));
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("FileStateMachine->LinkUserDevice(): wrote %d bytes to users file", $bytes));
+        }
+        else
+            ZLog::Write(LOGLEVEL_DEBUG, "FileStateMachine->LinkUserDevice(): nothing changed");
+    }
+
+   /**
+     * Unlinks a device from a user
+     *
+     * @access public
+     * @return array
+     */
+    public function UnLinkUserDevice($username, $devid) {
+        // TODO there should be a lock on the users file when writing
+        $filecontents = @file_get_contents($this->userfilename);
+
+        if ($filecontents)
+            $users = unserialize($filecontents);
+        else
+            $users = array();
+
+        $changed = false;
+
+        // is this user listed at all?
+        if (isset($users[$username])) {
+            if (isset($users[$username][$devid])) {
+                unset($users[$username][$devid]);
+                $changed = true;
+            }
+
+            // if there is no device left, remove the user
+            if (empty($users[$username])) {
+                unset($users[$username]);
+                $changed = true;
+            }
+        }
+
+        if ($changed) {
+            $bytes = file_put_contents($this->userfilename, serialize($users));
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("FileStateMachine->UnLinkUserDevice(): wrote %d bytes to users file", $bytes));
+        }
+        else
+            ZLog::Write(LOGLEVEL_DEBUG, "FileStateMachine->UnLinkUserDevice(): nothing changed");
     }
 
     /**
@@ -193,7 +242,7 @@ class FileStateMachine implements IStateMachine {
 
             // get device list for the user
             if (isset($users[$username]))
-                return $users[$username];
+                return array_keys($users[$username]);
             else
                 return array();
         }
