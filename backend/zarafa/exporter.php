@@ -179,7 +179,7 @@ class ExportChangesICS implements IExportChanges{
                 $this->restriction = ($restrict || !Utils::CheckMapiExtVersion('7')) ? MAPIUtils::GetEmailRestriction(Utils::GetCutOffDate($restrict)) : false;
                 break;
             case "Calendar":
-                $this->restriction = ($restrict || !Utils::CheckMapiExtVersion('7')) ? MAPIUtils::GetCalendarRestriction($this->_store, Utils::GetCutOffDate($restrict)) : false;
+                $this->restriction = ($restrict || !Utils::CheckMapiExtVersion('7')) ? MAPIUtils::GetCalendarRestriction($this->store, Utils::GetCutOffDate($restrict)) : false;
                 break;
             default:
             case "Contacts":
