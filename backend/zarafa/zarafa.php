@@ -999,7 +999,6 @@ class BackendZarafa implements IBackend, ISearchProvider {
      * Private methods
      */
 
-    //
     /**
      * Open the store marked with PR_DEFAULT_STORE = TRUE
      * if $return_public is set, the public store is opened
