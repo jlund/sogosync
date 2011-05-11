@@ -246,8 +246,6 @@ class Request {
      * @return string/boolean       false if not available
      */
     static public function getGETAttachmentName() {
-        // TODO AttachmentName should be e.g. HEX_ONLY -> needs work in backends
-        // false disables the filterEvilInput for the moment
         return (isset($_GET["AttachmentName"]))? self::filterEvilInput($_GET["AttachmentName"], self::HEX_EXTENDED) : false;
     }
 

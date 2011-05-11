@@ -497,7 +497,7 @@ class BackendIMAP extends BackendDiff {
      */
     public function GetAttachmentData($attname) {
         ZLog::Write(LOGLEVEL_DEBUG, "getAttachmentDate: (attname: '$attname')");
-
+        // TODO: this is broken, as $attname is HEX + : --> e.g. folderid is most probably not a hex value
         list($folderid, $id, $part) = explode(":", $attname);
 
         $this->imap_reopenFolder($folderid);
