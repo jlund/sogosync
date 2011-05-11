@@ -66,6 +66,10 @@ class ImportChangesICS implements IImportChanges {
     private $importer;
     private $memChanges;
     private $mapiprovider;
+    private $conflictsLoaded;
+    private $conflictsMclass;
+    private $conflictsFiltertype;
+    private $conflictsState;
 
     /**
      * Constructor
@@ -80,6 +84,7 @@ class ImportChangesICS implements IImportChanges {
         $this->session = $session;
         $this->store = $store;
         $this->folderid = $folderid;
+        $this->conflictsLoaded = false;
 
         if ($folderid) {
             $entryid = mapi_msgstore_entryidfromsourcekey($store, $folderid);
@@ -194,22 +199,50 @@ class ImportChangesICS implements IImportChanges {
      * @param string    $state
      *
      * @access public
-     * @return string
+     * @return boolean
      */
     public function LoadConflicts($mclass, $filtertype, $state) {
         if (!isset($this->session) || !isset($this->store) || !isset($this->folderid)) {
             // TODO: trigger resync? data could be lost!! TEST!
-            ZLog::Write(LOGLEVEL_ERROR, "Warning: can not load changes for conflict detections. Session, store or folder information not available");
+            ZLog::Write(LOGLEVEL_ERROR, "Warning: can not load changes for conflict detection. Session, store or folder information not available");
             return false;
         }
 
-        // configure an exporter so we can detect conflicts
-        $exporter = new ExportChangesICS($this->session, $this->store, $this->folderid);
-        $exporter->Config($state);
-        $exporter->ConfigContentParameters($mclass, $filtertype,0);
-        $exporter->InitializeExporter($this->memChanges);
-        while(is_array($exporter->Synchronize()));
+        // save data to load changes later if necessary
+        $this->conflictsLoaded = false;
+        $this->conflictsMclass = $mclass;
+        $this->conflictsFiltertype = $filtertype;
+        $this->conflictsState = $state;
+
+        ZLog::Write(LOGLEVEL_DEBUG, "LoadConflicts: will be loaded later, if necessary");
         return true;
+    }
+
+    /**
+     * Potential conflicts are only loaded when really necessary,
+     * e.g. on ADD or MODIFY
+     *
+     * @access private
+     * @return
+     */
+    private function lazyLoadConflicts() {
+        if (!isset($this->session) || !isset($this->store) || !isset($this->folderid) ||
+            !isset($this->conflictsMclass) || !isset($this->conflictsFiltertype) || !isset($this->conflictsState)) {
+            ZLog::Write(LOGLEVEL_WARN, "Can not load potential conflicting changes in lazymode for conflict detection. Missing information");
+            return false;
+        }
+
+        if (!$this->conflictsLoaded) {
+            ZLog::Write(LOGLEVEL_DEBUG, "LazyLoadConflicts: loading..");
+
+            // configure an exporter so we can detect conflicts
+            $exporter = new ExportChangesICS($this->session, $this->store, $this->folderid);
+            $exporter->Config($this->conflictsState);
+            $exporter->ConfigContentParameters($this->conflictsMclass, $this->conflictsFiltertype, 0);
+            $exporter->InitializeExporter($this->memChanges);
+            while(is_array($exporter->Synchronize()));
+            $this->conflictsLoaded = true;
+        }
     }
 
     /**
@@ -235,6 +268,7 @@ class ImportChangesICS implements IImportChanges {
             $props[PR_SOURCE_KEY] = $sourcekey;
 
             // check for conflicts
+            $this->lazyLoadConflicts();
             if($this->memChanges->isChanged($id)) {
                 if ($this->flags & SYNC_CONFLICT_OVERWRITE_PIM) {
                     // TODO: in these cases the status 7 should be returned, so the client can inform the user (ASCMD 2.2.1.19.1.22)
@@ -277,6 +311,7 @@ class ImportChangesICS implements IImportChanges {
      */
     public function ImportMessageDeletion($objid) {
         // check for conflicts
+        $this->lazyLoadConflicts();
         if($this->memChanges->isChanged($objid)) {
             ZLog::Write(LOGLEVEL_INFO, "Conflict detected. Data from Server will be dropped! PIM deleted object.");
         }
