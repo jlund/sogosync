@@ -515,7 +515,7 @@ class BackendMaildir extends BackendDiff {
      * @return string
      */
     private function findMessage($id) {
-        // We could use 'this->_folderid' for path info but we currently
+        // We could use 'this->folderid' for path info but we currently
         // only support a single INBOX. We also have to use a glob '*'
         // because we don't know the flags of the message we're looking for.
 
@@ -605,7 +605,7 @@ class BackendMaildir extends BackendDiff {
      * @return
      */
     private function moveNewToCur() {
-        $newdirname = MAILDIR_BASE . "/" . $this->_user . "/" . MAILDIR_SUBDIR . "/new";
+        $newdirname = MAILDIR_BASE . "/" . $this->store . "/" . MAILDIR_SUBDIR . "/new";
 
         $newdir = opendir($newdirname);
 
@@ -626,7 +626,7 @@ class BackendMaildir extends BackendDiff {
      * @return string
      */
     private function getPath() {
-        return MAILDIR_BASE . "/" . $this->_user . "/" . MAILDIR_SUBDIR . "/cur";
+        return MAILDIR_BASE . "/" . $this->store . "/" . MAILDIR_SUBDIR . "/cur";
     }
 }
 

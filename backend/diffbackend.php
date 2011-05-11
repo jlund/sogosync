@@ -114,7 +114,7 @@ function GetDiff($old, $new) {
     }
 
     while($iold < count($old)) {
-        // All data left in _syncstate have been deleted
+        // All data left in 'syncstate' have been deleted
         $change["type"] = "delete";
         $change["id"] = $old[$iold]["id"];
         $changes[] = $change;
@@ -150,30 +150,32 @@ function RowCmp($a, $b) {
  * Differential engine
  */
 class DiffState {
-    protected $_syncstate;
+    protected $syncstate;
+    protected $backend;
+    protected $flags;
 
     // Update the state to reflect changes
     protected function updateState($type, $change) {
         // Change can be a change or an add
         if($type == "change") {
-            for($i=0; $i < count($this->_syncstate); $i++) {
-                if($this->_syncstate[$i]["id"] == $change["id"]) {
-                    $this->_syncstate[$i] = $change;
+            for($i=0; $i < count($this->syncstate); $i++) {
+                if($this->syncstate[$i]["id"] == $change["id"]) {
+                    $this->syncstate[$i] = $change;
                     return;
                 }
             }
             // Not found, add as new
-            $this->_syncstate[] = $change;
+            $this->syncstate[] = $change;
         } else {
-            for($i=0; $i < count($this->_syncstate); $i++) {
+            for($i=0; $i < count($this->syncstate); $i++) {
                 // Search for the entry for this item
-                if($this->_syncstate[$i]["id"] == $change["id"]) {
+                if($this->syncstate[$i]["id"] == $change["id"]) {
                     if($type == "flags") {
                         // Update flags
-                        $this->_syncstate[$i]["flags"] = $change["flags"];
+                        $this->syncstate[$i]["flags"] = $change["flags"];
                     } else if($type == "delete") {
                         // Delete item
-                        array_splice($this->_syncstate, $i, 1);
+                        array_splice($this->syncstate, $i, 1);
                     }
                     return;
                 }
@@ -189,7 +191,7 @@ class DiffState {
     //
     // Any other combination of operations can be done (e.g. change flags & move or move & delete)
     protected function isConflict($type, $folderid, $id) {
-        $stat = $this->_backend->StatMessage($folderid, $id);
+        $stat = $this->backend->StatMessage($folderid, $id);
 
         if(!$stat) {
             // Message is gone
@@ -199,7 +201,7 @@ class DiffState {
                 return false; // all other remote changes still result in a delete (no conflict)
         }
 
-        foreach($this->_syncstate as $state) {
+        foreach($this->syncstate as $state) {
             if($state["id"] == $id) {
                 $oldstat = $state;
                 break;
@@ -221,7 +223,7 @@ class DiffState {
     }
 
     public function GetState() {
-        return serialize($this->_syncstate);
+        return serialize($this->syncstate);
     }
 
 }
@@ -233,8 +235,7 @@ class DiffState {
  */
 
 class ImportChangesDiff extends DiffState implements IImportChanges {
-    private $_user;
-    private $_folderid;
+    private $folderid;
 
     /**
      * Constructor
@@ -245,8 +246,8 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
      * @access public
      */
     public function ImportChangesDiff($backend, $folderid = false) {
-        $this->_backend = $backend;
-        $this->_folderid = $folderid;
+        $this->backend = $backend;
+        $this->folderid = $folderid;
     }
 
     /**
@@ -259,8 +260,8 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
      * @return boolean status flag
      */
     public function Config($state, $flags = 0) {
-        $this->_syncstate = unserialize($state);
-        $this->_flags = $flags;
+        $this->syncstate = unserialize($state);
+        $this->flags = $flags;
         return true;
     }
 
@@ -291,26 +292,26 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
      */
     public function ImportMessageChange($id, $message) {
         //do nothing if it is in a dummy folder
-        if ($this->_folderid == SYNC_FOLDER_TYPE_DUMMY)
+        if ($this->folderid == SYNC_FOLDER_TYPE_DUMMY)
             return false;
 
         if($id) {
             // See if there's a conflict
-            $conflict = $this->isConflict("change", $this->_folderid, $id);
+            $conflict = $this->isConflict("change", $this->folderid, $id);
 
             // Update client state if this is an update
             $change = array();
             $change["id"] = $id;
             $change["mod"] = 0; // dummy, will be updated later if the change succeeds
-            $change["parent"] = $this->_folderid;
+            $change["parent"] = $this->folderid;
             $change["flags"] = (isset($message->read)) ? $message->read : 0;
             $this->updateState("change", $change);
 
-            if($conflict && $this->_flags == SYNC_CONFLICT_OVERWRITE_PIM)
+            if($conflict && $this->flags == SYNC_CONFLICT_OVERWRITE_PIM)
                 return true;
         }
 
-        $stat = $this->_backend->ChangeMessage($this->_folderid, $id, $message);
+        $stat = $this->backend->ChangeMessage($this->folderid, $id, $message);
 
         if(!is_array($stat))
             return $stat;
@@ -332,11 +333,11 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
      */
     public function ImportMessageDeletion($id) {
         //do nothing if it is in a dummy folder
-        if ($this->_folderid == SYNC_FOLDER_TYPE_DUMMY)
+        if ($this->folderid == SYNC_FOLDER_TYPE_DUMMY)
             return true;
 
         // See if there's a conflict
-        $conflict = $this->isConflict("delete", $this->_folderid, $id);
+        $conflict = $this->isConflict("delete", $this->folderid, $id);
 
         // Update client state
         $change = array();
@@ -345,10 +346,10 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
 
         // If there is a conflict, and the server 'wins', then return OK without performing the change
         // this will cause the exporter to 'see' the overriding item as a change, and send it back to the PIM
-        if($conflict && $this->_flags == SYNC_CONFLICT_OVERWRITE_PIM)
+        if($conflict && $this->flags == SYNC_CONFLICT_OVERWRITE_PIM)
             return true;
 
-        $this->_backend->DeleteMessage($this->_folderid, $id);
+        $this->backend->DeleteMessage($this->folderid, $id);
 
         return true;
     }
@@ -365,7 +366,7 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
      */
     public function ImportMessageReadFlag($id, $flags) {
         //do nothing if it is a dummy folder
-        if ($this->_folderid == SYNC_FOLDER_TYPE_DUMMY)
+        if ($this->folderid == SYNC_FOLDER_TYPE_DUMMY)
             return true;
 
         // Update client state
@@ -374,7 +375,7 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
         $change["flags"] = $flags;
         $this->updateState("flags", $change);
 
-        $this->_backend->SetReadFlag($this->_folderid, $id, $flags);
+        $this->backend->SetReadFlag($this->folderid, $id, $flags);
 
         return true;
     }
@@ -390,9 +391,9 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
      */
     public function ImportMessageMove($id, $newfolder) {
         // don't move messages from or to a dummy folder (GetHierarchy compatibility)
-        if ($this->_folderid == SYNC_FOLDER_TYPE_DUMMY || $newfolder == SYNC_FOLDER_TYPE_DUMMY)
+        if ($this->folderid == SYNC_FOLDER_TYPE_DUMMY || $newfolder == SYNC_FOLDER_TYPE_DUMMY)
             return true;
-        return $this->_backend->MoveMessage($this->_folderid, $id, $newfolder);
+        return $this->backend->MoveMessage($this->folderid, $id, $newfolder);
     }
 
 
@@ -423,7 +424,7 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
             $this->updateState("change", $change);
         }
 
-        $stat = $this->_backend->ChangeFolder($parent, $id, $displayname, $type);
+        $stat = $this->backend->ChangeFolder($parent, $id, $displayname, $type);
 
         if($stat)
             $this->updateState("change", $stat);
@@ -450,7 +451,7 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
 
         $this->updateState("delete", $change);
 
-        $this->_backend->DeleteFolder($parent, $id);
+        $this->backend->DeleteFolder($parent, $id);
 
         return true;
     }
@@ -458,13 +459,14 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
 
 
 class ExportChangesDiff extends DiffState implements IExportChanges{
-    private $_importer;
-    private $_folderid;
-    private $_restrict;
-    private $_flags;
-    private $_mclass;
-    private $_user;
-    private $_cutoffdate;
+    private $importer;
+    private $folderid;
+    private $restrict;
+    private $mclass;
+    private $truncation;
+    private $cutoffdate;
+    private $changes;
+    private $step;
 
     /**
      * Constructor
@@ -475,8 +477,8 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
      * @access public
      */
     public function ExportChangesDiff($backend, $folderid) {
-        $this->_backend = $backend;
-        $this->_folderid = $folderid;
+        $this->backend = $backend;
+        $this->folderid = $folderid;
     }
 
     /**
@@ -489,8 +491,8 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
      * @return boolean status flag
      */
     public function Config($state, $flags = 0) {
-        $this->_syncstate = unserialize($state);
-        $this->_flags = $flags;
+        $this->syncstate = unserialize($state);
+        $this->flags = $flags;
     }
 
     /**
@@ -504,11 +506,11 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
      * @return boolean
      */
     public function ConfigContentParameters($mclass, $restrict, $truncation) {
-        $this->_mclass = $mclass;
-        $this->_restrict = $restrict;
-        $this->_truncation = $truncation;
+        $this->mclass = $mclass;
+        $this->restrict = $restrict;
+        $this->truncation = $truncation;
 
-        $this->_cutoffdate = Utils::GetCutOffDate($restrict);
+        $this->cutoffdate = Utils::GetCutOffDate($restrict);
     }
 
     /**
@@ -521,50 +523,50 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
      * @return boolean
      */
     public function InitializeExporter(&$importer) {
-        $this->_changes = array();
-        $this->_step = 0;
-        $this->_importer = $importer;
+        $this->changes = array();
+        $this->step = 0;
+        $this->importer = $importer;
 
-        if($this->_folderid) {
+        if($this->folderid) {
             // Get the changes since the last sync
             ZLog::Write(LOGLEVEL_DEBUG, "Initializing message diff engine");
 
-            if(!isset($this->_syncstate) || !$this->_syncstate)
-                $this->_syncstate = array();
+            if(!isset($this->syncstate) || !$this->syncstate)
+                $this->syncstate = array();
 
-            ZLog::Write(LOGLEVEL_DEBUG, count($this->_syncstate) . " messages in state");
+            ZLog::Write(LOGLEVEL_DEBUG, count($this->syncstate) . " messages in state");
 
             //do nothing if it is a dummy folder
-            if ($this->_folderid != SYNC_FOLDER_TYPE_DUMMY) {
+            if ($this->folderid != SYNC_FOLDER_TYPE_DUMMY) {
                 // on ping: check if backend supports alternative PING mechanism & use it
-                if ($this->_mclass === false && $this->_flags == BACKEND_DISCARD_DATA && $this->_backend->AlterPing()) {
-                    $this->_changes = $this->_backend->AlterPingChanges($this->_folderid, $this->_syncstate);
+                if ($this->mclass === false && $this->flags == BACKEND_DISCARD_DATA && $this->backend->AlterPing()) {
+                    $this->changes = $this->backend->AlterPingChanges($this->folderid, $this->syncstate);
                 }
                 else {
                     // Get our lists - syncstate (old)  and msglist (new)
-                    $msglist = $this->_backend->GetMessageList($this->_folderid, $this->_cutoffdate);
+                    $msglist = $this->backend->GetMessageList($this->folderid, $this->cutoffdate);
                     if($msglist === false)
                         return false;
 
-                    $this->_changes = GetDiff($this->_syncstate, $msglist);
+                    $this->changes = GetDiff($this->syncstate, $msglist);
                 }
             }
 
-            ZLog::Write(LOGLEVEL_INFO, "Found " . count($this->_changes) . " message changes");
+            ZLog::Write(LOGLEVEL_INFO, "Found " . count($this->changes) . " message changes");
         }
         else {
             ZLog::Write(LOGLEVEL_DEBUG, "Initializing folder diff engine");
 
-            $folderlist = $this->_backend->GetFolderList();
+            $folderlist = $this->backend->GetFolderList();
             if($folderlist === false)
                 return false;
 
-            if(!isset($this->_syncstate) || !$this->_syncstate)
-                $this->_syncstate = array();
+            if(!isset($this->syncstate) || !$this->syncstate)
+                $this->syncstate = array();
 
-            $this->_changes = GetDiff($this->_syncstate, $folderlist);
+            $this->changes = GetDiff($this->syncstate, $folderlist);
 
-            ZLog::Write(LOGLEVEL_INFO, "Found " . count($this->_changes) . " folder changes");
+            ZLog::Write(LOGLEVEL_INFO, "Found " . count($this->changes) . " folder changes");
         }
     }
 
@@ -575,7 +577,7 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
      * @return int
      */
     public function GetChangeCount() {
-        return count($this->_changes);
+        return count($this->changes);
     }
 
     /**
@@ -589,32 +591,32 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
 
         // Get one of our stored changes and send it to the importer, store the new state if
         // it succeeds
-        if($this->_folderid == false) {
-            if($this->_step < count($this->_changes)) {
-                $change = $this->_changes[$this->_step];
+        if($this->folderid == false) {
+            if($this->step < count($this->changes)) {
+                $change = $this->changes[$this->step];
 
                 switch($change["type"]) {
                     case "change":
-                        $folder = $this->_backend->GetFolder($change["id"]);
-                        $stat = $this->_backend->StatFolder($change["id"]);
+                        $folder = $this->backend->GetFolder($change["id"]);
+                        $stat = $this->backend->StatFolder($change["id"]);
 
                         if(!$folder)
                             return;
 
-                        if($this->_flags & BACKEND_DISCARD_DATA || $this->_importer->ImportFolderChange($folder))
+                        if($this->flags & BACKEND_DISCARD_DATA || $this->importer->ImportFolderChange($folder))
                             $this->updateState("change", $stat);
                         break;
                     case "delete":
-                        if($this->_flags & BACKEND_DISCARD_DATA || $this->_importer->ImportFolderDeletion($change["id"]))
+                        if($this->flags & BACKEND_DISCARD_DATA || $this->importer->ImportFolderDeletion($change["id"]))
                             $this->updateState("delete", $change);
                         break;
                 }
 
-                $this->_step++;
+                $this->step++;
 
                 $progress = array();
-                $progress["steps"] = count($this->_changes);
-                $progress["progress"] = $this->_step;
+                $progress["steps"] = count($this->changes);
+                $progress["progress"] = $this->step;
 
                 return $progress;
             } else {
@@ -622,47 +624,47 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
             }
         }
         else {
-            if($this->_step < count($this->_changes)) {
-                $change = $this->_changes[$this->_step];
+            if($this->step < count($this->changes)) {
+                $change = $this->changes[$this->step];
 
                 switch($change["type"]) {
                     case "change":
-                        $truncsize = Utils::GetTruncSize($this->_truncation);
+                        $truncsize = Utils::GetTruncSize($this->truncation);
 
                         // Note: because 'parseMessage' and 'statMessage' are two seperate
                         // calls, we have a chance that the message has changed between both
                         // calls. This may cause our algorithm to 'double see' changes.
 
-                        $stat = $this->_backend->StatMessage($this->_folderid, $change["id"]);
-                        $message = $this->_backend->GetMessage($this->_folderid, $change["id"], $truncsize);
+                        $stat = $this->backend->StatMessage($this->folderid, $change["id"]);
+                        $message = $this->backend->GetMessage($this->folderid, $change["id"], $truncsize);
 
                         // copy the flag to the message
                         $message->flags = (isset($change["flags"])) ? $change["flags"] : 0;
 
                         if($stat && $message) {
-                            if($this->_flags & BACKEND_DISCARD_DATA || $this->_importer->ImportMessageChange($change["id"], $message) == true)
+                            if($this->flags & BACKEND_DISCARD_DATA || $this->importer->ImportMessageChange($change["id"], $message) == true)
                                 $this->updateState("change", $stat);
                         }
                         break;
                     case "delete":
-                        if($this->_flags & BACKEND_DISCARD_DATA || $this->_importer->ImportMessageDeletion($change["id"]) == true)
+                        if($this->flags & BACKEND_DISCARD_DATA || $this->importer->ImportMessageDeletion($change["id"]) == true)
                             $this->updateState("delete", $change);
                         break;
                     case "flags":
-                        if($this->_flags & BACKEND_DISCARD_DATA || $this->_importer->ImportMessageReadFlag($change["id"], $change["flags"]) == true)
+                        if($this->flags & BACKEND_DISCARD_DATA || $this->importer->ImportMessageReadFlag($change["id"], $change["flags"]) == true)
                             $this->updateState("flags", $change);
                         break;
                     case "move":
-                        if($this->_flags & BACKEND_DISCARD_DATA || $this->_importer->ImportMessageMove($change["id"], $change["parent"]) == true)
+                        if($this->flags & BACKEND_DISCARD_DATA || $this->importer->ImportMessageMove($change["id"], $change["parent"]) == true)
                             $this->updateState("move", $change);
                         break;
                 }
 
-                $this->_step++;
+                $this->step++;
 
                 $progress = array();
-                $progress["steps"] = count($this->_changes);
-                $progress["progress"] = $this->_step;
+                $progress["steps"] = count($this->changes);
+                $progress["progress"] = $this->step;
 
                 return $progress;
             } else {
@@ -680,7 +682,7 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
  */
 
 abstract class BackendDiff extends Backend {
-    protected $_store;
+    protected $store;
 
     /**
      * Constructor
@@ -711,7 +713,7 @@ abstract class BackendDiff extends Backend {
      * @return boolean
      */
     public function Setup($store, $checkACLonly = false, $folderid = false) {
-        $this->_store = $store;
+        $this->store = $store;
 
         return true;
     }

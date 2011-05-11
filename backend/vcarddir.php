@@ -616,7 +616,7 @@ class BackendVCDir extends BackendDiff {
      * @return string
      */
     private function getPath() {
-        return str_replace('%u', $this->_user, VCARDDIR_DIR);
+        return str_replace('%u', $this->store, VCARDDIR_DIR);
     }
 
     /**
