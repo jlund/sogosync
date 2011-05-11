@@ -56,7 +56,7 @@ class Streamer {
     const STREAMER_TYPE_DATE_DASHES = 3;
     const STREAMER_TYPE_MAPI_STREAM = 4;
 
-    protected $_mapping;
+    protected $mapping;
     public $flags;
     public $content;
 
@@ -67,7 +67,7 @@ class Streamer {
      * @access public
      */
     function Streamer($mapping) {
-        $this->_mapping = $mapping;
+        $this->mapping = $mapping;
         $this->flags = false;
     }
 
@@ -86,7 +86,7 @@ class Streamer {
 
             if($entity[EN_TYPE] == EN_TYPE_STARTTAG) {
                 if(! ($entity[EN_FLAGS] & EN_FLAGS_CONTENT)) {
-                    $map = $this->_mapping[$entity[EN_TAG]];
+                    $map = $this->mapping[$entity[EN_TAG]];
                     if(!isset($map[self::STREAMER_TYPE])) {
                         $this->$map[self::STREAMER_VAR] = "";
                     }
@@ -96,13 +96,13 @@ class Streamer {
                     continue;
                 }
                 // Found a start tag
-                if(!isset($this->_mapping[$entity[EN_TAG]])) {
+                if(!isset($this->mapping[$entity[EN_TAG]])) {
                     // This tag shouldn't be here, abort
                     debug("Tag " . $entity[EN_TAG] . " unexpected in type XML type " . get_class($this));
                     return false;
                 }
                 else {
-                    $map = $this->_mapping[$entity[EN_TAG]];
+                    $map = $this->mapping[$entity[EN_TAG]];
 
                     // Handle an array
                     if(isset($map[self::STREAMER_ARRAY])) {
@@ -193,7 +193,7 @@ class Streamer {
      * @access public
      */
     public function encode(&$encoder) {
-        foreach($this->_mapping as $tag => $map) {
+        foreach($this->mapping as $tag => $map) {
             if(isset($this->$map[self::STREAMER_VAR])) {
                 // Variable is available
                 if(is_object($this->$map[self::STREAMER_VAR])) {

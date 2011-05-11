@@ -46,7 +46,7 @@
 require_once("backend/searchldap/config.php");
 
 class SearchLDAP implements ISearchProvider {
-    private $_connection;
+    private $connection;
 
     /**
      * Initializes the backend to perform the search
@@ -64,23 +64,23 @@ class SearchLDAP implements ISearchProvider {
         }
 
         // connect to LDAP
-        $this->_connection = @ldap_connect(LDAP_HOST, LDAP_PORT);
-        @ldap_set_option($this->_connection, LDAP_OPT_PROTOCOL_VERSION, 3);
+        $this->connection = @ldap_connect(LDAP_HOST, LDAP_PORT);
+        @ldap_set_option($this->connection, LDAP_OPT_PROTOCOL_VERSION, 3);
 
         // Authenticate
         if (constant('ANONYMOUS_BIND') === true) {
-            if(! @ldap_bind($this->_connection)) {
+            if(! @ldap_bind($this->connection)) {
                 // TODO throw status exception
                 ZLog::Write(LOGLEVEL_ERROR, "SearchLDAP: Could not bind anonymously to server! Search aborted.");
-                $this->_connection = false;
+                $this->connection = false;
                 return false;
             }
         }
         else if (constant('LDAP_BIND_USER') != "") {
-            if(! @ldap_bind($this->_connection, LDAP_BIND_USER, LDAP_BIND_PASSWORD)) {
+            if(! @ldap_bind($this->connection, LDAP_BIND_USER, LDAP_BIND_PASSWORD)) {
                 // TODO throw status exception
                 ZLog::Write(LOGLEVEL_ERROR, "SearchLDAP: Could not bind to server with user '".LDAP_BIND_USER."' and given password! Search aborted.");
-                $this->_connection = false;
+                $this->connection = false;
                 return false;
             }
         }
@@ -89,7 +89,7 @@ class SearchLDAP implements ISearchProvider {
             ZLog::Write(LOGLEVEL_ERROR, "SearchLDAP: neither anonymous nor default bind enabled. Other options not implemented.");
             // it would be possible to use the users login and password to authenticate on the LDAP server
             // the main $backend has to keep these values so they could be used here
-            $this->_connection = false;
+            $this->connection = false;
             return false;
         }
     }
@@ -119,16 +119,16 @@ class SearchLDAP implements ISearchProvider {
      */
     public function GetGALSearchResults($searchquery, $searchrange) {
         global $ldap_field_map;
-        if (isset($this->_connection) && $this->_connection !== false) {
+        if (isset($this->connection) && $this->connection !== false) {
             $searchfilter = str_replace("SEARCHVALUE", $searchquery, LDAP_SEARCH_FILTER);
-            $result = @ldap_search($this->_connection, LDAP_SEARCH_BASE, $searchfilter);
+            $result = @ldap_search($this->connection, LDAP_SEARCH_BASE, $searchfilter);
             if (!$result) {
                 ZLog::Write(LOGLEVEL_ERROR, "SearchLDAP: Error in search query. Search aborted");
                 return false;
             }
 
             // get entry data as array
-            $searchresult = ldap_get_entries($this->_connection, $result);
+            $searchresult = ldap_get_entries($this->connection, $result);
 
             // range for the search results, default symbian range end is 50, wm 99,
             // so we'll use that of nokia
@@ -175,8 +175,8 @@ class SearchLDAP implements ISearchProvider {
      * @return boolean
      */
     public function Disconnect() {
-        if ($this->_connection)
-            @ldap_close($this->_connection);
+        if ($this->connection)
+            @ldap_close($this->connection);
 
         return true;
     }

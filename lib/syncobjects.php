@@ -68,11 +68,11 @@ abstract class SyncObject extends Streamer {
             return false;
 
         foreach ($supportedFields as $field) {
-            if (!isset($this->_mapping[$field])) {
+            if (!isset($this->mapping[$field])) {
                 ZLog::Write(LOGLEVEL_WARN, sprintf("Field '%s' is supposed to be emptied but is not defined for '%s'", $field, get_class($this)));
                 continue;
             }
-            $var = $this->_mapping[$field][self::STREAMER_VAR];
+            $var = $this->mapping[$field][self::STREAMER_VAR];
             // add var to $this->unsetVars if $var is not set
             if (!isset($this->$var))
                 $this->unsetVars[] = $var;
@@ -96,7 +96,7 @@ abstract class SyncObject extends Streamer {
         }
         // we add a fake property so we can compare on it. This way, it's never streamed to the device.
         // TODO this could be done directly in the SyncObject. It should then have a flag so it's not streamed
-        $custMapping = $this->_mapping;
+        $custMapping = $this->mapping;
         $custMapping["customValueStore"] = array(self::STREAMER_VAR => "Store");
 
         // check for mapped fields
@@ -135,7 +135,7 @@ abstract class SyncObject extends Streamer {
         $str = get_class($this) . " (\n";
 
         $streamerVars = array();
-        foreach ($this->_mapping as $k=>$v)
+        foreach ($this->mapping as $k=>$v)
             $streamerVars[$v[self::STREAMER_VAR]] = (isset($v[self::STREAMER_TYPE]))?$v[self::STREAMER_TYPE]:false;
 
         foreach (get_object_vars($this) as $k=>$v) {

@@ -42,9 +42,9 @@
 ************************************************/
 
 class ImportChangesStream implements IImportChanges {
-    private $_encoder;
-    private $_class;
-    private $_seenObjects;
+    private $encoder;
+    private $objclass;
+    private $seenObjects;
 
     /**
      * Constructor of the StreamImporter
@@ -55,10 +55,10 @@ class ImportChangesStream implements IImportChanges {
      * @access public
      */
     public function ImportChangesStream(&$encoder, $class) {
-        $this->_encoder = &$encoder;
-        $this->_class = $class;
-        $this->_classAsString = (is_object($class))?get_class($this->_class):'';
-        $this->_seenObjects = array();
+        $this->encoder = &$encoder;
+        $this->objclass = $class;
+        $this->classAsString = (is_object($class))?get_class($class):'';
+        $this->seenObjects = array();
     }
 
     /**
@@ -79,29 +79,29 @@ class ImportChangesStream implements IImportChanges {
      */
     public function ImportMessageChange($id, $message) {
         // ignore other SyncObjects
-        if(!($message instanceof $this->_classAsString))
+        if(!($message instanceof $this->classAsString))
             return false;
 
         // prevent sending the same object twice in one request
-        if (in_array($id, $this->_seenObjects)) {
+        if (in_array($id, $this->seenObjects)) {
             ZLog::Write(LOGLEVEL_DEBUG, "Object $id discarded! Object already sent in this request.");
             return true;
         }
 
-        $this->_seenObjects[] = $id;
+        $this->seenObjects[] = $id;
 
         if ($message->flags === false || $message->flags === SYNC_NEWMESSAGE)
-            $this->_encoder->startTag(SYNC_ADD);
+            $this->encoder->startTag(SYNC_ADD);
         else
-            $this->_encoder->startTag(SYNC_MODIFY);
+            $this->encoder->startTag(SYNC_MODIFY);
 
-            $this->_encoder->startTag(SYNC_SERVERENTRYID);
-                $this->_encoder->content($id);
-            $this->_encoder->endTag();
-            $this->_encoder->startTag(SYNC_DATA);
-                $message->encode($this->_encoder);
-            $this->_encoder->endTag();
-        $this->_encoder->endTag();
+            $this->encoder->startTag(SYNC_SERVERENTRYID);
+                $this->encoder->content($id);
+            $this->encoder->endTag();
+            $this->encoder->startTag(SYNC_DATA);
+                $message->encode($this->encoder);
+            $this->encoder->endTag();
+        $this->encoder->endTag();
 
         return true;
     }
@@ -115,11 +115,11 @@ class ImportChangesStream implements IImportChanges {
      * @return boolean
      */
     public function ImportMessageDeletion($id) {
-        $this->_encoder->startTag(SYNC_REMOVE);
-            $this->_encoder->startTag(SYNC_SERVERENTRYID);
-                $this->_encoder->content($id);
-            $this->_encoder->endTag();
-        $this->_encoder->endTag();
+        $this->encoder->startTag(SYNC_REMOVE);
+            $this->encoder->startTag(SYNC_SERVERENTRYID);
+                $this->encoder->content($id);
+            $this->encoder->endTag();
+        $this->encoder->endTag();
 
         return true;
     }
@@ -135,19 +135,19 @@ class ImportChangesStream implements IImportChanges {
      * @return boolean
      */
     public function ImportMessageReadFlag($id, $flags) {
-        if(!($this->_class instanceof SyncMail))
+        if(!($this->objclass instanceof SyncMail))
             return false;
 
-        $this->_encoder->startTag(SYNC_MODIFY);
-            $this->_encoder->startTag(SYNC_SERVERENTRYID);
-                $this->_encoder->content($id);
-            $this->_encoder->endTag();
-            $this->_encoder->startTag(SYNC_DATA);
-                $this->_encoder->startTag(SYNC_POOMMAIL_READ);
-                    $this->_encoder->content($flags);
-                $this->_encoder->endTag();
-            $this->_encoder->endTag();
-        $this->_encoder->endTag();
+        $this->encoder->startTag(SYNC_MODIFY);
+            $this->encoder->startTag(SYNC_SERVERENTRYID);
+                $this->encoder->content($id);
+            $this->encoder->endTag();
+            $this->encoder->startTag(SYNC_DATA);
+                $this->encoder->startTag(SYNC_POOMMAIL_READ);
+                    $this->encoder->content($flags);
+                $this->encoder->endTag();
+            $this->encoder->endTag();
+        $this->encoder->endTag();
 
         return true;
     }
@@ -176,12 +176,12 @@ class ImportChangesStream implements IImportChanges {
     public function ImportFolderChange($folder) {
         // send a modify flag if the folder is already known on the device
         if (isset($folder->flags) && $folder->flags === SYNC_NEWMESSAGE)
-            $this->_encoder->startTag(SYNC_FOLDERHIERARCHY_ADD);
+            $this->encoder->startTag(SYNC_FOLDERHIERARCHY_ADD);
         else
-            $this->_encoder->startTag(SYNC_FOLDERHIERARCHY_UPDATE);
+            $this->encoder->startTag(SYNC_FOLDERHIERARCHY_UPDATE);
 
-        $folder->encode($this->_encoder);
-        $this->_encoder->endTag();
+        $folder->encode($this->encoder);
+        $this->encoder->endTag();
 
         return true;
     }
@@ -196,11 +196,11 @@ class ImportChangesStream implements IImportChanges {
      * @return boolean
      */
     public function ImportFolderDeletion($id, $parent = false) {
-        $this->_encoder->startTag(SYNC_FOLDERHIERARCHY_REMOVE);
-            $this->_encoder->startTag(SYNC_FOLDERHIERARCHY_SERVERENTRYID);
-                $this->_encoder->content($id);
-            $this->_encoder->endTag();
-        $this->_encoder->endTag();
+        $this->encoder->startTag(SYNC_FOLDERHIERARCHY_REMOVE);
+            $this->encoder->startTag(SYNC_FOLDERHIERARCHY_SERVERENTRYID);
+                $this->encoder->content($id);
+            $this->encoder->endTag();
+        $this->encoder->endTag();
 
         return true;
     }
