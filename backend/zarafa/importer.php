@@ -65,6 +65,7 @@ class ImportChangesICS implements IImportChanges {
     private $statestream;
     private $importer;
     private $memChanges;
+    private $mapiprovider;
 
     /**
      * Constructor
@@ -108,8 +109,10 @@ class ImportChangesICS implements IImportChanges {
             return;
         }
 
-        if ($folderid)
+        if ($folderid) {
             $this->importer = mapi_openproperty($folder, PR_COLLECTOR, IID_IExchangeImportContentsChanges, 0 , 0);
+            $this->mapiprovider = new MAPIProvider($this->session, $this->store);
+        }
         else
             $this->importer = mapi_openproperty($folder, PR_COLLECTOR, IID_IExchangeImportHierarchyChanges, 0 , 0);
     }
@@ -250,9 +253,7 @@ class ImportChangesICS implements IImportChanges {
             $flags = SYNC_NEW_MESSAGE;
 
         if(mapi_importcontentschanges_importmessagechange($this->importer, $props, $flags, $mapimessage)) {
-            // TODO: MAPIProvider could be static
-            $mapiprovider = new MAPIProvider($this->session, $this->store);
-            $mapiprovider->SetMessage($mapimessage, $message);
+            $this->mapiprovider->SetMessage($mapimessage, $message);
             mapi_message_savechanges($mapimessage);
 
             $sourcekeyprops = mapi_getprops($mapimessage, array (PR_SOURCE_KEY));
