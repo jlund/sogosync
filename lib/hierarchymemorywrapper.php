@@ -359,7 +359,6 @@ class ChangesMemoryWrapper extends HierarchyCache implements IImportChanges, IEx
         return true;
     }
 
-    // TODO check if isChanged() and isDeleted() work as expected
     /**
      * Checks if a message id is flagged as changed
      *
@@ -369,7 +368,7 @@ class ChangesMemoryWrapper extends HierarchyCache implements IImportChanges, IEx
      * @return boolean
      */
     function isChanged($id) {
-        return array_search(array(self::CHANGE, $id), $this->changes);
+        return (array_search(array(self::CHANGE, $id), $this->changes) === false) ? false:true;
     }
 
     /**
@@ -381,7 +380,7 @@ class ChangesMemoryWrapper extends HierarchyCache implements IImportChanges, IEx
      * @return boolean
      */
     function isDeleted($id) {
-       return array_search(array(self::DELETION, $id), $this->changes);
+       return (array_search(array(self::DELETION, $id), $this->changes) === false) ? false:true;
     }
 
     /**
