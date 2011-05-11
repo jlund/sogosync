@@ -909,7 +909,7 @@ class MAPIProvider {
             $recips = array();
 
             //open addresss book for user resolve
-            $addrbook = mapi_openaddressbook($this->_session);
+            $addrbook = mapi_openaddressbook($this->session);
             foreach($appointment->attendees as $attendee) {
                 $recip = array();
                 $recip[PR_EMAIL_ADDRESS] = u2w($attendee->email);
