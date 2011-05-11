@@ -333,10 +333,16 @@ class MAPIProvider {
         }
         // Termination
         switch($recurrence->recur["term"]) {
-           case 0x21:
-            $syncRecurrence->until = $recurrence->recur["end"]; break;
+            case 0x21:
+                $syncRecurrence->until = $recurrence->recur["end"];
+                // fixes Mantis #350 : recur-end does not consider timezones - use ClipEnd if available
+                if (isset($recurprops[$recurrence->proptags["enddate_recurring"]]))
+                    $syncRecurrence->until = $recurprops[$recurrence->proptags["enddate_recurring"]];
+                // add one day (minus 1 sec) to the end time to make sure the last occurrence is covered
+                $syncRecurrence->until += 86399;
+                break;
             case 0x22:
-            $syncRecurrence->occurrences = $recurrence->recur["numoccur"]; break;
+                $syncRecurrence->occurrences = $recurrence->recur["numoccur"]; break;
             case 0x23:
                 // never ends
                 break;
