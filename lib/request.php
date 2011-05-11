@@ -1369,9 +1369,9 @@ class RequestProcessor {
             if(!self::$decoder->getElementEndTag())
                 return false;
 
-            // compatibility mode - get folderid from the state directory
+            // compatibility mode AS 1.0 - get folderid which was sent during GetHierarchy()
             if (!isset($collectionid)) {
-                $collectionid = self::$deviceManager->_getFolderID($class);
+                $collectionid = self::$deviceManager->GetFolderIdFromCacheByClass($class);
             }
 
             $collection = array();
