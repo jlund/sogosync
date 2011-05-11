@@ -42,17 +42,17 @@
 * Consult LICENSE file for details
 ************************************************/
 
-    // ************************
-    //  BackendICS settings
-    // ************************
+class BackendCombinedConfig {
 
-    $BackendICS_config = array('MAPI_SERVER' => MAPI_SERVER);
+    // *************************
+    //  BackendZarafa settings
+    // *************************
+    public static $BackendZarafa_config = array('MAPI_SERVER' => MAPI_SERVER);
 
-    // ************************
+    // *************************
     //  BackendIMAP settings
-    // ************************
-
-    $BackendIMAP_config = array(
+    // *************************
+    public static $BackendIMAP_config = array(
         // Defines the server to which we want to connect
         // recommended to use local servers only
         'IMAP_SERVER' => IMAP_SERVER,
@@ -73,74 +73,80 @@
         'IMAP_USE_IMAPMAIL' => IMAP_USE_IMAPMAIL,
     );
 
-
-
-    // ************************
+    // *************************
     //  BackendMaildir settings
-    // ************************
-    $BackendMaildir_config = array(
+    // *************************
+    public static $BackendMaildir_config = array(
         'MAILDIR_BASE' => MAILDIR_BASE,
         'MAILDIR_SUBDIR' => MAILDIR_SUBDIR,
     );
 
-    // **********************
+    // *************************
     //  BackendVCDir settings
-    // **********************
-    $BackendVCDir_config = array(
-        'VCARDDIR_DIR' => VCARDDIR_DIR,
-    );
+    // *************************
+    public static $BackendVCDir_config = array('VCARDDIR_DIR' => VCARDDIR_DIR);
 
-    // **********************
+    // *************************
     //  BackendCombined settings
-    // **********************
-    $BackendCombined_config = array(
-        //the order in which the backends are loaded.
-        //login only succeeds if all backend return true on login
-        //sending mail: the mail is sent with first backend that is able to send the mail
-        'backends' => array(
-            'z' => array(
-                'name' => 'BackendICS',
-                'config' => $BackendICS_config,
+    // *************************
+    /**
+     * Returns the configuration of the combined backend
+     *
+     * @access public
+     * @return array
+     *
+     */
+    public static function GetBackendCombinedConfig() {
+        //use a function for it because php does not allow
+        //assigning variables to the class members (expecting T_STRING)
+        return array(
+            //the order in which the backends are loaded.
+            //login only succeeds if all backend return true on login
+            //sending mail: the mail is sent with first backend that is able to send the mail
+            'backends' => array(
+                'i' => array(
+                    'name' => 'BackendIMAP',
+                    'config' => self::$BackendIMAP_config,
+                ),
+                'z' => array(
+                    'name' => 'BackendZarafa',
+                    'config' => self::$BackendZarafa_config
+                ),
+                'm' => array(
+                    'name' => 'BackendMaildir',
+                    'config' => self::$BackendMaildir_config,
+                ),
+                'v' => array(
+                    'name' => 'BackendVCDir',
+                    'config' => self::$BackendVCDir_config,
+                ),
             ),
-            'i' => array(
-                'name' => 'BackendIMAP',
-                'config' => $BackendIMAP_config,
+            'delimiter' => '/',
+            //force one type of folder to one backend
+            //it must match one of the above defined backends
+            'folderbackend' => array(
+                SYNC_FOLDER_TYPE_INBOX => 'i',
+                SYNC_FOLDER_TYPE_DRAFTS => 'i',
+                SYNC_FOLDER_TYPE_WASTEBASKET => 'i',
+                SYNC_FOLDER_TYPE_SENTMAIL => 'i',
+                SYNC_FOLDER_TYPE_OUTBOX => 'i',
+                SYNC_FOLDER_TYPE_TASK => 'z',
+                SYNC_FOLDER_TYPE_APPOINTMENT => 'z',
+                SYNC_FOLDER_TYPE_CONTACT => 'z',
+                SYNC_FOLDER_TYPE_NOTE => 'z',
+                SYNC_FOLDER_TYPE_JOURNAL => 'z',
+                SYNC_FOLDER_TYPE_OTHER => 'i',
+                SYNC_FOLDER_TYPE_USER_MAIL => 'i',
+                SYNC_FOLDER_TYPE_USER_APPOINTMENT => 'z',
+                SYNC_FOLDER_TYPE_USER_CONTACT => 'z',
+                SYNC_FOLDER_TYPE_USER_TASK => 'z',
+                SYNC_FOLDER_TYPE_USER_JOURNAL => 'z',
+                SYNC_FOLDER_TYPE_USER_NOTE => 'z',
+                SYNC_FOLDER_TYPE_UNKNOWN => 'z',
             ),
-            'm' => array(
-                'name' => 'BackendMaildir',
-                'config' => $BackendMaildir_config,
-            ),
-            'v' => array(
-                'name' => 'BackendVCDir',
-                'config' => $BackendVCDir_config,
-            ),
-        ),
-        'delimiter' => '/',
-        //force one type of folder to one backend
-        //it must match one of the above defined backends
-        'folderbackend' => array(
-            SYNC_FOLDER_TYPE_INBOX => 'i',
-            SYNC_FOLDER_TYPE_DRAFTS => 'i',
-            SYNC_FOLDER_TYPE_WASTEBASKET => 'i',
-            SYNC_FOLDER_TYPE_SENTMAIL => 'i',
-            SYNC_FOLDER_TYPE_OUTBOX => 'i',
-            SYNC_FOLDER_TYPE_TASK => 'z',
-            SYNC_FOLDER_TYPE_APPOINTMENT => 'z',
-            SYNC_FOLDER_TYPE_CONTACT => 'z',
-            SYNC_FOLDER_TYPE_NOTE => 'z',
-            SYNC_FOLDER_TYPE_JOURNAL => 'z',
-            SYNC_FOLDER_TYPE_OTHER => 'i',
-            SYNC_FOLDER_TYPE_USER_MAIL => 'i',
-            SYNC_FOLDER_TYPE_USER_APPOINTMENT => 'z',
-            SYNC_FOLDER_TYPE_USER_CONTACT => 'z',
-            SYNC_FOLDER_TYPE_USER_TASK => 'z',
-            SYNC_FOLDER_TYPE_USER_JOURNAL => 'z',
-            SYNC_FOLDER_TYPE_USER_NOTE => 'z',
-            SYNC_FOLDER_TYPE_UNKNOWN => 'z',
-        ),
-        //creating a new folder in the root folder should create a folder in one backend
-        'rootcreatefolderbackend' => 'i',
-    );
-
-    $BACKEND_CONFIG = @constant('BACKEND_PROVIDER') .'_config';
+            //creating a new folder in the root folder should create a folder in one backend
+            'rootcreatefolderbackend' => 'i',
+        );
+    }
+}
 ?>

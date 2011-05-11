@@ -44,7 +44,7 @@
 ************************************************/
 
 //include the CombinedBackend's own config file
-require_once("backend/combined/config.php");
+require_once(BASE_PATH."backend/combined/config.php");
 
 
 /**
@@ -314,8 +314,8 @@ class BackendCombined extends Backend{
 
     public function BackendCombined() {
         parent::Backend();
-        global $BackendCombined_config;
-        $this->_config = $BackendCombined_config;
+        $this->_config = BackendCombinedConfig::GetBackendCombinedConfig();
+
         foreach ($this->_config['backends'] as $i => $b){
             $this->_backends[$i] = new $b['name']($b['config']);
         }
