@@ -456,7 +456,7 @@ interface IImportChanges extends IChanges {
      * Imports a move of a message. This occurs when a user moves an item to another folder
      *
      * @param string        $id
-     * @param int           $flags          read/unread
+     * @param string        $newfolder
      *
      * @access public
      * @return boolean
