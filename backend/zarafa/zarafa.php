@@ -65,8 +65,6 @@ include_once('mapi/class.freebusypublish.php');
 // processing of RFC822 messages
 include_once('include/mimeDecode.php');
 require_once('include/z_RFC822.php');
-include_once('include/z_tnef.php');
-include_once('include/z_ical.php');
 
 // components of Zarafa backend
 include_once('mapiutils.php');
@@ -496,10 +494,12 @@ class BackendZarafa implements IBackend, ISearchProvider {
                         $tnefAndIcalProps = MAPIMapping::GetTnefAndIcalProperties();
                         $tnefAndIcalProps = getPropIdsFromStrings($this->store, $tnefAndIcalProps);
                     }
-                    $zptnef = new ZPush_tnef($this->store, $tnefAndIcalProps);
+
+                    require_once('tnefparser.php');
+                    $zptnef = new TNEFParser($this->store, $tnefAndIcalProps);
                     $mapiprops = array();
 
-                    $zptnef->extractProps($part->body, $mapiprops);
+                    $zptnef->ExtractProps($part->body, $mapiprops);
                     if (is_array($mapiprops) && !empty($mapiprops)) {
                         //check if it is a recurring item
                         if (isset($mapiprops[$tnefAndIcalProps["tnefrecurr"]])) {
@@ -507,7 +507,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
                         }
                         mapi_setprops($mapimessage, $mapiprops);
                     }
-                    else ZLog::Write(LOGLEVEL_WARN, "TNEF: Mapi props array was empty");
+                    else ZLog::Write(LOGLEVEL_WARN, "TNEFParser: Mapi property array was empty");
                 }
                 // iCalendar
                 elseif($part->ctype_primary == "text" && $part->ctype_secondary == "calendar") {
@@ -515,9 +515,11 @@ class BackendZarafa implements IBackend, ISearchProvider {
                         $tnefAndIcalProps = MAPIMapping::GetTnefAndIcalProperties();
                         $tnefAndIcalProps = getPropIdsFromStrings($this->store, $tnefAndIcalProps);
                     }
-                    $zpical = new ZPush_ical($this->store, $tnefAndIcalProps);
+
+                    require_once('icalparser.php');
+                    $zpical = new ICalParser($this->store, $tnefAndIcalProps);
                     $mapiprops = array();
-                    $zpical->extractProps($part->body, $mapiprops);
+                    $zpical->ExtractProps($part->body, $mapiprops);
 
                     // iPhone sends a second ICS which we ignore if we can
                     if (!isset($mapiprops[PR_MESSAGE_CLASS]) && strlen(trim($body)) == 0) {

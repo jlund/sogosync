@@ -2,11 +2,20 @@
 /***********************************************
 * File      :   z_tnef.php
 * Project   :   Z-Push
-* Descr     :
+* Descr     :   This is tnef implementation for z-push.
+*               It is based on Zarafa's tnef implementation.
+*               This class does only simple reading of a
+*               tnef stream. Most importantly, we currently
+*               only support properties within the message itself,
+*               and do not support recipient tables and
+*               attachment properties within the TNEF data.
+*               This class will accept TNEF streams with data about
+*               recipients and attachments, but the information
+*               will be ignored.
 *
 * Created   :   21.06.2008
 *
-* Copyright 2007 - 2010 Zarafa Deutschland GmbH
+* Copyright 2007 - 2011 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -39,21 +48,8 @@
 * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *
 * Consult LICENSE file for details
-************************************************
-
- * This is tnef implementation for z-push. It is based on
- * Zarafa's tnef implementation.
- *
- * The ZPush_tnef class does only simple reading of a tnef stream.
- * Most importantly, we currently only support properties within
- * the message itself, and do not support recipient tables and
- * attachment properties within the TNEF data.
- *
- * The ZPush_tnef class will accept TNEF streams with data about
- * recipients and attachments, but the information will be ignored.
- *
- * Created on 21.06.2008 by Manfred Kutas <m.kutas@zarafa.com>
- *
+************************************************/
+/**
  * For more information on tnef refer to:
  * http://msdn.microsoft.com/en-us/library/ms530652(EXCHG.10).aspx
  * http://msdn.microsoft.com/en-us/library/cc425498(EXCHG.80).aspx
@@ -62,29 +58,38 @@
  * MAPI see: http://msdn2.microsoft.com/en-us/library/ms527360.aspx
  */
 
-define('TNEF_SIGNATURE',      0x223e9f78);
-define('TNEF_LVL_MESSAGE',    0x01);
-define('TNEF_LVL_ATTACHMENT', 0x02);
+class TNEFParser {
+    const TNEF_SIGNATURE = 0x223e9f78;
+    const TNEF_LVL_MESSAGE = 0x01;
+    const TNEF_LVL_ATTACHMENT = 0x02;
+    const DWORD = 32;
+    const WORD = 16;
+    const BYTE = 8;
 
-
-
-define('ZP_DWORD', 32);
-define('ZP_WORD', 16);
-define('ZP_BYTE', 8);
-
-define('ZP_GUID_SIZE', 256);
-
-class ZPush_tnef{
-
-    //we need a store in order to get the namedpropers
-    function ZPush_tnef(&$store, &$props) {
-        $this->_store = $store;
-        $this->_props = $props;
+    /**
+     * Constructor
+     * We need a store in order to get the namedpropers
+     *
+     * @param mapistore     $store
+     * @param array         &$props     properties to be set
+     *
+     * @access public
+     */
+    public function TNEFParser(&$store, &$props) {
+        $this->store = $store;
+        $this->props = $props;
     }
-    /*
-    * Function reads tnef stream and puts mapi properties into an array.
-    */
-    function extractProps($tnefstream, &$mapiprops) {
+
+    /**
+     * Function reads tnef stream and puts mapi properties into an array.
+     *
+     * @param string        $tnefstream
+     * @param array         &$mapiprops mapi properties
+     *
+     * @access public
+     * @return int
+     */
+    public function ExtractProps($tnefstream, &$mapiprops) {
         $hresult = NOERROR;
         $signature = 0; //tnef signature - 32 Bit
         $key = 0; //a nonzero 16-bit unsigned integer
@@ -92,7 +97,7 @@ class ZPush_tnef{
         $type = 0; // 32-bit value
         $size = 0; // 32-bit value
         $checksum = 0; //16-bit value
-        $component = 0; //8-bit value - either TNEF_LVL_MESSAGE or TNEF_LVL_ATTACHMENT
+        $component = 0; //8-bit value - either self::TNEF_LVL_MESSAGE or self::TNEF_LVL_ATTACHMENT
         $buffer = "";
 
         //mapping between Microsoft Mail IPM classes and those in MAPI
@@ -107,8 +112,9 @@ class ZPush_tnef{
             "IPM.Microsoft Mail.Note"            => "IPM.Note",
             "IPM.Microsoft Mail.Note"            => "IPM",
         );
+
         //read signature
-        $hresult = $this->_readFromTnefStream($tnefstream, ZP_DWORD, $signature);
+        $hresult = $this->readFromTnefStream($tnefstream, self::DWORD, $signature);
         if ($hresult !== NOERROR) {
             ZLog::Write(LOGLEVEL_WARN, "TNEF: STREAM:".bin2hex($tnefstream));
             ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading tnef signature");
@@ -116,13 +122,13 @@ class ZPush_tnef{
         }
 
         //check signature
-        if ($signature != TNEF_SIGNATURE) {
+        if ($signature != self::TNEF_SIGNATURE) {
             ZLog::Write(LOGLEVEL_WARN, "TNEF: Corrupt signature.");
             return MAPI_E_CORRUPT_DATA;
         }
 
         //read key
-        $hresult = $this->_readFromTnefStream($tnefstream, ZP_WORD, $key);
+        $hresult = $this->readFromTnefStream($tnefstream, self::WORD, $key);
         if ($hresult !== NOERROR) {
             ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading tnef key.");
             return $hresult;
@@ -133,8 +139,8 @@ class ZPush_tnef{
             //the stream is empty. exit
             if (strlen($tnefstream) == 0) return NOERROR;
 
-            //read component - it is either TNEF_LVL_MESSAGE or TNEF_LVL_ATTACHMENT
-            $hresult = $this->_readFromTnefStream($tnefstream, ZP_BYTE, $component);
+            //read component - it is either self::TNEF_LVL_MESSAGE or self::TNEF_LVL_ATTACHMENT
+            $hresult = $this->readFromTnefStream($tnefstream, self::BYTE, $component);
             if ($hresult !== NOERROR) {
                 $hresult = NOERROR; //EOF -> no error
                 return $hresult;
@@ -142,14 +148,14 @@ class ZPush_tnef{
             }
 
             //read type
-            $hresult = $this->_readFromTnefStream($tnefstream, ZP_DWORD, $type);
+            $hresult = $this->readFromTnefStream($tnefstream, self::DWORD, $type);
             if ($hresult !== NOERROR) {
                 ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property type");
                 return $hresult;
             }
 
             //read size
-            $hresult = $this->_readFromTnefStream($tnefstream, ZP_DWORD, $size);
+            $hresult = $this->readFromTnefStream($tnefstream, self::DWORD, $size);
             if ($hresult !== NOERROR) {
                 ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property size");
                 return $hresult;
@@ -162,14 +168,14 @@ class ZPush_tnef{
             }
 
             //read buffer
-            $hresult = $this->_readBuffer($tnefstream, $size, $buffer);
+            $hresult = $this->readBuffer($tnefstream, $size, $buffer);
             if ($hresult !== NOERROR) {
                 ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
                 return $hresult;
             }
 
             //read checksum
-            $hresult = $this->_readFromTnefStream($tnefstream, ZP_WORD, $checksum);
+            $hresult = $this->readFromTnefStream($tnefstream, self::WORD, $checksum);
             if ($hresult !== NOERROR) {
                 ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property checksum.");
                 return $hresult;
@@ -179,7 +185,7 @@ class ZPush_tnef{
             // in the properties block for now (0x00069003)
             switch ($type) {
                 case 0x00069003:
-                    $hresult = $this->_readMapiProps($buffer, $size, $mapiprops);
+                    $hresult = $this->readMapiProps($buffer, $size, $mapiprops);
                     if ($hresult !== NOERROR) {
                         ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading mapi properties' part.");
                         return $hresult;
@@ -217,30 +223,35 @@ class ZPush_tnef{
                     // Ignore this block
                     break;
             }
-
         }
         return NOERROR;
-
     }
 
-    /*
-    * Reads a given number of bits from stream and converts them from little indian in a "normal" order. The function
-    * also cuts the tnef stream after reading.
-    */
-    function _readFromTnefStream(&$tnefstream, $bits, &$element) {
+    /**
+     * Reads a given number of bits from stream and converts them from little indian in a "normal" order. The function
+     * also cuts the tnef stream after reading.
+     *
+     * @param string        &$tnefstream
+     * @param int           $bits
+     * @param array         &$element       the read element
+     *
+     * @access private
+     * @return int
+     */
+    private function readFromTnefStream(&$tnefstream, $bits, &$element) {
         $bytes = $bits / 8;
 
         $part = substr($tnefstream, 0, $bytes);
         $packs = array();
 
         switch ($bits) {
-            case ZP_DWORD:
+            case self::DWORD:
                 $packs = unpack("V", $part);
                 break;
-            case ZP_WORD:
+            case self::WORD:
                 $packs = unpack("v", $part);
                 break;
-            case ZP_BYTE:
+            case self::BYTE:
                 $packs[1] = ord($part[0]);
                 break;
             default:
@@ -255,25 +266,38 @@ class ZPush_tnef{
         return NOERROR;
     }
 
-    /*
-    * Reads a given number of bits from stream and puts them into $element. The function
-    * also cuts the tnef stream after reading.
-    */
-    function _readBuffer(&$tnefstream, $bytes, &$element) {
-
+    /**
+     * Reads a given number of bytes from stream and puts them into $element. The function
+     * also cuts the tnef stream after reading.
+     *
+     * @param string        &$tnefstream
+     * @param int           $bytes
+     * @param array         &$element       the read element
+     *
+     * @access private
+     * @return int
+     */
+    private function readBuffer(&$tnefstream, $bytes, &$element) {
         $element = substr($tnefstream, 0, $bytes);
         $tnefstream = substr($tnefstream, $bytes);
         return NOERROR;
 
     }
 
-    /*
-    * Reads mapi props from buffer into an anrray.
-    */
-    function _readMapiProps (&$buffer, $size, &$mapiprops) {
+    /**
+     * Reads mapi props from buffer into an anrray.
+     *
+     * @param string        &$buffer
+     * @param int           $size
+     * @param array         &$mapiprops
+     *
+     * @access private
+     * @return int
+     */
+    function readMapiProps(&$buffer, $size, &$mapiprops) {
         $nrprops = 0;
         //get number of mapi properties
-        $hresult = $this->_readFromTnefStream($buffer, ZP_DWORD, $nrprops);
+        $hresult = $this->readFromTnefStream($buffer, self::DWORD, $nrprops);
         if ($hresult !== NOERROR) {
                 ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error getting the number of mapi properties in stream.");
                 return $hresult;
@@ -285,7 +309,7 @@ class ZPush_tnef{
         //loop through all the properties and add them to our internal list
         while($nrprops) {
             ZLog::Write(LOGLEVEL_DEBUG, "TNEF: \tPROP:$nrprops");
-            $hresult = $this->_readSingleMapiProp($buffer, $size, $read, $mapiprops);
+            $hresult = $this->readSingleMapiProp($buffer, $size, $read, $mapiprops);
             if ($hresult !== NOERROR) {
                     ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading a mapi property.");
                     ZLog::Write(LOGLEVEL_WARN, "TNEF: result: " . sprintf("%x", $hresult));
@@ -297,10 +321,18 @@ class ZPush_tnef{
         return NOERROR;
     }
 
-    /*
-    * Reads a single mapi prop.
-    */
-    function _readSingleMapiProp(&$buffer, &$size, &$read, &$mapiprops) {
+    /**
+     * Reads a single mapi prop.
+     *
+     * @param string        &$buffer
+     * @param int           $size
+     * @param mixed         &$read
+     * @param array         &$mapiprops
+     *
+     * @access private
+     * @return int
+     */
+    private function readSingleMapiProp(&$buffer, &$size, &$read, &$mapiprops) {
         $propTag = 0;
         $len = 0;
         $origSize = $size;
@@ -314,7 +346,7 @@ class ZPush_tnef{
             return MAPI_E_NOT_FOUND;
         }
 
-        $hresult = $this->_readFromTnefStream($buffer, ZP_DWORD, $propTag);
+        $hresult = $this->readFromTnefStream($buffer, self::DWORD, $propTag);
         if ($hresult !== NOERROR) {
             ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading a mapi property tag from the stream.");
             return $hresult;
@@ -329,7 +361,7 @@ class ZPush_tnef{
                 return MAPI_E_CORRUPT_DATA;
             }
             //strip GUID & name/id
-            $hresult = $this->_readBuffer($buffer, 16, $guid);
+            $hresult = $this->readBuffer($buffer, 16, $guid);
             if ($hresult !== NOERROR) {
                 ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
                 return $hresult;
@@ -340,7 +372,7 @@ class ZPush_tnef{
             $readableGuid = unpack("VV/v2v/n4n", $guid);
             $readableGuid = sprintf("{%08x-%04x-%04x-%04x-%04x%04x%04x}",$readableGuid['V'], $readableGuid['v1'], $readableGuid['v2'],$readableGuid['n1'],$readableGuid['n2'],$readableGuid['n3'],$readableGuid['n4']);
             ZLog::Write(LOGLEVEL_DEBUG, "TNEF: guid:$readableGuid");
-            $hresult = $this->_readFromTnefStream($buffer, ZP_DWORD, $isNamedId);
+            $hresult = $this->readFromTnefStream($buffer, self::DWORD, $isNamedId);
             if ($hresult !== NOERROR) {
                 ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property checksum.");
                 return $hresult;
@@ -350,7 +382,7 @@ class ZPush_tnef{
             if($isNamedId != 0) {
                 // A string name follows
                 //read length of the property
-                $hresult = $this->_readFromTnefStream($buffer, ZP_DWORD, $len);
+                $hresult = $this->readFromTnefStream($buffer, self::DWORD, $len);
                 if ($hresult !== NOERROR) {
                     ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading mapi property's length");
                     return $hresult;
@@ -360,7 +392,7 @@ class ZPush_tnef{
                     return MAPI_E_CORRUPT_DATA;
                 }
                 //read the name of the property, eg Keywords
-                $hresult = $this->_readBuffer($buffer, $len, $namedProp);
+                $hresult = $this->readBuffer($buffer, $len, $namedProp);
                 if ($hresult !== NOERROR) {
                     ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
                     return $hresult;
@@ -373,7 +405,7 @@ class ZPush_tnef{
                 $size -= $len & 3 ? 4 - ($len & 3) : 0;
             }
             else {
-                $hresult = $this->_readFromTnefStream($buffer, ZP_DWORD, $namedProp);
+                $hresult = $this->readFromTnefStream($buffer, self::DWORD, $namedProp);
                 if ($hresult !== NOERROR) {
                     ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading mapi property's length");
                     return $hresult;
@@ -382,8 +414,8 @@ class ZPush_tnef{
                 $size -= 4;
             }
 
-            if ($this->_store !== false) {
-                $named = mapi_getidsfromnames($this->_store, array($namedProp), array(makeguid($readableGuid)));
+            if ($this->store !== false) {
+                $named = mapi_getidsfromnames($this->store, array($namedProp), array(makeguid($readableGuid)));
 
                 $propTag = mapi_prop_tag(mapi_prop_type($propTag), mapi_prop_id($named[0]));
             }
@@ -397,7 +429,7 @@ class ZPush_tnef{
                 return MAPI_E_CORRUPT_DATA;
             }
             //read the number of properties
-            $hresult = $this->_readFromTnefStream($buffer, ZP_DWORD, $count);
+            $hresult = $this->readFromTnefStream($buffer, self::DWORD, $count);
             if ($hresult !== NOERROR) {
                 ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading number of properties for:".dechex($propTag));
                 return $hresult;
@@ -412,7 +444,7 @@ class ZPush_tnef{
             switch(mapi_prop_type($propTag) & ~MV_FLAG ) {
                 case PT_I2:
                 case PT_LONG:
-                    $hresult = $this->_readBuffer($buffer, 4, $value);
+                    $hresult = $this->readBuffer($buffer, 4, $value);
                     if ($hresult !== NOERROR) {
                         ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
                         return $hresult;
@@ -432,7 +464,7 @@ class ZPush_tnef{
 
                 case PT_R4:
                     if($propTag & MV_FLAG) {
-                        $hresult = $this->_readBuffer($buffer, 4, $mapiprops[$propTag][]);
+                        $hresult = $this->readBuffer($buffer, 4, $mapiprops[$propTag][]);
 
                         if ($hresult !== NOERROR) {
                             ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
@@ -440,7 +472,7 @@ class ZPush_tnef{
                         }
                     }
                     else {
-                        $hresult = $this->_readBuffer($buffer, 4, $mapiprops[$propTag]);
+                        $hresult = $this->readBuffer($buffer, 4, $mapiprops[$propTag]);
                         if ($hresult !== NOERROR) {
                             ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
                             return $hresult;
@@ -451,7 +483,7 @@ class ZPush_tnef{
                     break;
 
                 case PT_BOOLEAN:
-                    $hresult = $this->_readBuffer($buffer, 4, $mapiprops[$propTag]);
+                    $hresult = $this->readBuffer($buffer, 4, $mapiprops[$propTag]);
                         if ($hresult !== NOERROR) {
                             ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
                             return $hresult;
@@ -470,14 +502,14 @@ class ZPush_tnef{
                         return MAPI_E_CORRUPT_DATA;
                     }
                     if($propTag & MV_FLAG) {
-                        $hresult = $this->_readBuffer($buffer, 8, $mapiprops[$propTag][]);
+                        $hresult = $this->readBuffer($buffer, 8, $mapiprops[$propTag][]);
                         if ($hresult !== NOERROR) {
                             ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
                             return $hresult;
                         }
                     }
                     else {
-                        $hresult = $this->_readBuffer($buffer, 8, $mapiprops[$propTag]);
+                        $hresult = $this->readBuffer($buffer, 8, $mapiprops[$propTag]);
                         if ($hresult !== NOERROR) {
                             ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
                             return $hresult;
@@ -495,10 +527,10 @@ class ZPush_tnef{
                     $mapiprops[$propTag] = $filetime;
                     // we have to set the start and end times separately because the standard PR_START_DATE and PR_END_DATE aren't enough
                     if ($propTag == PR_START_DATE) {
-                        $mapiprops[$this->_props["starttime"]] = $mapiprops[$this->_props["commonstart"]] = $filetime;
+                        $mapiprops[$this->props["starttime"]] = $mapiprops[$this->props["commonstart"]] = $filetime;
                     }
                     if ($propTag == PR_END_DATE) {
-                        $mapiprops[$this->_props["endtime"]] = $mapiprops[$this->_props["commonend"]] = $filetime;
+                        $mapiprops[$this->props["endtime"]] = $mapiprops[$this->props["commonend"]] = $filetime;
                     }
                     $size -= 8;
                     ZLog::Write(LOGLEVEL_DEBUG, "TNEF: propvalue:".$mapiprops[$propTag]);
@@ -512,14 +544,14 @@ class ZPush_tnef{
                         return MAPI_E_CORRUPT_DATA;
                     }
                     if($propTag & MV_FLAG) {
-                        $hresult = $this->_readBuffer($buffer, 8, $mapiprops[$propTag][]);
+                        $hresult = $this->readBuffer($buffer, 8, $mapiprops[$propTag][]);
                         if ($hresult !== NOERROR) {
                             ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
                             return $hresult;
                         }
                     }
                     else {
-                        $hresult = $this->_readBuffer($buffer, 8, $mapiprops[$propTag]);
+                        $hresult = $this->readBuffer($buffer, 8, $mapiprops[$propTag]);
                         if ($hresult !== NOERROR) {
                             ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
                             return $hresult;
@@ -538,7 +570,7 @@ class ZPush_tnef{
                     $size -= 4;
 
                     //read length of the property
-                    $hresult = $this->_readFromTnefStream($buffer, ZP_DWORD, $len);
+                    $hresult = $this->readFromTnefStream($buffer, self::DWORD, $len);
                     if ($hresult !== NOERROR) {
                         ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading mapi property's length");
                         return $hresult;
@@ -549,14 +581,14 @@ class ZPush_tnef{
                     }
 
                     if ($propTag & MV_FLAG) {
-                        $hresult = $this->_readBuffer($buffer, $len, $mapiprops[$propTag][]);
+                        $hresult = $this->readBuffer($buffer, $len, $mapiprops[$propTag][]);
                         if ($hresult !== NOERROR) {
                             ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
                             return $hresult;
                         }
                     }
                     else {
-                        $hresult = $this->_readBuffer($buffer, $len, $mapiprops[$propTag]);
+                        $hresult = $this->readBuffer($buffer, $len, $mapiprops[$propTag]);
                         if ($hresult !== NOERROR) {
                             ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
                             return $hresult;
@@ -564,7 +596,7 @@ class ZPush_tnef{
                     }
                     //location fix. it looks like tnef uses this value for location
                     if (mapi_prop_id($propTag) == 0x8342) {
-                        $mapiprops[$this->_props["location"]] = $mapiprops[$propTag];
+                        $mapiprops[$this->props["location"]] = $mapiprops[$propTag];
                         unset($mapiprops[$propTag]);
                     }
 
@@ -585,7 +617,7 @@ class ZPush_tnef{
                     $size -= 4;
 
                     //read length of the property
-                    $hresult = $this->_readFromTnefStream($buffer, ZP_DWORD, $len);
+                    $hresult = $this->readFromTnefStream($buffer, self::DWORD, $len);
                     if ($hresult !== NOERROR) {
                         ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading mapi property's length");
                         return $hresult;
@@ -598,14 +630,14 @@ class ZPush_tnef{
                     $propTag = mapi_prop_tag(PT_STRING8, mapi_prop_id($propTag));
 
                     if ($propTag & MV_FLAG) {
-                        $hresult = $this->_readBuffer($buffer, $len, $mapiprops[$propTag][]);
+                        $hresult = $this->readBuffer($buffer, $len, $mapiprops[$propTag][]);
                         if ($hresult !== NOERROR) {
                             ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
                             return $hresult;
                         }
                     }
                     else {
-                        $hresult = $this->_readBuffer($buffer, $len, $mapiprops[$propTag]);
+                        $hresult = $this->readBuffer($buffer, $len, $mapiprops[$propTag]);
                         if ($hresult !== NOERROR) {
                             ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
                             return $hresult;
@@ -614,7 +646,7 @@ class ZPush_tnef{
 
                     //location fix. it looks like tnef uses this value for location
                     if (mapi_prop_id($propTag) == 0x8342) {
-                        $mapiprops[$this->_props["location"]] = iconv("UCS-2","windows-1252", $mapiprops[$propTag]);
+                        $mapiprops[$this->props["location"]] = iconv("UCS-2","windows-1252", $mapiprops[$propTag]);
                         unset($mapiprops[$propTag]);
                     }
 
@@ -630,7 +662,7 @@ class ZPush_tnef{
 
                 case PT_OBJECT:        // PST sends PT_OBJECT data. Treat as PT_BINARY
                 case PT_BINARY:
-                    if($size < ZP_BYTE) {
+                    if($size < self::BYTE) {
                         return MAPI_E_CORRUPT_DATA;
                     }
                     // Skip next 4 bytes, it's always '1' (ULONG)
@@ -638,7 +670,7 @@ class ZPush_tnef{
                     $size -= 4;
 
                     //read length of the property
-                    $hresult = $this->_readFromTnefStream($buffer, ZP_DWORD, $len);
+                    $hresult = $this->readFromTnefStream($buffer, self::DWORD, $len);
                     if ($hresult !== NOERROR) {
                         ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading mapi property's length");
                         return $hresult;
@@ -646,7 +678,7 @@ class ZPush_tnef{
                     $size -= 4;
 
                     if (mapi_prop_type($propTag) == PT_OBJECT) {
-                        // TODO: IMessage guid [ 0x00020307 C000 0000 0000 0000 00 00 00 46 ]
+                        // IMessage guid [ 0x00020307 C000 0000 0000 0000 00 00 00 46 ]
                         $buffer = substr($buffer, 16);
                         $size -= 16;
                         $len -= 16;
@@ -657,14 +689,14 @@ class ZPush_tnef{
                     }
 
                     if ($propTag & MV_FLAG) {
-                        $hresult = $this->_readBuffer($buffer, $len, $mapiprops[$propTag][]);
+                        $hresult = $this->readBuffer($buffer, $len, $mapiprops[$propTag][]);
                         if ($hresult !== NOERROR) {
                             ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
                             return $hresult;
                         }
                     }
                     else {
-                        $hresult = $this->_readBuffer($buffer, $len, $mapiprops[$propTag]);
+                        $hresult = $this->readBuffer($buffer, $len, $mapiprops[$propTag]);
                         if ($hresult !== NOERROR) {
                             ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading stream property buffer");
                             return $hresult;

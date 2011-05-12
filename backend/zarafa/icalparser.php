@@ -2,11 +2,13 @@
 /***********************************************
 * File      :   z_ical.php
 * Project   :   Z-Push
-* Descr     :
+* Descr     :   This is a very basic iCalendar parser
+*               used to process incoming meeting requests
+*               and responses.
 *
 * Created   :   01.12.2008
 *
-* Copyright 2007 - 2010 Zarafa Deutschland GmbH
+* Copyright 2007 - 2011 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -41,15 +43,30 @@
 * Consult LICENSE file for details
 ************************************************/
 
-class ZPush_ical{
-    function ZPush_ical(&$store, &$props){
-         $this->_props = $props;
+class ICalParser{
+    private $props;
+
+    /**
+     * Constructor
+     *
+     * @param mapistore     $store
+     * @param array         &$props     properties to be set
+     *
+     * @access public
+     */
+    public function ICalParser(&$store, &$props){
+         $this->props = $props;
     }
 
-    /*
-    * Function reads calendar part and puts mapi properties into an array.
-    */
-    function extractProps($ical, &$mapiprops) {
+    /**
+     * Function reads calendar part and puts mapi properties into an array.
+     *
+     * @param string        $ical       the ical data
+     * @param array         &$mapiprops mapi properties
+     *
+     * @access public
+     */
+    public function ExtractProps($ical, &$mapiprops) {
         //mapping between partstat in ical and MAPI Meeting Response classes as well as icons
         $aClassMap = array(
             "ACCEPTED"          => array("class" => "IPM.Schedule.Meeting.Resp.Pos", "icon" => 0x405),
@@ -95,16 +112,16 @@ class ZPush_ical{
                         switch ($property) {
                             case 'DTSTART':
                                 $data = $this->getTimestampFromStreamerDate($data);
-                                $mapiprops[$this->_props["starttime"]] = $mapiprops[$this->_props["commonstart"]] = $mapiprops[$this->_props["clipstart"]] = $mapiprops[PR_START_DATE] = $data;
+                                $mapiprops[$this->props["starttime"]] = $mapiprops[$this->props["commonstart"]] = $mapiprops[$this->props["clipstart"]] = $mapiprops[PR_START_DATE] = $data;
                                 break;
 
                             case 'DTEND':
                                 $data = $this->getTimestampFromStreamerDate($data);
-                                $mapiprops[$this->_props["endtime"]] = $mapiprops[$this->_props["commonend"]] = $mapiprops[$this->_props["recurrenceend"]] = $mapiprops[PR_END_DATE] = $data;
+                                $mapiprops[$this->props["endtime"]] = $mapiprops[$this->props["commonend"]] = $mapiprops[$this->props["recurrenceend"]] = $mapiprops[PR_END_DATE] = $data;
                                 break;
 
                             case 'UID':
-                                $mapiprops[$this->_props["goidtag"]] = $mapiprops[$this->_props["goid2tag"]] = getOLUidFromICalUid($data);
+                                $mapiprops[$this->props["goidtag"]] = $mapiprops[$this->props["goid2tag"]] = Utils::GetOLUidFromICalUid($data);
                                 break;
 
                             case 'ATTENDEE':
@@ -149,7 +166,7 @@ class ZPush_ical{
                                 $data = str_replace("\\t", "&nbsp;", $data);
                                 $data = str_replace("\\r", "<br />", $data);
                                 $data = stripslashes($data);
-                                $mapiprops[$this->_props["tneflocation"]] = $mapiprops[$this->_props["location"]] = $data;
+                                $mapiprops[$this->props["tneflocation"]] = $mapiprops[$this->props["location"]] = $data;
                                 break;
                         }
                     }
@@ -158,16 +175,18 @@ class ZPush_ical{
             $i++;
 
         }
-        $mapiprops[$this->_props["usetnef"]] = true;
+        $mapiprops[$this->props["usetnef"]] = true;
     }
 
-    /*
+    /**
      * Converts an YYYYMMDDTHHMMSSZ kind of string into an unixtimestamp
      *
      * @param string $data
+     *
+     * @access private
      * @return long
      */
-    function getTimestampFromStreamerDate ($data) {
+    private function getTimestampFromStreamerDate ($data) {
         $data = str_replace('Z', '', $data);
         $data = str_replace('T', '', $data);
 
