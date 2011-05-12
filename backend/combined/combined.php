@@ -44,12 +44,11 @@
 ************************************************/
 
 //include the CombinedBackend's own config file
-require_once(BASE_PATH."backend/combined/config.php");
-require_once(BASE_PATH."backend/combined/importer.php");
-require_once(BASE_PATH."backend/combined/exporter.php");
+require_once("config.php");
+require_once("importer.php");
+require_once("exporter.php");
 
-
-class BackendCombined extends Backend{
+class BackendCombined extends Backend {
     public $config;
     public $backends;
 
@@ -137,14 +136,14 @@ class BackendCombined extends Backend{
         foreach ($this->backends as $i => $b){
             $u = $store;
             if(isset($this->config['backends'][$i]['users']) && isset($this->config['backends'][$i]['users'][$store]['username'])){
-                    $u = $this->config['backends'][$i]['users'][$store]['username'];
+                $u = $this->config['backends'][$i]['users'][$store]['username'];
             }
             if($this->backends[$i]->Setup($u, $checkACLonly, $folderid) == false){
-                ZLog::Write(LOGLEVEL_WARN, "Combined->Setup failed");
+                ZLog::Write(LOGLEVEL_WARN, "Combined->Setup() failed");
                 return false;
             }
         }
-        ZLog::Write(LOGLEVEL_INFO, "Combined->Setup success");
+        ZLog::Write(LOGLEVEL_INFO, "Combined->Setup() success");
         return true;
     }
 
