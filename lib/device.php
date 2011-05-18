@@ -884,7 +884,10 @@ class DeviceManager {
         if ($savedUuid != $this->uuid) {
             if ($savedUuid) {
                 ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->linkState('%s'): saved state '%s' does not match current state '%s'. Old state files will be deleted.", (($folderid === false)?'HierarchyCache':$folderid), $savedUuid, $this->uuid));
-                $this->statemachine->CleanStates($this->devid, $savedUuid . (($folderid === false)?'-hc':''), self::FIXEDHIERARCHYCOUNTER *2);
+                $this->statemachine->CleanStates($this->devid, $savedUuid, self::FIXEDHIERARCHYCOUNTER *2);
+                if ($folderid === false)
+                    $this->statemachine->CleanStates($this->devid, $savedUuid.'-hc', self::FIXEDHIERARCHYCOUNTER *2);
+
             }
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->linkState('%s'): linked to uuid '%s'.", (($folderid === false)?'HierarchyCache':$folderid), $this->uuid));
             return $this->device->setUUID($this->uuid, $folderid);
