@@ -131,8 +131,12 @@ class FileStateMachine implements IStateMachine {
         foreach(glob($this->getFullFilePath($devid, $key). "*", GLOB_NOSORT) as $state) {
             $file = false;
             if($counter !== false && preg_match('/([0-9]+)$/', $state, $matches)) {
-                if($matches[1] < $counter)
-                    $file = $this->getFullFilePath($devid, $key, (int)$matches[1]);
+                if($matches[1] < $counter) {
+                    $candidate = $this->getFullFilePath($devid, $key, (int)$matches[1]);
+
+                    if ($candidate == $state)
+                        $file = $candidate;
+                }
             }
             else if ($counter === false)
                 $file =  $this->getFullFilePath($devid, $key);
@@ -258,7 +262,8 @@ class FileStateMachine implements IStateMachine {
      *
      * @param string    $devid              the device id
      * @param string    $key
-     * @param string    $counter            (opt)
+     * @param string    $counter            (opt) default false
+     * @param boolean   $doNotCreateDirs    (opt) indicates if missing subdirectories should be created, default false
      *
      * @access private
      * @return string
