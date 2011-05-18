@@ -47,8 +47,11 @@ class ZPush {
     const NOACTIVESYNCCOMMAND = 3;
     const WEBSERVICECOMMAND = 4;
     const HIERARCHYCOMMAND = 5;
-    const REQUIRESPROTOCOLVERSION = 6;
-    const PLAININPUT = 7;
+    const PLAININPUT = 6;
+    const CLASS_NAME = 1;
+    const CLASS_REQUIRESPROTOCOLVERSION = 2;
+    const CLASS_DEFAULTTYPE = 3;
+    const CLASS_OTHERTYPES = 4;
 
     static private $supportedASVersions = array("1.0","2.0","2.1","2.5");
     static private $supportedCommands = array(
@@ -58,6 +61,7 @@ class ZPush {
                                             'SmartReply' => array(self::PLAININPUT),
                                             'GetAttachment' => false,
                                             'GetHierarchy' => array(self::HIERARCHYCOMMAND),
+                                            // TODO: CreateCollection, DeleteCollection and MoveCollection should be self::HIERARCHYCOMMAND ... ?
                                             'CreateCollection' => false,
                                             'DeleteCollection' => false,
                                             'MoveCollection' => false,
@@ -76,10 +80,39 @@ class ZPush {
                                             'Notify' => false,
                                           );
 
-    static private $classes = array("Email"     => array("SyncMail", SYNC_FOLDER_TYPE_INBOX),
-                                    "Contacts"  => array("SyncContact", SYNC_FOLDER_TYPE_CONTACT, self::REQUIRESPROTOCOLVERSION),
-                                    "Calendar"  => array("SyncAppointment", SYNC_FOLDER_TYPE_APPOINTMENT),
-                                    "Tasks"     => array("SyncTask", SYNC_FOLDER_TYPE_TASK),
+    static private $classes = array("Email"     => array(
+                                                        self::CLASS_NAME => "SyncMail",
+                                                        self::CLASS_REQUIRESPROTOCOLVERSION => false,
+                                                        self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_INBOX,
+                                                        self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_OTHER, SYNC_FOLDER_TYPE_DRAFTS, SYNC_FOLDER_TYPE_WASTEBASKET,
+                                                                                        SYNC_FOLDER_TYPE_SENTMAIL, SYNC_FOLDER_TYPE_OUTBOX, SYNC_FOLDER_TYPE_USER_MAIL,
+                                                                                        SYNC_FOLDER_TYPE_JOURNAL, SYNC_FOLDER_TYPE_USER_JOURNAL),
+                                                   ),
+                                    "Contacts"  => array(
+                                                        self::CLASS_NAME => "SyncContact",
+                                                        self::CLASS_REQUIRESPROTOCOLVERSION => true,
+                                                        self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_CONTACT,
+                                                        self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_USER_CONTACT),
+                                                   ),
+                                    "Calendar"  => array(
+                                                        self::CLASS_NAME => "SyncAppointment",
+                                                        self::CLASS_REQUIRESPROTOCOLVERSION => false,
+                                                        self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_APPOINTMENT,
+                                                        self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_USER_APPOINTMENT),
+                                                   ),
+                                    "Tasks"     => array(
+                                                        self::CLASS_NAME => "SyncTask",
+                                                        self::CLASS_REQUIRESPROTOCOLVERSION => false,
+                                                        self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_TASK,
+                                                        self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_USER_TASK),
+                                                   ),
+                                    // TODO Note support - invalid classname to trigger FatalNotImplementedException for Note objs
+                                    "NoteFIXME" => array(
+                                                        self::CLASS_NAME => "SyncNote",
+                                                        self::CLASS_REQUIRESPROTOCOLVERSION => false,
+                                                        self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_NOTE,
+                                                        self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_USER_NOTE),
+                                                   ),
                                     );
 
     static private $stateMachine;
@@ -327,8 +360,8 @@ class ZPush {
         if (!isset(self::$classes[$folderclass]))
             throw new FatalNotImplementedException("Class '$folderclass' is not supported");
 
-        $class = self::$classes[$folderclass][0];
-        if (in_array(self::REQUIRESPROTOCOLVERSION, self::$classes[$folderclass]))
+        $class = self::$classes[$folderclass][self::CLASS_NAME];
+        if (self::$classes[$folderclass][self::CLASS_REQUIRESPROTOCOLVERSION])
             return new $class(Request::getProtocolVersion());
         else
             return new $class();
@@ -343,8 +376,28 @@ class ZPush {
      * @return string
      */
     static public function getDefaultFolderTypeFromFolderClass($folderclass) {
-        ZLog::Write(LOGLEVEL_DEBUG, "ZPush::getDefaultFolderTypeFromFolderClass('$folderclass'): ". self::$classes[$folderclass][1]);
-        return self::$classes[$folderclass][1];
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::getDefaultFolderTypeFromFolderClass('%s'): '%d'", $folderclass, self::$classes[$folderclass][self::CLASS_DEFAULTTYPE]));
+        return self::$classes[$folderclass][self::CLASS_DEFAULTTYPE];
+    }
+
+    /**
+     * Returns the folder class for a foldertype
+     *
+     * @param string $foldertype
+     *
+     * @access public
+     * @return string/false     false if no class for this type is available
+     */
+    static public function GetFolderClassFromFolderType($foldertype) {
+        $class = false;
+        foreach (self::$classes as $aClass => $cprops) {
+            if ($cprops[self::CLASS_DEFAULTTYPE] == $foldertype || in_array($foldertype, $cprops[self::CLASS_OTHERTYPES])) {
+                $class = $aClass;
+                break;
+            }
+        }
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::GetFolderClassFromFolderType('%s'): %s", $foldertype, Utils::PrintAsString($class)));
+        return $class;
     }
 
     /**

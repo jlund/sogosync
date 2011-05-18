@@ -71,7 +71,7 @@ class ASDevice {
     const USER = 2;
     const DOMAIN = 3;
     const HIERARCHYUUID = 4;
-    const CONTENTUUIDS = 5;
+    const CONTENTDATA = 5;
     const FIRSTSYNCTIME = 6;
     const LASTUPDATEDTIME = 7;
     const DEPLOYEDPOLICYKEY = 8;
@@ -79,6 +79,9 @@ class ASDevice {
     const USERAGENT = 10;
     const USERAGENTHISTORY = 11;
     const SUPPORTEDFIELDS = 12;
+    const FOLDERUUID = 1;
+    const FOLDERTYPE = 2;
+    const FOLDERSUPPORTEDFIELDS = 3;
 
     private $changed = false;
     private $loadedData;
@@ -89,13 +92,12 @@ class ASDevice {
     private $policykey = self::UNDEFINED;
     private $policies = self::UNDEFINED;
     private $hierarchyUuid = self::UNDEFINED;
-    private $contentUuids;
+    private $contentData;
     private $hierarchyCache;
     private $firstsynctime;
     private $lastupdatetime;
     private $useragent;
     private $useragentHistory;
-    private $supportedFields;
 
     /**
      * AS Device constructor
@@ -114,18 +116,13 @@ class ASDevice {
         list ($this->user, $this->domain) =  Utils::SplitDomainUser($getuser);
         $this->useragent = $useragent;
         $this->useragentHistory = array();
-        $this->contentUuids = array();
+        $this->contentData = array();
         $this->firstsynctime = time();
         $this->lastupdatetime = 0;
         $this->policies = array();
         $this->changed = true;
-        $this->supportedFields = array();
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("ASDevice initialized for DeviceID '%s'", $devid));
     }
-
-    /**----------------------------------------------------------------------------------------------------------
-     * ASData save and initialize
-     */
 
     /**
      * initializes the AS Device with it's data
@@ -146,10 +143,9 @@ class ASDevice {
             $this->policykey            = $data[$this->user][self::DEPLOYEDPOLICYKEY];
             $this->policies             = $data[$this->user][self::DEPLOYEDPOLICIES];
             $this->hierarchyUuid        = $data[$this->user][self::HIERARCHYUUID];
-            $this->contentUuids         = $data[$this->user][self::CONTENTUUIDS];
+            $this->contentData          = $data[$this->user][self::CONTENTDATA];
             $this->useragent            = $data[$this->user][self::USERAGENT];
             $this->useragentHistory     = $data[$this->user][self::USERAGENTHISTORY];
-            $this->supportedFields      = $data[$this->user][self::SUPPORTEDFIELDS];
 
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("ASDevice data loaded for user: '%s'", $this->user));
         }
@@ -175,10 +171,9 @@ class ASDevice {
             if (isset($this->policykey))        $userdata[self::DEPLOYEDPOLICYKEY]  = $this->policykey;
             if (isset($this->policies))         $userdata[self::DEPLOYEDPOLICIES]   = $this->policies;
             if (isset($this->hierarchyUuid))    $userdata[self::HIERARCHYUUID]      = $this->hierarchyUuid;
-            if (isset($this->contentUuids))     $userdata[self::CONTENTUUIDS]       = $this->contentUuids;
+            if (isset($this->contentData))      $userdata[self::CONTENTDATA]        = $this->contentData;
             if (isset($this->useragent))        $userdata[self::USERAGENT]          = $this->useragent;
             if (isset($this->useragentHistory)) $userdata[self::USERAGENTHISTORY]   = $this->useragentHistory;
-            if (isset($this->supportedFields))  $userdata[self::SUPPORTEDFIELDS]    = $this->supportedFields;
 
             if (!isset($this->loadedData))
                 $this->loadedData = array();
@@ -270,7 +265,7 @@ class ASDevice {
 
 
     /**----------------------------------------------------------------------------------------------------------
-     * HierarchyCache operations
+     * HierarchyCache and ContentData operations
      */
 
     /**
@@ -337,11 +332,11 @@ class ASDevice {
      * @access public
      * @return string
      */
-    public function getUUID($folderid = false) {
+    public function getFolderUUID($folderid = false) {
         if ($folderid === false)
             return ($this->hierarchyUuid !== self::UNDEFINED)?$this->hierarchyUuid : false;
-        else if (isset($this->contentUuids) && isset($this->contentUuids[$folderid]))
-            return $this->contentUuids[$folderid];
+        else if (isset($this->contentData) && isset($this->contentData[$folderid]))
+            return $this->contentData[$folderid][self::FOLDERUUID];
         return false;
     }
 
@@ -353,21 +348,61 @@ class ASDevice {
      * @param string        $folderid       (opt) if not set Hierarchy UUID is linked
      *
      * @access public
-     * @return string
+     * @return
      */
-    public function setUUID($uuid, $folderid = false) {
+    public function setFolderUUID($uuid, $folderid = false) {
         if ($folderid === false)
             $this->hierarchyUuid = $uuid;
         else {
-            if ($uuid)
-                $this->contentUuids[$folderid] = $uuid;
+            if ($uuid) {
+                // TODO check if the foldertype is set. This has to be available at this point, as generated during the first HierarchySync. Else full resync should be triggered.
+                if (!isset($this->contentData[$folderid]) || !is_array($this->contentData[$folderid]))
+                    $this->contentData[$folderid] = array();
+                $this->contentData[$folderid][self::FOLDERUUID] = $uuid;
+            }
             else
-                unset($this->contentUuids[$folderid]);
+                $this->contentData[$folderid][self::FOLDERUUID] = false;
         }
 
         $this->changed = true;
     }
 
+   /**
+     * Returns a foldertype for an already synchronized folder id
+     *
+     * @param string        $folderid
+     *
+     * @access public
+     * @return int/boolean  returns false if there is no UUID associated with the folder or the type is not set
+     */
+    public function GetFolderType($folderid) {
+        if (isset($this->contentData) && isset($this->contentData[$folderid]) &&
+            isset($this->contentData[$folderid][self::FOLDERUUID]) && $this->contentData[$folderid][self::FOLDERUUID] !== false &&
+            isset($this->contentData[$folderid][self::FOLDERTYPE]) )
+
+            return $this->contentData[$folderid][self::FOLDERTYPE];
+        return false;
+    }
+
+   /**
+     * Sets the foldertype of a folder id
+     *
+     * @param string        $uuid
+     * @param string        $folderid       (opt) if not set Hierarchy UUID is linked
+     *
+     * @access public
+     * @return boolean      true if the type was set or updated
+     */
+    public function SetFolderType($folderid, $foldertype) {
+        if (!isset($this->contentData[$folderid]) || !is_array($this->contentData[$folderid]))
+            $this->contentData[$folderid] = array();
+        if (!isset($this->contentData[$folderid][self::FOLDERTYPE]) || $this->contentData[$folderid][self::FOLDERTYPE] != $foldertype ) {
+            $this->contentData[$folderid][self::FOLDERTYPE] = $foldertype;
+            $this->changed = true;
+            return true;
+        }
+        return false;
+    }
 
     /**
      * Gets the supported fields transmitted previousely by the device
@@ -379,8 +414,12 @@ class ASDevice {
      * @return array/boolean        false means no supportedFields are available
      */
     public function getSupportedFields($folderid) {
-        if (isset($this->supportedFields) && isset($this->supportedFields[$folderid]))
-            return $this->supportedFields[$folderid];
+        if (isset($this->contentData) && isset($this->contentData[$folderid]) &&
+            isset($this->contentData[$folderid][self::FOLDERUUID]) && $this->contentData[$folderid][self::FOLDERUUID] !== false &&
+            isset($this->contentData[$folderid][self::FOLDERSUPPORTEDFIELDS]) )
+
+            return $this->contentData[$folderid][self::FOLDERSUPPORTEDFIELDS];
+
         return false;
     }
 
@@ -394,7 +433,11 @@ class ASDevice {
      * @return boolean
      */
     public function setSupportedFields($folderid, $fieldlist) {
-        $this->supportedFields[$folderid] = $fieldlist;
+        if (!is_array($this->contentData[$folderid]))
+            $this->contentData[$folderid] = array();
+
+        $this->contentData[$folderid][self::FOLDERSUPPORTEDFIELDS] = $fieldlist;
+        $this->changed = true;
         return true;
     }
 }
@@ -439,6 +482,7 @@ class DeviceManager {
                 $data = unserialize($this->statemachine->GetState($this->devid, IStateMachine::DEVICEDATA));
                 $this->device->setData($data);
             }
+            // TODO might be necessary to catch this and process some StateExceptions later. E.g. -> sync folders -> delete all states -> sync a single folder --> this works, but a full hierarchysync should be triggered!
             catch (StateNotFoundException $snfex) {}
         }
         else
@@ -758,16 +802,17 @@ class DeviceManager {
      * @param string    $class              The class requested
      * @access public
      * @return string
-     * @throws StateNotFoundException
+     * @throws NoHierarchyCacheAvailableException
      */
     function GetFolderIdFromCacheByClass($class) {
         // look at the default foldertype for this class
         $type = ZPush::getDefaultFolderTypeFromFolderClass($class);
 
+        // TODO this should be refactored as the foldertypes are saved by default in the device data now - loading the hierarchycache should not be necessary
         // load the hierarchycache, we will need it
         try {
             // as there is no hierarchy uuid from the associated state, we have to read it from the device data
-            $this->uuid = $this->device->getUUID();
+            $this->uuid = $this->device->getFolderUUID();
             $this->oldStateCounter = self::FIXEDHIERARCHYCOUNTER;
 
             ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->getFolderIdFromCacheByClass() is about to load saved HierarchyCache with UUID:". $this->uuid);
@@ -776,12 +821,33 @@ class DeviceManager {
             $this->loadHierarchyCache(true);
         }
         catch (Exception $ex) {
-            throw new StateNotFoundException($ex->getMessage());
+            throw new NoHierarchyCacheAvailableException($ex->getMessage());
         }
 
         $folderid = $device->getHierarchyCache->getFolderIdByType($type);
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->getFolderIdFromCacheByClass('%s'): '%s' => '%s'", $class, $type, $folderid));
         return $folderid;
+    }
+
+    /**
+     * Returns a FolderClass for a FolderID which is known to the mobile
+     *
+     * @param string    $folderid
+     *
+     * @access public
+     * @return int
+     * @throws NoHierarchyCacheAvailableException, NotImplementedException
+     */
+    function GetFolderClassFromCacheByID($folderid) {
+        $typeFromChage = $this->device->GetFolderType($folderid);
+        if ($typeFromChage === false)
+            throw new NoHierarchyCacheAvailableException(sprintf("Folderid '%s' is not fully synchronized on the device", $folderid));
+
+        $class = ZPush::GetFolderClassFromFolderType($typeFromChage);
+        if ($typeFromChage === false)
+            throw new NotImplementedException(sprintf("Folderid '%s' is saved to be of type '%d' but this type is not implemented", $folderid, $typeFromChage));
+
+        return $class;
     }
 
     /**
@@ -857,12 +923,16 @@ class DeviceManager {
             return false;
 
         // link the hierarchy cache again, if the UUID does not match the UUID saved in the devicedata
-        if (($this->uuid != $this->device->getUUID() || $forceSaving) )
+        if (($this->uuid != $this->device->getFolderUUID() || $forceSaving) )
             $this->linkState();
 
-        // If folders were removed from the device, let's delete the old states
-        foreach ($this->device->getHierarchyCache()->getDeletedFolders() as $delfolder)
+        // check all folders and deleted folders to update data of ASDevice and delete old states
+        $hc = $this->device->getHierarchyCache();
+        foreach ($hc->getDeletedFolders() as $delfolder)
             $this->unLinkState($delfolder->serverid);
+
+        foreach ($hc->exportFolders() as $folder)
+            $this->device->SetFolderType($folder->serverid, $folder->type);
 
         $hierarchydata = $this->device->getHierarchyCacheData();
         return $this->statemachine->SetState($hierarchydata, $this->devid, $this->uuid . "-hc", $this->newStateCounter);
@@ -879,7 +949,7 @@ class DeviceManager {
      * @return boolean
      */
     private function linkState($folderid = false) {
-        $savedUuid = $this->device->getUUID($folderid);
+        $savedUuid = $this->device->getFolderUUID($folderid);
         // delete 'old' states!
         if ($savedUuid != $this->uuid) {
             if ($savedUuid) {
@@ -890,7 +960,7 @@ class DeviceManager {
 
             }
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->linkState('%s'): linked to uuid '%s'.", (($folderid === false)?'HierarchyCache':$folderid), $this->uuid));
-            return $this->device->setUUID($this->uuid, $folderid);
+            return $this->device->setFolderUUID($this->uuid, $folderid);
         }
         return true;
     }
@@ -906,13 +976,13 @@ class DeviceManager {
      * @return boolean
      */
     private function unLinkState($folderid) {
-        $savedUuid = $this->device->getUUID($folderid);
+        $savedUuid = $this->device->getFolderUUID($folderid);
         if ($savedUuid) {
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->unLinkState('%s'): saved state '%s' is obsolete as folder was deleted on device. Old state files will be deleted.", $folderid, $savedUuid));
             $this->statemachine->CleanStates($this->devid, $savedUuid, self::FIXEDHIERARCHYCOUNTER *2);
         }
         // delete this id from the uuid cache
-        return $this->device->setUUID(false, $folderid);
+        return $this->device->setFolderUUID(false, $folderid);
     }
 
     /**
