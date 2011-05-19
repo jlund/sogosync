@@ -84,33 +84,23 @@ include_once('version.php');
         if (Request::isMethodOPTIONS())
             throw new NoPostRequestException("Options request", NoPostRequestException::OPTIONS_REQUEST);
 
-        // Get the DeviceManager
-        $deviceManager = ZPush::GetDeviceManager();
+        // Process request headers and look for AS headers
+        Request::ProcessHeaders();
 
         // Check required GET parameters
         if(Request::isMethodPOST() && (!Request::getCommand() || !Request::getGETUser() || !Request::getDeviceID() || !Request::getDeviceType()))
             throw new FatalException("Requested the Z-Push URL without the required GET parameters");
 
-        // Process request headers and look for AS headers
-        Request::ProcessHeaders();
-
         // Load our backend drivers
         $backend = ZPush::GetBackend();
-
-        // check the provisioning information
-        if (PROVISIONING === true && Request::isMethodPOST() && ZPush::CommandNeedsProvisioning(Request::getCommand()) &&
-            $deviceManager->ProvisioningRequired(Request::getPolicyKey()) &&
-            (LOOSE_PROVISIONING === false ||
-            (LOOSE_PROVISIONING === true && Request::wasPolicyKeySent())))
-            throw new ProvisioningRequiredException("Retry after sending a PROVISION command");
 
         // most commands need authentication
         if (ZPush::CommandNeedsAuthentication(Request::getCommand())) {
             if (! Request::AuthenticationInfo())
-                throw new AuthenticationRequiredException("Access denied. Please send authorisation information", AuthenticationRequiredException::AUTHENTICATION_NOT_SENT);
+                throw new AuthenticationRequiredException("Access denied. Please send authorisation information");
 
             if($backend->Logon(Request::getAuthUser(), Request::getAuthDomain(), Request::getAuthPassword()) == false)
-                throw new AuthenticationRequiredException("Access denied.  Username or password incorrect", AuthenticationRequiredException::AUTHENTICATION_FAILED);
+                throw new AuthenticationRequiredException("Access denied. Username or password incorrect");
 
             // mark this request as "authenticated"
             Request::ConfirmUserAuthentication();
@@ -121,24 +111,28 @@ include_once('version.php');
             // permissions on GETUser store. Only then the Setup() will be sucessfull.
             // This allows the user 'john' do operations as user 'joe' if he has sufficient privileges.
             if($backend->Setup(Request::getGETUser(), true) == false)
-                throw new AuthenticationRequiredException(sprintf("Not enough privileges of '%s' to setup for user '%s': Permission denied", Request::getAuthUser(), Request::getGETUser()),
-                            AuthenticationRequiredException::SETUP_FAILED);
+                throw new AuthenticationRequiredException(sprintf("Not enough privileges of '%s' to setup for user '%s': Permission denied", Request::getAuthUser(), Request::getGETUser()));
         }
 
         // Do the actual processing of the request
         if (Request::isMethodGET())
             throw new NoPostRequestException("This is the Z-Push location and can only be accessed by Microsoft ActiveSync-capable devices", NoPostRequestException::GET_REQUEST);
 
-        else if (Request::isMethodPOST()) {
-            header(ZPush::getServerHeader());
-            ZLog::Write(LOGLEVEL_DEBUG, "POST cmd: ". Request::getCommand());
+        // Get the DeviceManager
+        $deviceManager = ZPush::GetDeviceManager();
 
-            // Do the actual request
-            RequestProcessor::Initialize();
+        // check the provisioning information
+        if (PROVISIONING === true && Request::isMethodPOST() && ZPush::CommandNeedsProvisioning(Request::getCommand()) &&
+            $deviceManager->ProvisioningRequired(Request::getPolicyKey()) &&
+            (LOOSE_PROVISIONING === false ||
+            (LOOSE_PROVISIONING === true && Request::wasPolicyKeySent())))
+            throw new ProvisioningRequiredException();
 
-            if(!RequestProcessor::HandleRequest())
-                throw new WBXMLException(ZLog::GetWBXMLDebugInfo());
-        }
+        // Do the actual request
+        header(ZPush::getServerHeader());
+        RequestProcessor::Initialize();
+        if(!RequestProcessor::HandleRequest())
+            throw new WBXMLException(ZLog::GetWBXMLDebugInfo());
 
         // stream the data
         $len = ob_get_length();
@@ -162,59 +156,48 @@ include_once('version.php');
         $backend->Logoff();
     }
 
-    catch (ProvisioningRequiredException $prex) {
-        header('HTTP/1.1 449 '. $prex->getMessage());
-        header(ZPush::GetServerHeader());
-        header(ZPush::GetSupportedProtocolVersions());
-        header(ZPush::GetSupportedCommands());
-        header('Cache-Control: private');
-        ZLog::Write(LOGLEVEL_INFO, 'ProvisioningRequiredException: '. $prex->getMessage());
-        if (isset($deviceManager))
-            $deviceManager->setException($prex);
-    }
-
-    catch (AuthenticationRequiredException $auex) {
-        header('HTTP/1.1 401 Unauthorized');
-        header('WWW-Authenticate: Basic realm="ZPush"');
-        ZLog::Write(LOGLEVEL_INFO,'User-agent: '. Request::getUserAgent());
-        ZLog::Write(LOGLEVEL_WARN, 'AuthenticationRequiredException: '. $auex->getMessage());
-
-        ZPush::PrintZPushLegal($auex->getMessage());
-
-        if (isset($deviceManager))
-            $deviceManager->setException($auex);
-    }
-
     catch (NoPostRequestException $nopostex) {
         if ($nopostex->getCode() == NoPostRequestException::OPTIONS_REQUEST) {
             header(ZPush::GetServerHeader());
             header(ZPush::GetSupportedProtocolVersions());
             header(ZPush::GetSupportedCommands());
             ZLog::Write(LOGLEVEL_INFO, $nopostex->getMessage());
-            if (isset($deviceManager))
-                $deviceManager->setException($nopostex);
         }
         else if ($nopostex->getCode() == NoPostRequestException::GET_REQUEST) {
-            ZLog::Write(LOGLEVEL_INFO, 'User-agent: '. Request::getUserAgent());
-            ZPush::PrintZPushLegal('GET not supported', $nopostex->getMessage());
-            if (isset($deviceManager))
-                $deviceManager->setException($nopostex);
+            if (Request::getUserAgent())
+                ZLog::Write(LOGLEVEL_INFO, sprintf("User-agent: '%s'", Request::getUserAgent()));
+            if (!headers_sent() && $nopostex->showLegalNotice())
+                ZPush::PrintZPushLegal('GET not supported', $nopostex->getMessage());
         }
     }
 
     catch (Exception $ex) {
+        if (Request::getUserAgent())
+            ZLog::Write(LOGLEVEL_INFO, sprintf("User-agent: '%s'", Request::getUserAgent()));
         $exclass = get_class($ex);
-        ZLog::Write(LOGLEVEL_FATAL, "Exception: ($exclass) ". $ex->getMessage());
 
-        // Something unexpected happened. Try to output some kind of error information. This is only possible if
+        if(!headers_sent()) {
+            if ($ex instanceof ZPushException) {
+                header('HTTP/1.1 '. $ex->getHTTPCodeString());
+                foreach ($ex->getHTTPHeaders() as $h)
+                    header($h);
+            }
+            // something really unexpected happened!
+            else
+                header('HTTP/1.1 500 Internal Server Error');
+        }
+        else
+            ZLog::Write(LOGLEVEL_FATAL, "Exception: ($exclass) - headers were already sent. Message: ". $ex->getMessage());
+
+        // Try to output some kind of error information. This is only possible if
         // the output had not started yet. If it has started already, we can't show the user the error, and
         // the device will give its own (useless) error message.
-        if(!headers_sent()) {
-            header('HTTP/1.1 500 Internal Server Error');
-            ZPush::PrintZPushLegal($exclass. " processing command <i>". Request::getCommand() ."</i>!", sprintf('<pre>%s</pre>', $ex->getMessage()));
+        if (!($ex instanceof ZPushException) || $ex->showLegalNotice()) {
+            $cmdinfo = (Request::getCommand())? sprintf(" processing command <i>%s</i>", Request::getCommand()): "";
+            $extrace = $ex->getTrace();
+            $trace = (!empty($extrace))? "\n\nTrace:\n". print_r($extrace,1):"";
+            ZPush::PrintZPushLegal($exclass . $cmdinfo, sprintf('<pre>%s</pre>',$ex->getMessage() . $trace));
         }
-        if (isset($deviceManager))
-            $deviceManager->setException($ex);
     }
 
     // save device data anyway

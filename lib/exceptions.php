@@ -42,32 +42,81 @@
 ************************************************/
 
 // Main Z-Push exception
-class ZPushException extends Exception {}
+class ZPushException extends Exception {
+    protected $defaultLogLevel = LOGLEVEL_FATAL;
+    protected $httpReturnCode = HTTP_CODE_500;
+    protected $httpReturnMessage = "Internal Server Error";
+    protected $httpHeaders = array();
+    protected $showLegal = true;
+
+    public function ZPushException($message = "", $code = 0, $previous = NULL, $logLevel = false) {
+        if (! $message)
+            $message = $this->httpreturnmessage;
+
+        if (!$logLevel)
+            $logLevel = $this->defaultLogLevel;
+
+        ZLog::Write($logLevel, get_class($this) .': '. $message . ' - code: '.$code);
+        parent::__construct($message, $code, $previous);
+    }
+
+    public function getHTTPCodeString() {
+        return $this->httpReturnCode . " ". $this->httpReturnMessage;
+    }
+
+    public function getHTTPHeaders() {
+        return $this->httpHeaders;
+    }
+
+    public function showLegalNotice() {
+        return $this->showLegal;
+    }
+}
 
 // Fatal exceptions (execution stops)
 class FatalException extends ZPushException {}
 class FatalMisconfigurationException extends FatalException {}
 class FatalNotImplementedException extends FatalException {}
-class AuthenticationRequiredException extends FatalException {
-    const AUTHENTICATION_FAILED = 1;
-    const AUTHENTICATION_NOT_SENT = 2;
-    const SETUP_FAILED = 3;
-}
-class ProvisioningRequiredException extends FatalException {}
+class WBXMLException extends FatalNotImplementedException {}
+
 class NoPostRequestException extends FatalException {
     const OPTIONS_REQUEST = 1;
     const GET_REQUEST = 2;
+    protected $defaultLogLevel = LOGLEVEL_DEBUG;
+}
+
+// HTTP return code exceptions
+class HTTPReturnCodeException extends FatalException {
+    protected $defaultLogLevel = LOGLEVEL_ERROR;
+    protected $showLegal = false;
+
+    public function HTTPReturnCodeException($message = "", $code = 0, $previous = NULL, $logLevel = false) {
+        if ($code)
+            $this->httpReturnCode = $code;
+        parent::__construct($message, $code, $previous, $logLevel);
+    }
+}
+
+class AuthenticationRequiredException extends HTTPReturnCodeException {
+    protected $defaultLogLevel = LOGLEVEL_INFO;
+    protected $httpReturnCode = HTTP_CODE_401;
+    protected $httpReturnMessage = "Unauthorized";
+    protected $httpHeaders = array('WWW-Authenticate: Basic realm="ZPush"');
+    protected $showLegal = true;
+}
+
+class ProvisioningRequiredException extends HTTPReturnCodeException {
+    protected $defaultLogLevel = LOGLEVEL_INFO;
+    protected $httpReturnCode = HTTP_CODE_449;
+    protected $httpReturnMessage = "Retry after sending a PROVISION command";
 }
 
 // Non fatal exceptions
-class NotImplementedException extends ZPushException {}
-class WBXMLException extends NotImplementedException {}
+class NotImplementedException extends ZPushException {
+    protected $defaultLogLevel = LOGLEVEL_ERROR;
+}
 class StatusException extends ZPushException {
-    public function StatusException($message = "", $code = 0, $previous = NULL, $logLevel = LOGLEVEL_INFO) {
-        // write to LOGLEVEL_WARN by default
-        ZLog::Write($logLevel, get_class($this) .': '. $message . ' - code: '.$code);
-        parent::__construct($message, $code, $previous);
-    }
+    protected $defaultLogLevel = LOGLEVEL_INFO;
 }
 class StateNotFoundException extends StatusException {}
 class StateInvalidException extends StatusException {}
