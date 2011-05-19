@@ -62,7 +62,13 @@ class NoPostRequestException extends FatalException {
 // Non fatal exceptions
 class NotImplementedException extends ZPushException {}
 class WBXMLException extends NotImplementedException {}
-class StatusException extends ZPushException {}
+class StatusException extends ZPushException {
+    public function StatusException($message = "", $code = 0, $previous = NULL, $logLevel = LOGLEVEL_INFO) {
+        // write to LOGLEVEL_WARN by default
+        ZLog::Write($logLevel, get_class($this) .': '. $message . ' - code: '.$code);
+        parent::__construct($message, $code, $previous);
+    }
+}
 class StateNotFoundException extends StatusException {}
 class StateInvalidException extends StatusException {}
 class NoHierarchyCacheAvailableException extends StateNotFoundException {}
