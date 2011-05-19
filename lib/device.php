@@ -536,7 +536,7 @@ class DeviceManager {
         // update the user agent to the device
         $this->device->setUserAgent(Request::getUserAgent());
 
-        if (Request::isUserAuthenticated()) {
+        if (Request::isUserAuthenticated() && Request::isValidDeviceID()) {
             try {
                 // check if this is the first time the device data is saved. If so, link the user to the device id
                 if ($this->device->getLastUpdateTime() == 0) {
@@ -706,26 +706,6 @@ class DeviceManager {
 
         // The state machine will discard any sync states before this one, as they are no longer required
         return $this->statemachine->GetState($this->devid, $this->uuid, $this->oldStateCounter);
-    }
-
-    /**
-     * In some cases Exceptions can be tolerated
-     *
-     * @param Exception    $ex
-     *
-     * @access public
-     * @return boolean
-     */
-    public function TolerateException(Exception $ex) {
-        ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->TolerateException()");
-        // Android devices send erroneous deviceid which can cause exceptions during the first sync
-        // As the state1 is empty by default, we can tolerate this exception
-        if ($ex instanceof StateNotFoundException)
-            if ($this->oldStateCounter == 1) {
-                ZLog::Write(LOGLEVEL_DEBUG,"Exception tolerated!!!");
-                return true;
-            }
-        return false;
     }
 
     /**

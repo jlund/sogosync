@@ -442,6 +442,20 @@ class Request {
     }
 
     /**
+     * Sometimes strange device ids are sumbitted
+     * No device information should be saved when this happens
+     *
+     * @access public
+     * @return boolean       false if invalid
+     */
+    static public function isValidDeviceID() {
+        if (self::getDeviceID() === "validate")
+            return false;
+        else
+            return true;
+    }
+
+    /**
      * Returns the amount of data sent in this request (from the headers)
      *
      * @access public
@@ -740,10 +754,6 @@ class RequestProcessor {
             $syncstate = self::$deviceManager->GetSyncState($synckey);
         }
         catch (StateNotFoundException $snfex) {
-            // Android sends "validate" as deviceID which causes the state not to be found......
-            if (self::$deviceManager->TolerateException($snfex))
-                $syncstate = "";
-            else
                 $status = SYNC_FSSTATUS_SYNCKEYERROR;
         }
 
@@ -822,7 +832,6 @@ class RequestProcessor {
         // We have processed incoming foldersync requests, now send the PIM
         // our changes
 
-
         // Output our WBXML reply now
         self::$encoder->StartWBXML();
 
@@ -830,6 +839,10 @@ class RequestProcessor {
         {
             if ($status == SYNC_FSSTATUS_SUCCESS) {
                 try {
+                    // do nothing if this is an invalid device id (like the 'validate' Androids internal client sends)
+                    if (!Request::isValidDeviceID())
+                        throw new StatusException(sprintf("Request::isValidDeviceID() indicated that '%s' is not a valid device id", Request::getDeviceID()), SYNC_FSSTATUS_SERVERERROR);
+
                     // Request changes from backend, they will be sent to the MemImporter passed as the first
                     // argument, which stores them in $importer. Returns the new sync state for this exporter.
                     $exporter = self::$backend->GetExporter();
@@ -854,13 +867,12 @@ class RequestProcessor {
             self::$encoder->content($status);
             self::$encoder->endTag();
 
-            self::$encoder->startTag(SYNC_FOLDERHIERARCHY_SYNCKEY);
-            // only send new synckey if no error occured and if there were processed changes or there are outgoing changes
-            $synckey = ($status == SYNC_FSSTATUS_SUCCESS && $changesMem->isStateChanged()) ? $newsynckey : $synckey;
-            self::$encoder->content($synckey);
-            self::$encoder->endTag();
-
             if ($status == SYNC_FSSTATUS_SUCCESS) {
+                self::$encoder->startTag(SYNC_FOLDERHIERARCHY_SYNCKEY);
+                $synckey = ($changesMem->isStateChanged()) ? $newsynckey : $synckey;
+                self::$encoder->content($synckey);
+                self::$encoder->endTag();
+
                 // Stream folders directly to the PDA
                 $streamimporter = new ImportChangesStream(self::$encoder, false);
                 $changesMem->InitializeExporter($streamimporter);
