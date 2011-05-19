@@ -55,6 +55,7 @@ class Streamer {
     const STREAMER_TYPE_HEX = 2;
     const STREAMER_TYPE_DATE_DASHES = 3;
     const STREAMER_TYPE_MAPI_STREAM = 4;
+    const STREAMER_TYPE_IGNORE = 5;
 
     protected $mapping;
     public $flags;
@@ -225,6 +226,10 @@ class Streamer {
                     $encoder->endTag();
                 }
                 else {
+                    if(isset($map[self::STREAMER_TYPE]) && $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_IGNORE) {
+                        continue;
+                    }
+
                     // Simple type
                     if(strlen($this->$map[self::STREAMER_VAR]) == 0) {
                           // Do not output empty items. See above: $encoder->startTag($tag, false, true);

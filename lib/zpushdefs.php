@@ -319,6 +319,8 @@ define("SYNC_FOLDERHIERARCHY_FOLDERUPDATE","FolderHierarchy:FolderUpdate");
 define("SYNC_FOLDERHIERARCHY_FOLDERSYNC","FolderHierarchy:FolderSync");
 define("SYNC_FOLDERHIERARCHY_COUNT","FolderHierarchy:Count");
 define("SYNC_FOLDERHIERARCHY_VERSION","FolderHierarchy:Version");
+// only for internal use - never to be streamed to the mobile
+define("SYNC_FOLDERHIERARCHY_IGNORE_STORE","FolderHierarchy:IgnoreStore");
 
 // MeetingResponse
 define("SYNC_MEETINGRESPONSE_CALENDARID","MeetingResponse:CalendarId");

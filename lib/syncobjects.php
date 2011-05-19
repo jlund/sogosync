@@ -81,6 +81,7 @@ abstract class SyncObject extends Streamer {
         return true;
     }
 
+
     /**
      * Compares this a SyncObject to another.
      * In case that all available mapped fields are exactly EQUAL, it returns true
@@ -92,34 +93,41 @@ abstract class SyncObject extends Streamer {
     public function equals($odo, $log = false) {
         // check objecttype
         if (! ($odo instanceof SyncObject)) {
+            ZLog::Write(LOGLEVEL_DEBUG, "SyncObject->equals() the target object is not a SyncObject");
             return false;
         }
-        // we add a fake property so we can compare on it. This way, it's never streamed to the device.
-        // TODO this could be done directly in the SyncObject. It should then have a flag so it's not streamed
-        $custMapping = $this->mapping;
-        $custMapping["customValueStore"] = array(self::STREAMER_VAR => "Store");
 
         // check for mapped fields
-        foreach ($custMapping as $v) {
+        foreach ($this->mapping as $v) {
             $val = $v[self::STREAMER_VAR];
             // array of values?
             if (isset($v[self::STREAMER_ARRAY])) {
                 // seek for differences in the arrays
                 if (is_array($this->$val) && is_array($odo->$val)) {
                     if (count(array_diff($this->$val, $odo->$val)) + count(array_diff($odo->$val, $this->$val)) > 0) {
+                        ZLog::Write(LOGLEVEL_DEBUG, sprintf("SyncObject->equals() items in array '%s' differ", $val));
                         return false;
                     }
                 }
-                else
+                else {
+                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("SyncObject->equals() array '%s' is set in one but not the other object", $val));
                     return false;
+                }
             }
             else {
                 if (isset($this->$val) && isset($odo->$val)) {
-                    if ($this->$val != $odo->$val)
+                    if ($this->$val != $odo->$val){
+                        ZLog::Write(LOGLEVEL_DEBUG, sprintf("SyncObject->equals() false on field '%s': '%s' != '%s'", $val, Utils::PrintAsString($this->$val), Utils::PrintAsString($odo->$val)));
                         return false;
+                    }
                 }
-                else
+                else if (!isset($this->$val) && !isset($odo->$val)) {
+                    continue;
+                }
+                else {
+                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("SyncObject->equals() false because field '%s' is only defined at one obj: '%s' != '%s'", $val, Utils::PrintAsString(isset($this->$val)), Utils::PrintAsString(isset($odo->$val))));
                     return false;
+                }
             }
         }
 
@@ -179,13 +187,15 @@ class SyncFolder extends SyncObject {
     public $parentid;
     public $displayname;
     public $type;
+    public $Store;
 
     function SyncFolder() {
         $mapping = array (
                     SYNC_FOLDERHIERARCHY_SERVERENTRYID => array (self::STREAMER_VAR => "serverid"),
                     SYNC_FOLDERHIERARCHY_PARENTID => array (self::STREAMER_VAR => "parentid"),
                     SYNC_FOLDERHIERARCHY_DISPLAYNAME => array (self::STREAMER_VAR => "displayname"),
-                    SYNC_FOLDERHIERARCHY_TYPE => array (self::STREAMER_VAR => "type")
+                    SYNC_FOLDERHIERARCHY_TYPE => array (self::STREAMER_VAR => "type"),
+                    SYNC_FOLDERHIERARCHY_IGNORE_STORE => array(self::STREAMER_VAR => "Store", self::STREAMER_TYPE => self::STREAMER_TYPE_IGNORE),
                 );
 
         parent::SyncObject($mapping);
