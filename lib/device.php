@@ -335,7 +335,7 @@ class ASDevice {
     public function getFolderUUID($folderid = false) {
         if ($folderid === false)
             return ($this->hierarchyUuid !== self::UNDEFINED)?$this->hierarchyUuid : false;
-        else if (isset($this->contentData) && isset($this->contentData[$folderid]))
+        else if (isset($this->contentData) && isset($this->contentData[$folderid]) && isset($this->contentData[$folderid][self::FOLDERUUID]))
             return $this->contentData[$folderid][self::FOLDERUUID];
         return false;
     }
