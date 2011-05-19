@@ -396,9 +396,15 @@ class ChangesMemoryWrapper extends HierarchyCache implements IImportChanges, IEx
         // instead of being loaded in memory.
         if (isset($this->destinationImporter)) {
             $ret = $this->destinationImporter->ImportFolderChange($folder);
+
             // if the operation was sucessfull, update the HierarchyCache
-            if ($ret)
+            if ($ret) {
+                // for folder creation, the serverid is not set and has to be updated before
+                if (!isset($folder->serverid) || $folder->serverid == "")
+                    $folder->serverid = $ret;
+
                 $this->addFolder($folder);
+            }
             return $ret;
         }
         // load into memory
