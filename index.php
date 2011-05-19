@@ -210,7 +210,6 @@ include_once('version.php');
         // the output had not started yet. If it has started already, we can't show the user the error, and
         // the device will give its own (useless) error message.
         if(!headers_sent()) {
-            // TODO search for AS return codes and send these to the mobile
             header('HTTP/1.1 500 Internal Server Error');
             ZPush::PrintZPushLegal($exclass. " processing command <i>". Request::getCommand() ."</i>!", sprintf('<pre>%s</pre>', $ex->getMessage()));
         }
