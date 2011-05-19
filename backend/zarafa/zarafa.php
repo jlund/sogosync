@@ -151,15 +151,11 @@ class BackendZarafa implements IBackend, ISearchProvider {
         // Get/open default store
         $this->defaultstore = $this->openMessageStore($user);
 
-        if($this->defaultstore === false) {
-            // TODO set HTTP status code if available
-            ZLog::Write(LOGLEVEL_ERROR, sprintf("ZarafaBackend->Logon(): User '%s' has no default store", $user));
-            return false;
-        }
-        else {
-            $this->store = $this->defaultstore;
-            $this->storeName = $user;
-        }
+        if($this->defaultstore === false)
+            throw new FatalException(sprintf("ZarafaBackend->Logon(): User '%s' has no default store", $user));
+
+        $this->store = $this->defaultstore;
+        $this->storeName = $user;
 
         ZLog::Write(LOGLEVEL_INFO, sprintf("ZarafaBackend->Logon(): User '%s' is authenticated",$user));
 
@@ -695,23 +691,18 @@ class BackendZarafa implements IBackend, ISearchProvider {
      *
      * @access public
      * @return object(SyncObject)
+     * @throws StatusException
      */
     public function Fetch($folderid, $id, $mimesupport = 0) {
         // get the entry id of the message
         $entryid = mapi_msgstore_entryidfromsourcekey($this->store, hex2bin($folderid), hex2bin($id));
-        if(!$entryid) {
-            // TODO: this should trigger a folder resync (status)
-            ZLog::Write(LOGLEVEL_WARN, "Unknown ID passed to Fetch");
-            return false;
-        }
+        if(!$entryid)
+            throw new StatusException(sprintf("BackendZarafa->Fetch('%s','%s'): Error getting entryid: 0x%X", $folderid, $id, mapi_last_hresult()), SYNC_STATUS_OBJECTNOTFOUND);
 
         // open the message
         $message = mapi_msgstore_openentry($this->store, $entryid);
-        if(!$message) {
-            // TODO: this should trigger a folder resync (status)
-            ZLog::Write(LOGLEVEL_WARN, "Unable to open message for Fetch command");
-            return false;
-        }
+        if(!$message)
+            throw new StatusException(sprintf("BackendZarafa->Fetch('%s','%s'): Error, nable to open message: 0x%X", $folderid, $id, mapi_last_hresult()), SYNC_STATUS_OBJECTNOTFOUND);
 
         // convert the mapi message into a SyncObject and return it
         $mapiprovider = new MAPIProvider($this->session, $this->store);
@@ -736,10 +727,12 @@ class BackendZarafa implements IBackend, ISearchProvider {
      * @param string        $attname
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function GetAttachmentData($attname) {
         list($id, $attachnum) = explode(":", $attname);
 
+        // TODO throw status exceptions
         if(!isset($id) || !isset($attachnum)) {
             ZLog::Write(LOGLEVEL_WARN, "Attachment requested for non-existing item $attname");
             return false;
@@ -786,6 +779,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function MeetingResponse($requestid, $folderid, $response, &$calendarid) {
         // Use standard meeting response code to process meeting request
@@ -907,6 +901,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         return ($searchtype == "GAL");
     }
 
+    // TODO add @throws to interface and other backends
     /**
      * Searches the GAB of Zarafa
      * Can be overwitten globally by configuring a SearchBackend
@@ -916,18 +911,28 @@ class BackendZarafa implements IBackend, ISearchProvider {
      *
      * @access public
      * @return array
+     * @throws StatusException
      */
     public function GetGALSearchResults($searchquery, $searchrange){
         // only return users from who the displayName or the username starts with $name
         //TODO: use PR_ANR for this restriction instead of PR_DISPLAY_NAME and PR_ACCOUNT
         $addrbook = mapi_openaddressbook($this->session);
-        $ab_entryid = mapi_ab_getdefaultdir($addrbook);
-        $ab_dir = mapi_ab_openentry($addrbook, $ab_entryid);
+        if ($addrbook)
+            $ab_entryid = mapi_ab_getdefaultdir($addrbook);
+        if ($ab_entryid)
+            $ab_dir = mapi_ab_openentry($addrbook, $ab_entryid);
+        if ($ab_dir)
+            $table = mapi_folder_getcontentstable($ab_dir);
 
-        $table = mapi_folder_getcontentstable($ab_dir);
+        if (!$table)
+            throw new StatusException(sprintf("ZarafaBackend->GetGALSearchResults(): could not open addressbook: 0x%X", mapi_last_hresult()), SYNC_SEARCHSTATUS_STORE_CONNECTIONFAILED);
+
         $restriction = MAPIUtils::GetSearchRestriction(u2w($searchquery));
         mapi_table_restrict($table, $restriction);
         mapi_table_sort($table, array(PR_DISPLAY_NAME => TABLE_SORT_ASCEND));
+
+        if (mapi_last_hresult())
+            throw new StatusException(sprintf("ZarafaBackend->GetGALSearchResults(): could not apply restriction: 0x%X", mapi_last_hresult()), SYNC_SEARCHSTATUS_STORE_TOOCOMPLEX);
 
         //range for the search results, default symbian range end is 50, wm 99,
         //so we'll use that of nokia

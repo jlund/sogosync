@@ -85,23 +85,15 @@ class ExportChangesICS implements IExportChanges{
             $entryid = $storeprops[PR_IPM_SUBTREE_ENTRYID];
         }
 
-        // Folder available ?
-        if(!$entryid) {
-            // TODO: throw exception with status
-            if ($folderid)
-                ZLog::Write(LOGLEVEL_FATAL, "ExportChangesICS->Constructor: Folder not found: " . bin2hex($folderid));
-            else
-                ZLog::Write(LOGLEVEL_FATAL, "ExportChangesICS->Constructor: Store root not found");
+        $folder = false;
+        if ($entryid)
+            $folder = mapi_msgstore_openentry($this->store, $entryid);
 
-            $this->importer = false;
-            return;
-        }
-
-        $folder = mapi_msgstore_openentry($this->store, $entryid);
         if(!$folder) {
             $this->exporter = false;
-            // TODO: return status if available
-            ZLog::Write(LOGLEVEL_FATAL, "ExportChangesICS->Constructor: can not open folder:".bin2hex($folderid).sprintf(" last error:%X", mapi_last_hresult()));
+            // We throw an general error SYNC_FSSTATUS_CODEUNKNOWN (12) which is also SYNC_STATUS_FOLDERHIERARCHYCHANGED (12)
+            // if this happened while doing content sync, the mobile will try to resync the folderhierarchy
+            throw new StatusException(sprintf("ExportChangesICS('%s','%s','%s'): Error, unable to open folder: 0x%X", $session, $store, Utils::PrintAsString($folderid), mapi_last_hresult()), SYNC_FSSTATUS_CODEUNKNOWN);
             return;
         }
 
@@ -130,11 +122,9 @@ class ExportChangesICS implements IExportChanges{
         $this->exporterflags = 0;
         $this->flags = $flags;
 
-        if ($this->exporter === false) {
-            // TODO: throw exception with status
-            ZLog::Write(LOGLEVEL_FATAL, "ExportChangesICS->Config failed. Exporter not available.");
-            return false;
-        }
+        // this should never happen
+        if ($this->exporter === false)
+            throw new StatusException("ExportChangesICS->Config(): Error, exporter not available", SYNC_FSSTATUS_CODEUNKNOWN, null, LOGLEVEL_ERROR);
 
         // change exporterflags if we are doing a ContentExport
         if($this->folderid) {
@@ -144,7 +134,8 @@ class ExportChangesICS implements IExportChanges{
             // we check the change ID of the syncstate (0 at initial sync)
             // On subsequent syncs, we do want to receive delete events.
             if(strlen($syncstate) == 0 || bin2hex(substr($syncstate,4,4)) == "00000000") {
-                ZLog::Write(LOGLEVEL_DEBUG, "synching inital data");
+                if (!($this->flags & BACKEND_DISCARD_DATA))
+                    ZLog::Write(LOGLEVEL_DEBUG, "ExportChangesICS->Config(): synching inital data");
                 $this->exporterflags |= SYNC_NO_SOFT_DELETIONS | SYNC_NO_DELETIONS;
             }
         }
@@ -208,12 +199,10 @@ class ExportChangesICS implements IExportChanges{
         // which removes all MAPI dependency, and then wrap that class with a C++ wrapper so we can
         // pass it to ICS
 
+        // this should never happen!
         if($this->exporter === false || !isset($this->statestream) || !isset($this->flags) || !isset($this->exporterflags) ||
-            ($this->folderid && (!isset($this->restriction)  || !isset($this->truncation))) ) {
-            // TODO: throw exception with status
-            ZLog::Write(LOGLEVEL_WARN, "ExportChangesICS->Config failed. Exporter not available.!!!!!!!!!!!!!");
-            return false;
-        }
+            ($this->folderid && (!isset($this->restriction)  || !isset($this->truncation))) )
+            throw new StatusException("ExportChangesICS->InitializeExporter(): Error, exporter or essential data not available", SYNC_FSSTATUS_CODEUNKNOWN, null, LOGLEVEL_ERROR);
 
         // PHP wrapper
         $phpwrapper = new PHPWrapper($this->session, $this->store, $importer);
@@ -232,16 +221,17 @@ class ExportChangesICS implements IExportChanges{
             $includeprops = array(PR_SOURCE_KEY, PR_DISPLAY_NAME);
         }
 
-        $ret = mapi_exportchanges_config($this->exporter, $this->statestream, $this->exporterflags, $mapiimporter, $this->restriction, $includeprops, false, 1);
+        if (!$mapiimporter)
+            throw new StatusException(sprintf("ExportChangesICS->InitializeExporter(): Error, mapi_wrap_import_*_changes() failed: 0x%X", mapi_last_hresult()), SYNC_FSSTATUS_CODEUNKNOWN, null, LOGLEVEL_WARN);
 
-        if($ret) {
-            $changes = mapi_exportchanges_getchangecount($this->exporter);
-            if($changes || !($this->flags & BACKEND_DISCARD_DATA))
-                ZLog::Write(LOGLEVEL_DEBUG, "Exporter configured successfully. " . $changes . " changes ready to sync.");
-        }
-        else
-            // TODO: throw exception with status
-            ZLog::Write(LOGLEVEL_ERROR, "Exporter could not be configured: result: " . sprintf("%X", mapi_last_hresult()));
+        $ret = mapi_exportchanges_config($this->exporter, $this->statestream, $this->exporterflags, $mapiimporter, $this->restriction, $includeprops, false, 1);
+        if(!$ret)
+            throw new StatusException(sprintf("ExportChangesICS->InitializeExporter(): Error, mapi_exportchanges_config() failed: 0x%X", mapi_last_hresult()), SYNC_FSSTATUS_CODEUNKNOWN, null, LOGLEVEL_WARN);
+
+        $changes = mapi_exportchanges_getchangecount($this->exporter);
+        if($changes || !($this->flags & BACKEND_DISCARD_DATA))
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("ExportChangesICS->InitializeExporter() successfully. %d changes ready to sync.", $changes));
+
         return $ret;
     }
 
@@ -253,17 +243,12 @@ class ExportChangesICS implements IExportChanges{
      * @return string
      */
     public function GetState() {
-        if(!isset($this->statestream) || $this->exporter === false) {
-            // TODO: throw status?
-            ZLog::Write(LOGLEVEL_WARN, "Error getting state from Exporter. Not initialized.");
-            return false;
-        }
+        $error = false;
+        if(!isset($this->statestream) || $this->exporter === false)
+            $error = true;
 
-        if(mapi_exportchanges_updatestate($this->exporter, $this->statestream) != true) {
-            // TODO: throw status?
-            ZLog::Write(LOGLEVEL_WARN, "Unable to update state: " . sprintf("%X", mapi_last_hresult()));
-            return false;
-        }
+        if($error === true || mapi_exportchanges_updatestate($this->exporter, $this->statestream) != true )
+            throw new StatusException(sprintf("ExportChangesICS->GetState(): Error, state not available or unable to update: 0x%X", mapi_last_hresult()), (($this->folderid)?SYNC_STATUS_FOLDERHIERARCHYCHANGED:SYNC_FSSTATUS_CODEUNKNOWN), null, LOGLEVEL_WARN);
 
         mapi_stream_seek($this->statestream, 0, STREAM_SEEK_SET);
 
