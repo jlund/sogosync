@@ -685,7 +685,7 @@ class MAPIProvider {
         else
             $folder->parentid = bin2hex($folderprops[PR_PARENT_SOURCE_KEY]);
         $folder->displayname = w2u($folderprops[PR_DISPLAY_NAME]);
-        $folder->type = $this->getFolderType($folderprops[PR_ENTRYID], isset($folderprops[PR_CONTAINER_CLASS])?$folderprops[PR_CONTAINER_CLASS]:false);
+        $folder->type = $this->GetFolderType($folderprops[PR_ENTRYID], isset($folderprops[PR_CONTAINER_CLASS])?$folderprops[PR_CONTAINER_CLASS]:false);
 
         return $folder;
     }
@@ -697,10 +697,10 @@ class MAPIProvider {
      * @param string            $entryid
      * @param string            $class      (opt)
      *
-     * @access private
+     * @access public
      * @return long
      */
-    private function getFolderType($entryid, $class = false) {
+    public function GetFolderType($entryid, $class = false) {
         $storeprops = mapi_getprops($this->store, array(PR_IPM_OUTBOX_ENTRYID, PR_IPM_WASTEBASKET_ENTRYID, PR_IPM_SENTMAIL_ENTRYID));
         $inbox = mapi_msgstore_getreceivefolder($this->store);
         $inboxprops = mapi_getprops($inbox, array(PR_ENTRYID, PR_IPM_DRAFTS_ENTRYID, PR_IPM_TASK_ENTRYID, PR_IPM_APPOINTMENT_ENTRYID, PR_IPM_CONTACT_ENTRYID, PR_IPM_NOTE_ENTRYID, PR_IPM_JOURNAL_ENTRYID));
