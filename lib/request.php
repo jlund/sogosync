@@ -858,19 +858,17 @@ class RequestProcessor {
                     if (!Request::isValidDeviceID())
                         throw new StatusException(sprintf("Request::isValidDeviceID() indicated that '%s' is not a valid device id", Request::getDeviceID()), SYNC_FSSTATUS_SERVERERROR);
 
-                    // Request changes from backend, they will be sent to the MemImporter passed as the first
-                    // argument, which stores them in $importer. Returns the new sync state for this exporter.
+                    // Changes from backend are sent to the MemImporter and processed for the HierarchyCache.
+                    // The state which is saved is from the backend, as the MemImporter is only a proxy.
                     $exporter = self::$backend->GetExporter();
 
-                    //public function Config(&$importer, $mclass, $restrict, $syncstate, $flags, $truncation)
-                    //$exporter->Config($importer, false, false, $syncstate, 0, 0);
                     $exporter->Config($syncstate);
                     $exporter->InitializeExporter($changesMem);
 
                     // Stream all changes to the ImportExportChangesMem
                     while(is_array($exporter->Synchronize()));
 
-                    // get the new state
+                    // get the new state from the backend
                     $newsyncstate = (isset($exporter))?$exporter->GetState():"";
                 }
                 catch (StatusException $stex) {
@@ -929,7 +927,7 @@ class RequestProcessor {
         // AS 1.0 sends version information in WBXML
         if(self::$decoder->getElementStartTag(SYNC_VERSION)) {
             $sync_version = self::$decoder->getElementContent();
-            ZLog::Write(LOGLEVEL_DEBUG, "WBXML sync version: {$sync_version}");
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("WBXML sync version: '%s'", $sync_version));
             if(!self::$decoder->getElementEndTag())
                 return false;
         }
@@ -950,7 +948,7 @@ class RequestProcessor {
                 return false;
 
             $collection["class"] = self::$decoder->getElementContent();
-            ZLog::Write(LOGLEVEL_DEBUG, "Sync folder: {$collection["class"]}");
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("Sync folder: '%s'", $collection["class"]));
 
             if(!self::$decoder->getElementEndTag())
                 return false;
@@ -1065,12 +1063,11 @@ class RequestProcessor {
             try {
                 $collection["syncstate"] = self::$deviceManager->GetSyncState($collection["synckey"]);
 
-                // TODO what happens if setup fails?? should this also return another status?
                 // if this is an additional folder the backend has to be setup correctly
-                self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore($collection["collectionid"]));
+                if (!self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore($collection["collectionid"])))
+                    throw new StatusException(sprintf("HandleSync() could not Setup() the backend for folder id '%s'", $collection["collectionid"]), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
             }
             catch (StateNotFoundException $snfex) {
-                ZLog::Write(LOGLEVEL_WARN, sprintf("State not found for SyncKey '%s'. Triggering resync with state '0' on device.", $collection["synckey"]));
                 $status = SYNC_STATUS_INVALIDSYNCKEY;
             }
             catch (StatusException $stex) {
@@ -1205,7 +1202,7 @@ class RequestProcessor {
                 }
 
                 if ($status == SYNC_STATUS_SUCCESS) {
-                    ZLog::Write(LOGLEVEL_INFO, "Processed $nchanges incoming changes");
+                    ZLog::Write(LOGLEVEL_INFO, sprintf("Processed '%d' incoming changes", $nchanges));
                     try {
                         // Save the updated state, which is used for the exporter later
                         $collection["syncstate"] = $importer->GetState();
@@ -1398,7 +1395,7 @@ class RequestProcessor {
                             $n++;
 
                             if($n >= $collection["windowsize"]) {
-                                ZLog::Write(LOGLEVEL_DEBUG, "Exported maxItems of messages: ". $collection["windowsize"] . " / ". $changecount);
+                                ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandleSync():Exported maxItems of messages: %d / %d", $collection["windowsize"], $changecount));
                                 break;
                             }
 
@@ -1423,7 +1420,8 @@ class RequestProcessor {
 
                         if (isset($state))
                             self::$deviceManager->SetSyncState($collection["newsynckey"], $state, $collection["collectionid"]);
-                        else ZLog::Write(LOGLEVEL_ERROR, "error saving " . $collection["newsynckey"] . " - no state information available");
+                        else
+                            ZLog::Write(LOGLEVEL_ERROR, sprintf("HandleSync(): error saving '%s' - no state information available", $collection["newsynckey"]));
                     }
                 }
             }
@@ -1514,7 +1512,7 @@ class RequestProcessor {
                         $exporter = self::$backend->GetExporter($collection["collectionid"]);
 
                         if ($exporter === false)
-                            throw new StatusException(sprintf("No exporter available, for id '%s'", $collection["collectionid"]), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
+                            throw new StatusException(sprintf("HandleGetItemEstimate(): no exporter available, for id '%s'", $collection["collectionid"]), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
 
                         $importer = new ChangesMemoryWrapper();
                         $syncstate = self::$deviceManager->GetSyncState($collection["synckey"]);
@@ -1687,6 +1685,7 @@ class RequestProcessor {
             // Wait for something to happen
             for($n=0;$n<$lifetime / $timeout; $n++ ) {
                 // Check if provisioning is necessary
+                // TODO this could be done over a ProvisioningRequiredException
                 if (PROVISIONING === true && Request::wasPolicyKeySent() && self::$deviceManager->ProvisioningRequired(Request::getPolicyKey())) {
                     // the hierarchysync forces provisioning
                     $pingstatus = SYNC_PINGSTATUS_FOLDERHIERSYNCREQUIRED;
@@ -1900,29 +1899,33 @@ class RequestProcessor {
         // Get state of hierarchy
         try {
             $syncstate = self::$deviceManager->GetSyncState($synckey);
+            $newsynckey = self::$deviceManager->GetNewSyncKey($synckey);
+
+            // Over the ChangesWrapper the HierarchyCache is notified about all changes
+            $changesMem = self::$deviceManager->GetHierarchyChangesWrapper();
+
+            // the hierarchyCache should now fully be initialized - check for changes in the additional folders
+            $changesMem->Config(ZPush::GetAdditionalSyncFolders());
+
+            // there are unprocessed changes in the hierarchy, trigger resync
+            if ($changesMem->GetChangeCount() > 0)
+                throw new StatusException("HandleFolderChange() can not proceed as there are unprocessed hierarchy changes", SYNC_FSSTATUS_SERVERERROR);
+
+            // any additional folders can not be modified!
+            if ($serverid !== false && ZPush::GetAdditionalSyncFolderStore($serverid))
+                throw new StatusException("HandleFolderChange() can not change additional folders which are configured", SYNC_FSSTATUS_UNKNOWNERROR);
+
+            // switch user store if this this happens inside an additional folder
+            // if this is an additional folder the backend has to be setup correctly
+            if (!self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore((($parentid != false)?$parentid:$serverid))))
+                throw new StatusException(sprintf("HandleFolderChange() could not Setup() the backend for folder id '%s'", (($parentid != false)?$parentid:$serverid)), SYNC_FSSTATUS_SERVERERROR);
         }
         catch (StateNotFoundException $snfex) {
             $status = SYNC_FSSTATUS_SYNCKEYERROR;
         }
-
-        $newsynckey = self::$deviceManager->GetNewSyncKey($synckey);
-
-        // Over the ChangesWrapper the HierarchyCache is notified about all changes
-        $changesMem = self::$deviceManager->GetHierarchyChangesWrapper();
-
-        // the hierarchyCache should now fully be initialized - check for changes in the additional folders
-        $changesMem->Config(ZPush::GetAdditionalSyncFolders());
-
-        // there are unprocessed changes in the hierarchy, trigger resync
-        if ($changesMem->GetChangeCount() > 0)
-            $status = SYNC_FSSTATUS_SERVERERROR;
-
-        // any additional folders can not be modified!
-        if ($serverid !== false && ZPush::GetAdditionalSyncFolderStore($serverid))
-            $status = SYNC_FSSTATUS_SERVERERROR;
-
-        // switch user store if this this happens inside an additional folder
-        self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore((($parentid != false)?$parentid:$serverid)));
+        catch (StatusException $stex) {
+           $status = $stex->getCode();
+        }
 
         if ($status == SYNC_FSSTATUS_SUCCESS) {
             try {
