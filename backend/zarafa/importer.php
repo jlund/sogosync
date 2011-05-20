@@ -79,6 +79,7 @@ class ImportChangesICS implements IImportChanges {
      * @param string            $folderid (opt)
      *
      * @access public
+     * @throws StatusException
      */
     public function ImportChangesICS($session, $store, $folderid = false) {
         $this->session = $session;
@@ -122,6 +123,7 @@ class ImportChangesICS implements IImportChanges {
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function Config($state, $flags = 0) {
         $this->flags = $flags;
@@ -156,6 +158,7 @@ class ImportChangesICS implements IImportChanges {
      *
      * @access public
      * @return string
+     * @throws StatusException
      */
     public function GetState() {
         $error = false;
@@ -197,12 +200,11 @@ class ImportChangesICS implements IImportChanges {
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function LoadConflicts($mclass, $filtertype, $state) {
-        if (!isset($this->session) || !isset($this->store) || !isset($this->folderid)) {
-            ZLog::Write(LOGLEVEL_ERROR, "ImportChangesICS->LoadConflicts(): can not load changes for conflict detection. Session, store or folder information not available");
-            return false;
-        }
+        if (!isset($this->session) || !isset($this->store) || !isset($this->folderid))
+            throw new StatusException("ImportChangesICS->LoadConflicts(): Error, can not load changes for conflict detection. Session, store or folder information not available", SYNC_STATUS_SERVERERROR);
 
         // save data to load changes later if necessary
         $this->conflictsLoaded = false;
@@ -249,6 +251,7 @@ class ImportChangesICS implements IImportChanges {
      *
      * @access public
      * @return boolean/string - failure / id of message
+     * @throws StatusException
      */
     public function ImportMessageChange($id, $message) {
         $parentsourcekey = $this->folderid;
@@ -303,6 +306,7 @@ class ImportChangesICS implements IImportChanges {
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function ImportMessageDeletion($id) {
         // check for conflicts
@@ -327,6 +331,7 @@ class ImportChangesICS implements IImportChanges {
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function ImportMessageReadFlag($id, $flags) {
         $readstate = array ( "sourcekey" => hex2bin($id), "flags" => $flags);
@@ -348,10 +353,11 @@ class ImportChangesICS implements IImportChanges {
      * of the source message to the new one and then delete the source message.
      *
      * @param string        $id
-     * @param int           $flags - read/unread
+     * @param string        $newfolder      destination folder
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function ImportMessageMove($id, $newfolder) {
         if (strtolower($newfolder) == strtolower(bin2hex($this->folderid)) )
@@ -420,6 +426,7 @@ class ImportChangesICS implements IImportChanges {
      *
      * @access public
      * @return string       id of the folder
+     * @throws StatusException
      */
     public function ImportFolderChange($folder) {
         $id = isset($folder->serverid)?$folder->serverid:false;
@@ -473,6 +480,7 @@ class ImportChangesICS implements IImportChanges {
      *
      * @access public
      * @return int          SYNC_FOLDERHIERARCHY_STATUS
+     * @throws StatusException
      */
     public function ImportFolderDeletion($id, $parent = false) {
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("ImportChangesICS->ImportFolderDeletion('%s','%s'): importing folder deletetion", $id, $parent));

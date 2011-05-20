@@ -59,6 +59,9 @@
  *
  * The key could be IStateMachine::DEVICEDATA or IStateMachine::PINGDATA
  * indicating that these are general device or ping data
+ *
+ * Constructor
+ * @throws FatalMisconfigurationException
  */
 
 interface IStateMachine {
@@ -78,6 +81,7 @@ interface IStateMachine {
      *
      * @access public
      * @return string
+     * @throws StateNotFoundException, StateInvalidException
      */
     public function GetState($devid, $key, $counter = false);
 
@@ -91,6 +95,7 @@ interface IStateMachine {
      *
      * @access public
      * @return boolean
+     * @throws StateInvalidException
      */
     public function SetState($state, $devid, $key, $counter = false);
 
@@ -105,19 +110,26 @@ interface IStateMachine {
      *
      * @access public
      * @return
+     * @throws StateInvalidException
      */
     public function CleanStates($devid, $key, $counter = false);
 
     /**
      * Links a user to a device
      *
+     * @param string    $username
+     * @param string    $devid
+     *
      * @access public
      * @return array
      */
     public function LinkUserDevice($username, $devid);
 
-    /**
+   /**
      * Unlinks a device from a user
+     *
+     * @param string    $username
+     * @param string    $devid
      *
      * @access public
      * @return array
@@ -127,6 +139,8 @@ interface IStateMachine {
     /**
      * Returns an array with all device ids for a user.
      * If no user is set, all device ids should be returned
+     *
+     * @param string    $username   (opt)
      *
      * @access public
      * @return array
@@ -167,6 +181,7 @@ interface IBackend {
      *
      * @access public
      * @return boolean
+     * @throws FatalException   e.g. some required libraries are unavailable
      */
     public function Logon($username, $domain, $password);
 
@@ -220,6 +235,7 @@ interface IBackend {
      *
      * @access public
      * @return object       implements IImportChanges
+     * @throws StatusException
      */
     public function GetImporter($folderid = false);
 
@@ -232,6 +248,7 @@ interface IBackend {
      *
      * @access public
      * @return object       implements IExportChanges
+     * @throws StatusException
      */
     public function GetExporter($folderid = false);
 
@@ -251,6 +268,7 @@ interface IBackend {
      *
      * @access public
      * @return boolean
+     * @throws HTTPReturnCodeException
      */
     public function SendMail($rfc822, $forward = false, $reply = false, $parent = false, $saveInSent = true);
 
@@ -265,6 +283,7 @@ interface IBackend {
      *
      * @access public
      * @return object(SyncObject)
+     * @throws StatusException
      */
     public function Fetch($folderid, $id, $mimesupport = 0);
 
@@ -290,6 +309,7 @@ interface IBackend {
      *
      * @access public
      * @return boolean
+     * @throws HTTPReturnCodeException
      */
     public function GetAttachmentData($attname);
 
@@ -332,6 +352,9 @@ interface IBackend {
  * ISearchProvider interface
  *
  * Searches can be executed with this interface
+ *
+ * Constructor
+ * @throws StatusException, FatalException
  */
 interface ISearchProvider {
     /**
@@ -353,6 +376,7 @@ interface ISearchProvider {
      *
      * @access public
      * @return array
+     * @throws StatusException
      */
     public function GetGALSearchResults($searchquery, $searchrange);
 
@@ -371,6 +395,9 @@ interface ISearchProvider {
  *
  * Can not only be implemented.
  * IImportChanges and IExportChanges inherit from this interface
+ *
+ * Constructor
+ * @throws StatusException
  */
 interface IChanges {
     /**
@@ -381,6 +408,7 @@ interface IChanges {
      *
      * @access public
      * @return boolean      status flag
+     * @throws StatusException
      */
     public function Config($state, $flags = 0);
 
@@ -416,6 +444,7 @@ interface IImportChanges extends IChanges {
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function LoadConflicts($mclass, $filtertype, $state);
 
@@ -427,6 +456,7 @@ interface IImportChanges extends IChanges {
      *
      * @access public
      * @return boolean/string               failure / id of message
+     * @throws StatusException
      */
     public function ImportMessageChange($id, $message);
 
@@ -437,6 +467,7 @@ interface IImportChanges extends IChanges {
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function ImportMessageDeletion($id);
 
@@ -449,6 +480,7 @@ interface IImportChanges extends IChanges {
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function ImportMessageReadFlag($id, $flags);
 
@@ -456,10 +488,11 @@ interface IImportChanges extends IChanges {
      * Imports a move of a message. This occurs when a user moves an item to another folder
      *
      * @param string        $id
-     * @param string        $newfolder
+     * @param string        $newfolder      destination folder
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function ImportMessageMove($id, $newfolder);
 
@@ -475,6 +508,7 @@ interface IImportChanges extends IChanges {
      *
      * @access public
      * @return boolean/string               status/id of the folder
+     * @throws StatusException
      */
     public function ImportFolderChange($folder);
 
@@ -486,6 +520,7 @@ interface IImportChanges extends IChanges {
      *
      * @access public
      * @return boolean/int  success/SYNC_FOLDERHIERARCHY_STATUS
+     * @throws StatusException
      */
     public function ImportFolderDeletion($id, $parent = false);
 
@@ -509,6 +544,7 @@ interface IExportChanges extends IChanges {
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function ConfigContentParameters($mclass, $restrict, $truncation);
 
@@ -520,6 +556,7 @@ interface IExportChanges extends IChanges {
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function InitializeExporter(&$importer);
 

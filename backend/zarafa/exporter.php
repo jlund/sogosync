@@ -71,6 +71,7 @@ class ExportChangesICS implements IExportChanges{
      * @param string             (opt)
      *
      * @access public
+     * @throws StatusException
      */
     public function ExportChangesICS($session, $store, $folderid = false) {
         // Open a hierarchy or a contents exporter depending on whether a folderid was specified
@@ -117,6 +118,7 @@ class ExportChangesICS implements IExportChanges{
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function Config($syncstate, $flags = 0) {
         $this->exporterflags = 0;
@@ -162,6 +164,7 @@ class ExportChangesICS implements IExportChanges{
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     // TODO eventually it's interesting to create a class which contains these kind of additional information (easier to extend!)
     public function ConfigContentParameters($mclass, $restrict, $truncation) {
@@ -192,6 +195,7 @@ class ExportChangesICS implements IExportChanges{
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function InitializeExporter(&$importer) {
         // Because we're using ICS, we need to wrap the given importer to make it suitable to pass
@@ -241,6 +245,7 @@ class ExportChangesICS implements IExportChanges{
      *
      * @access public
      * @return string
+     * @throws StatusException
      */
     public function GetState() {
         $error = false;

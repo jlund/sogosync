@@ -55,6 +55,7 @@ class SearchLDAP implements ISearchProvider {
      *
      * @access public
      * @return
+     * @throws StatusException
      */
     public function SearchLDAP() {
         if (!function_exists("ldap_connect"))

@@ -130,6 +130,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
      *
      * @access public
      * @return boolean
+     * @throws FatalException
      */
     public function Logon($user, $domain, $pass) {
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->Logon(): Trying to authenticate user '%s'..", $user));
@@ -339,6 +340,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
      *
      * @access public
      * @return object(ExportChanges)
+     * @throws StatusException
      */
     public function GetExporter($folderid = false) {
         if($folderid !== false) {
@@ -365,6 +367,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
      *
      * @access public
      * @return boolean
+     * @throws HTTPReturnCodeException
      */
      // TODO implement , $saveInSent = true
     public function SendMail($rfc822, $forward = false, $reply = false, $parent = false, $saveInSent = true) {
@@ -728,7 +731,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
      * @param string        $attname
      * @access public
      * @return boolean
-     * @throws StatusException
+     * @throws HTTPReturnCodeException
      */
     public function GetAttachmentData($attname) {
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->GetAttachment('%s')",$attname));
@@ -889,7 +892,6 @@ class BackendZarafa implements IBackend, ISearchProvider {
         return ($searchtype == "GAL");
     }
 
-    // TODO add @throws to interface and other backends
     /**
      * Searches the GAB of Zarafa
      * Can be overwitten globally by configuring a SearchBackend

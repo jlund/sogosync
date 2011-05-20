@@ -84,6 +84,7 @@ class FileStateMachine implements IStateMachine {
      *
      * @access public
      * @return string
+     * @throws StateNotFoundException, StateInvalidException
      */
     public function GetState($devid, $key, $counter = false) {
         if ($counter)
@@ -110,6 +111,7 @@ class FileStateMachine implements IStateMachine {
      *
      * @access public
      * @return int      amount of bytes written
+     * @throws StateInvalidException
      */
     public function SetState($state, $devid, $key, $counter = false) {
         return file_put_contents($this->getFullFilePath($devid, $key, $counter), $state);
@@ -126,6 +128,7 @@ class FileStateMachine implements IStateMachine {
      *
      * @access public
      * @return
+     * @throws StateInvalidException
      */
     public function CleanStates($devid, $key, $counter = false) {
         foreach(glob($this->getFullFilePath($devid, $key). "*", GLOB_NOSORT) as $state) {
@@ -150,6 +153,9 @@ class FileStateMachine implements IStateMachine {
 
     /**
      * Links a user to a device
+     *
+     * @param string    $username
+     * @param string    $devid
      *
      * @access public
      * @return array
@@ -185,6 +191,9 @@ class FileStateMachine implements IStateMachine {
 
    /**
      * Unlinks a device from a user
+     *
+     * @param string    $username
+     * @param string    $devid
      *
      * @access public
      * @return array
@@ -225,6 +234,8 @@ class FileStateMachine implements IStateMachine {
     /**
      * Returns an array with all device ids for a user.
      * If no user is set, all device ids should be returned
+     *
+     * @param string    $username   (opt)
      *
      * @access public
      * @return array
