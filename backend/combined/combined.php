@@ -78,7 +78,6 @@ class BackendCombined extends Backend {
      * @return boolean
      */
     public function Logon($username, $domain, $password) {
-        // TODO check if status exceptions have to be catched
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("Combined->Logon('%s', '%s',***))", $username, $domain));
         if(!is_array($this->backends)){
             return false;
@@ -128,7 +127,6 @@ class BackendCombined extends Backend {
      * @return boolean
      */
     public function Setup($store, $checkACLonly = false, $folderid = false) {
-        // TODO check if status exceptions have to be catched
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("Combined->Setup('%s', '%s', '%s')", $store, Utils::PrintAsString($checkACLonly), $folderid));
         if(!is_array($this->backends)){
             return false;
