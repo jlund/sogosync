@@ -415,7 +415,7 @@ class ZPush {
      *
      */
     static public function PrintZPushLegal($message = "", $additionalMessage = "") {
-        ZLog::Write("ZPush::PrintZPushLegal()");
+        ZLog::Write(LOGLEVEL_DEBUG,"ZPush::PrintZPushLegal()");
         $zpush_version = @constant('ZPUSH_VERSION');
 
         if ($message)
