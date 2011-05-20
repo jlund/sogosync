@@ -1812,7 +1812,7 @@ class RequestProcessor {
      * @return boolean
      */
     static private function HandleSmartForward() {
-        return $this->HandleSendMail(Request::getGETItemId(), false, Request::getGETCollectionId());
+        return self::HandleSendMail(Request::getGETItemId(), false, Request::getGETCollectionId());
     }
 
     /**
@@ -1823,7 +1823,7 @@ class RequestProcessor {
      * @return boolean
      */
     static private function HandleSmartReply() {
-        return $this->HandleSendMail(false, Request::getGETItemId(), Request::getGETCollectionId());
+        return self::HandleSendMail(false, Request::getGETItemId(), Request::getGETCollectionId());
     }
 
     /**
