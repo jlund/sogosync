@@ -300,12 +300,12 @@ interface IBackend {
      * @param string        $requestid      id of the object containing the request
      * @param string        $folderid       id of the parent folder of $requestid
      * @param string        $response
-     * @param string        &$calendarid    reference of the created/updated calendar obj
      *
      * @access public
-     * @return boolean
+     * @return string       id of the created/updated calendar obj
+     * @throws StatusException
      */
-    public function MeetingResponse($requestid, $folderid, $response, &$calendarid);
+    public function MeetingResponse($requestid, $folderid, $response);
 
     /**
      * Returns true if the Backend implementation supports an alternative PING mechanism

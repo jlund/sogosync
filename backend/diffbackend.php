@@ -785,12 +785,12 @@ abstract class BackendDiff extends Backend {
      * @param string        $requestid      id of the object containing the request
      * @param string        $folderid       id of the parent folder of $requestid
      * @param string        $response
-     * @param string        &$calendarid    reference of the created/updated calendar obj
      *
      * @access public
-     * @return boolean      status
+     * @return string       id of the created/updated calendar obj
+     * @throws StatusException
      */
-    public function MeetingResponse($requestid, $folderid, $error, &$calendarid) {
+    public function MeetingResponse($requestid, $folderid, $error) {
         return false;
     }
 

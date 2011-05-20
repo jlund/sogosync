@@ -99,7 +99,7 @@ abstract class Backend implements IBackend {
      * public function Fetch($folderid, $id, $mimesupport = 0);
      * public function GetWasteBasket();
      * public function GetAttachmentData($attname);
-     * public function MeetingResponse($requestid, $folderid, $response, &$calendarid);
+     * public function MeetingResponse($requestid, $folderid, $response);
      *
      */
 

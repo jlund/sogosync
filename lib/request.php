@@ -708,9 +708,14 @@ class RequestProcessor {
      * @return boolean
      */
     static private function HandleGetHierarchy() {
-        $folders = self::$backend->GetHierarchy();
-        if(!$folders)
+        try {
+            $folders = self::$backend->GetHierarchy();
+            if (!$folders)
+                throw new StatusException("GetHierarchy() did not return any data.");
+        }
+        catch (StatusException $ex) {
             return false;
+        }
 
         self::$encoder->StartWBXML();
         self::$encoder->startTag(SYNC_FOLDERHIERARCHY_FOLDERS);
@@ -774,7 +779,6 @@ class RequestProcessor {
             if(self::$decoder->getElementStartTag(SYNC_FOLDERHIERARCHY_COUNT)) {
                 self::$decoder->getElementContent();
                 if(!self::$decoder->getElementEndTag())
-                    // TODO a malformed request status should be thrown here
                     return false;
             }
 
@@ -1070,9 +1074,9 @@ class RequestProcessor {
 
                         // if something goes wrong, ask the mobile to resync the hierarchy
                         if ($importer === false)
-                            $status = SYNC_STATUS_FOLDERHIERARCHYCHANGED;
-                        else
-                            $importer->Config($collection["syncstate"], $collection["conflict"]);
+                            throw new StatusException(sprintf("HandleSync() could not get an importer for folder id '%s'", $collection["collectionid"]), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
+
+                        $importer->Config($collection["syncstate"], $collection["conflict"]);
                     }
                     catch (StatusException $stex) {
                        $status = $stex->getCode();
@@ -1230,22 +1234,18 @@ class RequestProcessor {
                             // Use the state from the importer, as changes may have already happened
                             $exporter = self::$backend->GetExporter($collection["collectionid"]);
 
-                            // TODO the exporter could already throw the StatusException
-                            if ($exporter === false) {
-                                ZLog::Write(LOGLEVEL_DEBUG, "No exporter available, forcing hierarchy synchronization");
-                                $status = SYNC_STATUS_FOLDERHIERARCHYCHANGED;
-                            }
-                            else {
-                                // Stream the messages directly to the PDA
-                                $streamimporter = new ImportChangesStream(self::$encoder, ZPush::getSyncObjectFromFolderClass($collection["class"]));
+                            if ($exporter === false)
+                                throw new StatusException(sprintf("HandleSync() could not get an exporter for folder id '%s'", $collection["collectionid"]), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
 
-                                $filtertype = isset($collection["filtertype"]) ? $collection["filtertype"] : false;
-                                $exporter->Config($collection["syncstate"]);
-                                $exporter->ConfigContentParameters($collection["class"], $filtertype, $collection["truncation"]);
-                                $exporter->InitializeExporter($streamimporter);
+                            // Stream the messages directly to the PDA
+                            $streamimporter = new ImportChangesStream(self::$encoder, ZPush::getSyncObjectFromFolderClass($collection["class"]));
 
-                                $changecount = $exporter->GetChangeCount();
-                            }
+                            $filtertype = isset($collection["filtertype"]) ? $collection["filtertype"] : false;
+                            $exporter->Config($collection["syncstate"]);
+                            $exporter->ConfigContentParameters($collection["class"], $filtertype, $collection["truncation"]);
+                            $exporter->InitializeExporter($streamimporter);
+
+                            $changecount = $exporter->GetChangeCount();
                         }
                         catch (StatusException $stex) {
                            $status = $stex->getCode();
@@ -1338,7 +1338,6 @@ class RequestProcessor {
 
                         foreach($collection["fetchids"] as $id) {
                             try {
-                                // TODO fetch has to throw StatusException
                                 $data = self::$backend->Fetch($collection["collectionid"], $id, $mimesupport);
                                 $fetchstatus = SYNC_STATUS_SUCCESS;
                             }
@@ -2055,19 +2054,27 @@ class RequestProcessor {
         self::$encoder->startTag(SYNC_MEETINGRESPONSE_MEETINGRESPONSE);
 
         foreach($requests as $req) {
-            $calendarid = "";
-            $ok = self::$backend->MeetingResponse($req["requestid"], $req["folderid"], $req["response"], $calendarid);
+            $status = SYNC_MEETRESPSTATUS_SUCCESS;
+
+            try {
+                $calendarid = self::$backend->MeetingResponse($req["requestid"], $req["folderid"], $req["response"]);
+                if ($calendarid === false)
+                    throw new StatusException("HandleMeetingResponse() not possible", SYNC_MEETRESPSTATUS_SERVERERROR);
+            }
+            catch (StatusException $stex) {
+                $status = $stex->getCode();
+            }
+
             self::$encoder->startTag(SYNC_MEETINGRESPONSE_RESULT);
                 self::$encoder->startTag(SYNC_MEETINGRESPONSE_REQUESTID);
                     self::$encoder->content($req["requestid"]);
                 self::$encoder->endTag();
 
-                // TODO check for other status
                 self::$encoder->startTag(SYNC_MEETINGRESPONSE_STATUS);
-                    self::$encoder->content($ok ? 1 : 2);
+                    self::$encoder->content($status);
                 self::$encoder->endTag();
 
-                if($ok) {
+                if($status == SYNC_MEETRESPSTATUS_SUCCESS) {
                     self::$encoder->startTag(SYNC_MEETINGRESPONSE_CALENDARID);
                         self::$encoder->content($calendarid);
                     self::$encoder->endTag();

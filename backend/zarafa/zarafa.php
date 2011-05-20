@@ -702,7 +702,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         // open the message
         $message = mapi_msgstore_openentry($this->store, $entryid);
         if(!$message)
-            throw new StatusException(sprintf("BackendZarafa->Fetch('%s','%s'): Error, nable to open message: 0x%X", $folderid, $id, mapi_last_hresult()), SYNC_STATUS_OBJECTNOTFOUND);
+            throw new StatusException(sprintf("BackendZarafa->Fetch('%s','%s'): Error, unable to open message: 0x%X", $folderid, $id, mapi_last_hresult()), SYNC_STATUS_OBJECTNOTFOUND);
 
         // convert the mapi message into a SyncObject and return it
         $mapiprovider = new MAPIProvider($this->session, $this->store);
@@ -730,33 +730,24 @@ class BackendZarafa implements IBackend, ISearchProvider {
      * @throws StatusException
      */
     public function GetAttachmentData($attname) {
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->GetAttachment('%s')",$attname));
         list($id, $attachnum) = explode(":", $attname);
 
-        // TODO throw status exceptions
-        if(!isset($id) || !isset($attachnum)) {
-            ZLog::Write(LOGLEVEL_WARN, "Attachment requested for non-existing item $attname");
-            return false;
-        }
+        if(!isset($id) || !isset($attachnum))
+            throw new HTTPReturnCodeException(sprintf("Attachment requested for non-existing item: '%s'", $attname), HTTP_CODE_500);
 
-        // TODO: errors must trigger status codes
         $entryid = hex2bin($id);
         $message = mapi_msgstore_openentry($this->store, $entryid);
-        if(!$message) {
-            ZLog::Write(LOGLEVEL_WARN, "Unable to open item for attachment data for $id");
-            return false;
-        }
+        if(!$message)
+            throw new HTTPReturnCodeException(sprintf("Unable to open item for attachment data for id '%s' with: 0x%X", $id, mapi_last_hresult()), HTTP_CODE_500);
 
         $attach = mapi_message_openattach($message, $attachnum);
-        if(!$attach) {
-            ZLog::Write(LOGLEVEL_WARN, "Unable to open attachment number $attachnum");
-            return false;
-        }
+        if(!$attach)
+            throw new HTTPReturnCodeException(sprintf("Unable to open attachment number '%s' with: 0x%X", $attachnum, mapi_last_hresult()), HTTP_CODE_500);
 
         $stream = mapi_openpropertytostream($attach, PR_ATTACH_DATA_BIN);
-        if(!$stream) {
-            ZLog::Write(LOGLEVEL_WARN, "Unable to open attachment data stream");
-            return false;
-        }
+        if(!$stream)
+            throw new HTTPReturnCodeException(sprintf("Unable to open attachment data stream: 0x%X", mapi_last_hresult()), HTTP_CODE_500);
 
         while(1) {
             $data = mapi_stream_read($stream, 4096);
@@ -775,34 +766,27 @@ class BackendZarafa implements IBackend, ISearchProvider {
      * @param string        $requestid      id of the object containing the request
      * @param string        $folderid       id of the parent folder of $requestid
      * @param string        $response
-     * @param string        &$calendarid    reference of the created/updated calendar obj
      *
      * @access public
-     * @return boolean
+     * @return string       id of the created/updated calendar obj
      * @throws StatusException
      */
-    public function MeetingResponse($requestid, $folderid, $response, &$calendarid) {
+    public function MeetingResponse($requestid, $folderid, $response) {
         // Use standard meeting response code to process meeting request
         $reqentryid = mapi_msgstore_entryidfromsourcekey($this->store, hex2bin($folderid), hex2bin($requestid));
-        $mapimessage = mapi_msgstore_openentry($this->store, $reqentryid);
+        if ($reqentryid)
+            $mapimessage = mapi_msgstore_openentry($this->store, $reqentryid);
 
-        // TODO: trigger status codes
-        if(!$mapimessage) {
-            ZLog::Write(LOGLEVEL_WARN, "Unable to open request message for response");
-            return false;
-        }
+        if(!$mapimessage)
+            throw new StatusException(sprintf("BackendZarafa->MeetingResponse('%s','%s', '%s'): Error, unable to open request message for response 0x%X", $requestid, $folderid, $response, mapi_last_hresult()), SYNC_MEETRESPSTATUS_MAILBOXERROR);
 
         $meetingrequest = new Meetingrequest($this->store, $mapimessage);
 
-        if(!$meetingrequest->isMeetingRequest()) {
-            ZLog::Write(LOGLEVEL_WARN, "Attempt to respond to non-meeting request");
-            return false;
-        }
+        if(!$meetingrequest->isMeetingRequest())
+            throw new StatusException(sprintf("BackendZarafa->MeetingResponse('%s','%s', '%s'): Error, attempt to respond to non-meeting request", $requestid, $folderid, $response), SYNC_MEETRESPSTATUS_INVALIDMEETREQ);
 
-        if($meetingrequest->isLocalOrganiser()) {
-            ZLog::Write(LOGLEVEL_WARN, "Attempt to response to meeting request that we organized");
-            return false;
-        }
+        if($meetingrequest->isLocalOrganiser())
+            throw new StatusException(sprintf("BackendZarafa->MeetingResponse('%s','%s', '%s'): Error, attempt to response to meeting request that we organized", $requestid, $folderid, $response), SYNC_MEETRESPSTATUS_INVALIDMEETREQ);
 
         // Process the meeting response. We don't have to send the actual meeting response
         // e-mail, because the device will send it itself.
@@ -830,7 +814,8 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
         // on recurring items, the MeetingRequest class responds with a wrong entryid
         if ($requestid == $calendarid) {
-            ZLog::Write(LOGLEVEL_DEBUG, "returned calender id is the same as the requestid - re-searching");
+               ZLog::Write(LOGLEVEL_DEBUG, sprintf("BackendZarafa->MeetingResponse('%s','%s', '%s'): returned calender id is the same as the requestid - re-searching", $requestid, $folderid, $response));
+
             $props = MAPIMapping::GetMeetingRequestProperties();
             $props = getPropIdsFromStrings($this->store, $props);
 
@@ -847,17 +832,19 @@ class BackendZarafa implements IBackend, ISearchProvider {
                $newitem = mapi_msgstore_openentry($this->store, $items[0]);
                $newprops = mapi_getprops($newitem, array(PR_SOURCE_KEY));
                $calendarid = bin2hex($newprops[PR_SOURCE_KEY]);
-               ZLog::Write(LOGLEVEL_DEBUG, "found other calendar entryid");
+               ZLog::Write(LOGLEVEL_DEBUG, sprintf("BackendZarafa->MeetingResponse('%s','%s', '%s'): found other calendar entryid", $requestid, $folderid, $response));
             }
         }
 
+        if ($calendarid == "" || $requestid == $calendarid)
+            throw new StatusException(sprintf("BackendZarafa->MeetingResponse('%s','%s', '%s'): Error finding the accepted meeting response in the calendar", $requestid, $folderid, $response), SYNC_MEETRESPSTATUS_INVALIDMEETREQ);
 
         // delete meeting request from Inbox
         $folderentryid = mapi_msgstore_entryidfromsourcekey($this->store, hex2bin($folderid));
         $folder = mapi_msgstore_openentry($this->store, $folderentryid);
         mapi_folder_deletemessages($folder, array($reqentryid), 0);
 
-        return true;
+        return $calendarid;
     }
 
     /**
