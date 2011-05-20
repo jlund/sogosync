@@ -368,11 +368,12 @@ class BackendZarafa implements IBackend, ISearchProvider {
      */
      // TODO implement , $saveInSent = true
     public function SendMail($rfc822, $forward = false, $reply = false, $parent = false, $saveInSent = true) {
-        if (WBXML_DEBUG == true) {
-            ZLog::Write(LOGLEVEL_WBXML, "SendMail: forward: $forward   reply: $reply   parent: $parent");
-            foreach(preg_split("/((\r)?\n)/", $rfc822) as $rfc822line)
-                ZLog::Write(LOGLEVEL_WBXML, "SendMail RFC822:". $rfc822line);
-        }
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->SendMail(): RFC822: %d bytes  forward-id: '%s' reply-id: '%s' parent-id: '%s' SaveInSent: '%s'",
+                                            strlen($rfc822), Utils::PrintAsString($forward), Utils::PrintAsString($reply), Utils::PrintAsString($parent), Utils::PrintAsString($saveInSent) ));
+
+        // by splitting the message in several lines we can easily grep later
+        foreach(preg_split("/((\r)?\n)/", $rfc822) as $rfc822line)
+            ZLog::Write(LOGLEVEL_WBXML, "RFC822: ". $rfc822line);
 
         $mimeParams = array('decode_headers' => true,
                             'decode_bodies' => true,
@@ -384,17 +385,11 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
         // Open the outbox and create the message there
         $storeprops = mapi_getprops($this->store, array(PR_IPM_OUTBOX_ENTRYID, PR_IPM_SENTMAIL_ENTRYID));
-        if(!isset($storeprops[PR_IPM_OUTBOX_ENTRYID])) {
-            ZLog::Write(LOGLEVEL_ERROR, "Outbox not found to create message");
-            return false;
-        }
+        if(isset($storeprops[PR_IPM_OUTBOX_ENTRYID]))
+            $outbox = mapi_msgstore_openentry($this->store, $storeprops[PR_IPM_OUTBOX_ENTRYID]);
 
-        $outbox = mapi_msgstore_openentry($this->store, $storeprops[PR_IPM_OUTBOX_ENTRYID]);
-        if(!$outbox) {
-            // TODO: this should throw a hard error, stop all further syncs and notify the administrator
-            ZLog::Write(LOGLEVEL_ERROR, "Unable to open outbox");
-            return false;
-        }
+        if(!$outbox)
+            throw new HTTPReturnCodeException(sprintf("ZarafaBackend->SendMail(): No Outbox found or unable to create message: 0x%X", mapi_last_hresult()), HTTP_CODE_500);
 
         $mapimessage = mapi_folder_createmessage($outbox);
 
@@ -438,24 +433,24 @@ class BackendZarafa implements IBackend, ISearchProvider {
         if(isset($message->headers["bcc"]))
             $bccaddr = $Mail_RFC822->parseAddressList($message->headers["bcc"]);
 
+        if(empty($toaddr))
+            throw new HTTPReturnCodeException(sprintf("ZarafaBackend->SendMail(): 'To' address in RFC822 message not found or unparsable. To header: '%s'", ((isset($message->headers["to"]))?$message->headers["to"]:'')), HTTP_CODE_500, null, LOGLEVEL_WARN);
+
         // Add recipients
         $recips = array();
+        foreach(array(MAPI_TO => $toaddr, MAPI_CC => $ccaddr, MAPI_BCC => $bccaddr) as $type => $addrlist) {
+            foreach($addrlist as $addr) {
+                $mapirecip[PR_ADDRTYPE] = "SMTP";
+                $mapirecip[PR_EMAIL_ADDRESS] = $addr->mailbox . "@" . $addr->host;
+                if(isset($addr->personal) && strlen($addr->personal) > 0)
+                    $mapirecip[PR_DISPLAY_NAME] = u2wi($addr->personal);
+                else
+                    $mapirecip[PR_DISPLAY_NAME] = $mapirecip[PR_EMAIL_ADDRESS];
+                $mapirecip[PR_RECIPIENT_TYPE] = $type;
 
-        if(isset($toaddr)) {
-            foreach(array(MAPI_TO => $toaddr, MAPI_CC => $ccaddr, MAPI_BCC => $bccaddr) as $type => $addrlist) {
-                foreach($addrlist as $addr) {
-                    $mapirecip[PR_ADDRTYPE] = "SMTP";
-                    $mapirecip[PR_EMAIL_ADDRESS] = $addr->mailbox . "@" . $addr->host;
-                    if(isset($addr->personal) && strlen($addr->personal) > 0)
-                        $mapirecip[PR_DISPLAY_NAME] = u2wi($addr->personal);
-                    else
-                        $mapirecip[PR_DISPLAY_NAME] = $mapirecip[PR_EMAIL_ADDRESS];
-                    $mapirecip[PR_RECIPIENT_TYPE] = $type;
+                $mapirecip[PR_ENTRYID] = mapi_createoneoff($mapirecip[PR_DISPLAY_NAME], $mapirecip[PR_ADDRTYPE], $mapirecip[PR_EMAIL_ADDRESS]);
 
-                    $mapirecip[PR_ENTRYID] = mapi_createoneoff($mapirecip[PR_DISPLAY_NAME], $mapirecip[PR_ADDRTYPE], $mapirecip[PR_EMAIL_ADDRESS]);
-
-                    array_push($recips, $mapirecip);
-                }
+                array_push($recips, $mapirecip);
             }
         }
 
@@ -503,7 +498,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
                         }
                         mapi_setprops($mapimessage, $mapiprops);
                     }
-                    else ZLog::Write(LOGLEVEL_WARN, "TNEFParser: Mapi property array was empty");
+                    else ZLog::Write(LOGLEVEL_WARN, "ZarafaBackend->Sendmail(): TNEFParser: Mapi property array was empty");
                 }
                 // iCalendar
                 elseif($part->ctype_primary == "text" && $part->ctype_secondary == "calendar") {
@@ -519,7 +514,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
                     // iPhone sends a second ICS which we ignore if we can
                     if (!isset($mapiprops[PR_MESSAGE_CLASS]) && strlen(trim($body)) == 0) {
-                        ZLog::Write(LOGLEVEL_WARN, "Secondary iPhone response is being ignored!! Mail dropped!");
+                        ZLog::Write(LOGLEVEL_WARN, "ZarafaBackend->Sendmail(): Secondary iPhone response is being ignored!! Mail dropped!");
                         return true;
                     }
 
@@ -531,20 +526,21 @@ class BackendZarafa implements IBackend, ISearchProvider {
                         //see Utils::IcalTimezoneFix() in utils.php for more information
                         $part->body = Utils::IcalTimezoneFix($part->body);
                         MAPIUtils::StoreAttachment($mapimessage, $part);
-                        ZLog::Write(LOGLEVEL_INFO, "Sending ICS file as attachment");
+                        ZLog::Write(LOGLEVEL_INFO, "ZarafaBackend->Sendmail(): Sending ICS file as attachment");
                     }
                 }
                 // any other type, store as attachment
                 else
                     MAPIUtils::StoreAttachment($mapimessage, $part);
             }
-        } else {
+        }
+        else {
             $body = u2wi($message->body);
         }
 
         // some devices only transmit a html body
-        if (strlen($body) == 0 && strlen($body_html)>0) {
-            ZLog::Write(LOGLEVEL_INFO, "only html body sent, transformed into plain text");
+        if (strlen($body) == 0 && strlen($body_html) > 0) {
+            ZLog::Write(LOGLEVEL_WARN, "ZarafaBackend->SendMail(): only html body sent, transformed into plain text");
             $body = strip_tags($body_html);
         }
 
@@ -556,80 +552,82 @@ class BackendZarafa implements IBackend, ISearchProvider {
         if(isset($orig) && $orig) {
             // Append the original text body for reply/forward
             $entryid = mapi_msgstore_entryidfromsourcekey($this->store, hex2bin($parent), hex2bin($orig));
-            $fwmessage = mapi_msgstore_openentry($this->store, $entryid);
+            if ($entryid)
+                $fwmessage = mapi_msgstore_openentry($this->store, $entryid);
 
-            if($fwmessage) {
-                //update icon when forwarding or replying message
-                if ($forward) mapi_setprops($fwmessage, array(PR_ICON_INDEX=>262));
-                elseif ($reply) mapi_setprops($fwmessage, array(PR_ICON_INDEX=>261));
-                mapi_savechanges($fwmessage);
+            if(isset($fwmessage) && !$fwmessage)
+                throw new HTTPReturnCodeException(sprintf("ZarafaBackend->SendMail(): Could not open message id '%s' in folder id '%s' to be replied/forwarded: 0x%X", $orig, $parent, mapi_last_hresult()), HTTP_CODE_500, null, LOGLEVEL_WARN);
 
-                $stream = mapi_openproperty($fwmessage, PR_BODY, IID_IStream, 0, 0);
-                $fwbody = "";
+            //update icon when forwarding or replying message
+            if ($forward) mapi_setprops($fwmessage, array(PR_ICON_INDEX=>262));
+            elseif ($reply) mapi_setprops($fwmessage, array(PR_ICON_INDEX=>261));
+            mapi_savechanges($fwmessage);
 
-                while(1) {
-                    $data = mapi_stream_read($stream, 1024);
-                    if(strlen($data) == 0)
-                        break;
-                    $fwbody .= $data;
-                }
+            $stream = mapi_openproperty($fwmessage, PR_BODY, IID_IStream, 0, 0);
+            $fwbody = "";
 
-                $stream = mapi_openproperty($fwmessage, PR_HTML, IID_IStream, 0, 0);
-                $fwbody_html = "";
+            while(1) {
+                $data = mapi_stream_read($stream, 1024);
+                if(strlen($data) == 0)
+                    break;
+                $fwbody .= $data;
+            }
 
-                while(1) {
-                    $data = mapi_stream_read($stream, 1024);
-                    if(strlen($data) == 0)
-                        break;
-                    $fwbody_html .= $data;
-                }
+            $stream = mapi_openproperty($fwmessage, PR_HTML, IID_IStream, 0, 0);
+            $fwbody_html = "";
 
-                if($forward) {
-                    // During a forward, we have to add the forward header ourselves. This is because
-                    // normally the forwarded message is added as an attachment. However, we don't want this
-                    // because it would be rather complicated to copy over the entire original message due
-                    // to the lack of IMessage::CopyTo ..
+            while(1) {
+                $data = mapi_stream_read($stream, 1024);
+                if(strlen($data) == 0)
+                    break;
+                $fwbody_html .= $data;
+            }
 
-                    $fwmessageprops = mapi_getprops($fwmessage, array(PR_SENT_REPRESENTING_NAME, PR_DISPLAY_TO, PR_DISPLAY_CC, PR_SUBJECT, PR_CLIENT_SUBMIT_TIME));
+            if($forward) {
+                // During a forward, we have to add the forward header ourselves. This is because
+                // normally the forwarded message is added as an attachment. However, we don't want this
+                // because it would be rather complicated to copy over the entire original message due
+                // to the lack of IMessage::CopyTo ..
 
-                    $fwheader = "\r\n\r\n";
-                    $fwheader .= "-----Original Message-----\r\n";
-                    if(isset($fwmessageprops[PR_SENT_REPRESENTING_NAME]))
-                        $fwheader .= "From: " . $fwmessageprops[PR_SENT_REPRESENTING_NAME] . "\r\n";
-                    if(isset($fwmessageprops[PR_DISPLAY_TO]) && strlen($fwmessageprops[PR_DISPLAY_TO]) > 0)
-                        $fwheader .= "To: " . $fwmessageprops[PR_DISPLAY_TO] . "\r\n";
-                    if(isset($fwmessageprops[PR_DISPLAY_CC]) && strlen($fwmessageprops[PR_DISPLAY_CC]) > 0)
-                        $fwheader .= "Cc: " . $fwmessageprops[PR_DISPLAY_CC] . "\r\n";
-                    if(isset($fwmessageprops[PR_CLIENT_SUBMIT_TIME]))
-                        $fwheader .= "Sent: " . strftime("%x %X", $fwmessageprops[PR_CLIENT_SUBMIT_TIME]) . "\r\n";
-                    if(isset($fwmessageprops[PR_SUBJECT]))
-                        $fwheader .= "Subject: " . $fwmessageprops[PR_SUBJECT] . "\r\n";
-                    $fwheader .= "\r\n";
+                $fwmessageprops = mapi_getprops($fwmessage, array(PR_SENT_REPRESENTING_NAME, PR_DISPLAY_TO, PR_DISPLAY_CC, PR_SUBJECT, PR_CLIENT_SUBMIT_TIME));
+
+                $fwheader = "\r\n\r\n";
+                $fwheader .= "-----Original Message-----\r\n";
+                if(isset($fwmessageprops[PR_SENT_REPRESENTING_NAME]))
+                    $fwheader .= "From: " . $fwmessageprops[PR_SENT_REPRESENTING_NAME] . "\r\n";
+                if(isset($fwmessageprops[PR_DISPLAY_TO]) && strlen($fwmessageprops[PR_DISPLAY_TO]) > 0)
+                    $fwheader .= "To: " . $fwmessageprops[PR_DISPLAY_TO] . "\r\n";
+                if(isset($fwmessageprops[PR_DISPLAY_CC]) && strlen($fwmessageprops[PR_DISPLAY_CC]) > 0)
+                    $fwheader .= "Cc: " . $fwmessageprops[PR_DISPLAY_CC] . "\r\n";
+                if(isset($fwmessageprops[PR_CLIENT_SUBMIT_TIME]))
+                    $fwheader .= "Sent: " . strftime("%x %X", $fwmessageprops[PR_CLIENT_SUBMIT_TIME]) . "\r\n";
+                if(isset($fwmessageprops[PR_SUBJECT]))
+                    $fwheader .= "Subject: " . $fwmessageprops[PR_SUBJECT] . "\r\n";
+                $fwheader .= "\r\n";
 
 
-                    // add fwheader to body and body_html
-                    $body .= $fwheader;
-                    if (strlen($body_html) > 0)
-                        $body_html .= str_ireplace("\r\n", "<br>", $fwheader);
-                }
-
-                if(strlen($body) > 0)
-                    $body .= $fwbody;
-
+                // add fwheader to body and body_html
+                $body .= $fwheader;
                 if (strlen($body_html) > 0)
-                      $body_html .= $fwbody_html;
+                    $body_html .= str_ireplace("\r\n", "<br>", $fwheader);
+            }
 
-            }
-            else {
-                // TODO: this should throw a hard error (status code?). This message can NEVER be forwarded
-                ZLog::Write(LOGLEVEL_WARN, "Unable to open item with id $orig for forward/reply");
-            }
+            if(strlen($body) > 0)
+                $body .= $fwbody;
+
+            if (strlen($body_html) > 0)
+                  $body_html .= $fwbody_html;
         }
 
         if($forward) {
             // Add attachments from the original message in a forward
             $entryid = mapi_msgstore_entryidfromsourcekey($this->store, hex2bin($parent), hex2bin($orig));
-            $fwmessage = mapi_msgstore_openentry($this->store, $entryid);
+            if ($entryid)
+                $fwmessage = mapi_msgstore_openentry($this->store, $entryid);
+
+            if(isset($fwmessage) && $fwmessage)
+                throw new HTTPReturnCodeException(sprintf("ZarafaBackend->SendMail(): Could not open message id '%s' in folder id '%s' to be replied/forwarded: 0x%X", $orig, $parent, mapi_last_hresult()), HTTP_CODE_500, null, LOGLEVEL_WARN);
+
 
             $attachtable = mapi_message_getattachmenttable($fwmessage);
             $rows = mapi_table_queryallrows($attachtable, array(PR_ATTACH_NUM));
@@ -677,6 +675,9 @@ class BackendZarafa implements IBackend, ISearchProvider {
         }
         mapi_savechanges($mapimessage);
         mapi_message_submitmessage($mapimessage);
+
+        if(mapi_last_hresult())
+            throw new HTTPReturnCodeException(sprintf("ZarafaBackend->SendMail(): Error saving/submitting the message to the Outbox: 0x%X", $orig, $parent, mapi_last_hresult()), HTTP_CODE_500, null, LOGLEVEL_WARN);
 
         ZLog::Write(LOGLEVEL_DEBUG, "ZarafaBackend->SendMail(): email submitted");
         return true;
@@ -734,20 +735,20 @@ class BackendZarafa implements IBackend, ISearchProvider {
         list($id, $attachnum) = explode(":", $attname);
 
         if(!isset($id) || !isset($attachnum))
-            throw new HTTPReturnCodeException(sprintf("Attachment requested for non-existing item: '%s'", $attname), HTTP_CODE_500);
+            throw new HTTPReturnCodeException(sprintf("Attachment requested for non-existing item: '%s'", $attname), HTTP_CODE_500, null, LOGLEVEL_WARN);
 
         $entryid = hex2bin($id);
         $message = mapi_msgstore_openentry($this->store, $entryid);
         if(!$message)
-            throw new HTTPReturnCodeException(sprintf("Unable to open item for attachment data for id '%s' with: 0x%X", $id, mapi_last_hresult()), HTTP_CODE_500);
+            throw new HTTPReturnCodeException(sprintf("Unable to open item for attachment data for id '%s' with: 0x%X", $id, mapi_last_hresult()), HTTP_CODE_500, null, LOGLEVEL_WARN);
 
         $attach = mapi_message_openattach($message, $attachnum);
         if(!$attach)
-            throw new HTTPReturnCodeException(sprintf("Unable to open attachment number '%s' with: 0x%X", $attachnum, mapi_last_hresult()), HTTP_CODE_500);
+            throw new HTTPReturnCodeException(sprintf("Unable to open attachment number '%s' with: 0x%X", $attachnum, mapi_last_hresult()), HTTP_CODE_500, null, LOGLEVEL_WARN);
 
         $stream = mapi_openpropertytostream($attach, PR_ATTACH_DATA_BIN);
         if(!$stream)
-            throw new HTTPReturnCodeException(sprintf("Unable to open attachment data stream: 0x%X", mapi_last_hresult()), HTTP_CODE_500);
+            throw new HTTPReturnCodeException(sprintf("Unable to open attachment data stream: 0x%X", mapi_last_hresult()), HTTP_CODE_500, null, LOGLEVEL_WARN);
 
         while(1) {
             $data = mapi_stream_read($stream, 4096);
