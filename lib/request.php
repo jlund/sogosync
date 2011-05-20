@@ -645,13 +645,24 @@ class RequestProcessor {
             self::$encoder->content($move["srcmsgid"]);
             self::$encoder->endTag();
 
-            $importer = self::$backend->GetImporter($move["srcfldid"]);
-            $result = $importer->ImportMessageMove($move["srcmsgid"], $move["dstfldid"]);
-            // We discard the importer state for now.
+            $status = SYNC_MOVEITEMSSTATUS_SUCCESS;
+            try {
+                $importer = self::$backend->GetImporter($move["srcfldid"]);
+                if ($importer === false)
+                    throw new StatusException(sprintf("HandleMoveItems() could not get an importer for folder id '%s'", $move["srcfldid"]), SYNC_MOVEITEMSSTATUS_INVALIDSOURCEID);
 
-            // TODO more status codes
+                $result = $importer->ImportMessageMove($move["srcmsgid"], $move["dstfldid"]);
+                // We discard the importer state for now.
+            }
+            catch (StatusException $stex) {
+                if ($stex->getCode() == SYNC_STATUS_FOLDERHIERARCHYCHANGED) // same as SYNC_FSSTATUS_CODEUNKNOWN
+                    $status = SYNC_MOVEITEMSSTATUS_INVALIDSOURCEID;
+                else
+                    $status = $stex->getCode();
+            }
+
             self::$encoder->startTag(SYNC_MOVE_STATUS);
-            self::$encoder->content($result ? 3 : 1);
+            self::$encoder->content($status);
             self::$encoder->endTag();
 
             self::$encoder->startTag(SYNC_MOVE_DSTMSGID);
