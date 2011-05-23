@@ -109,18 +109,14 @@ class ExportChangesICS implements IExportChanges{
     /**
      * Configures the exporter
      *
-     * @param object        $importer
-     * @param string        $mclass
-     * @param int           $restrict       FilterType
-     * @param string        $syncstate
+     * @param string        $state
      * @param int           $flags
-     * @param int           $truncation     bytes
      *
      * @access public
      * @return boolean
      * @throws StatusException
      */
-    public function Config($syncstate, $flags = 0) {
+    public function Config($state, $flags = 0) {
         $this->exporterflags = 0;
         $this->flags = $flags;
 
@@ -135,7 +131,7 @@ class ExportChangesICS implements IExportChanges{
             // Initial sync, we don't want deleted items. If the initial sync is chunked
             // we check the change ID of the syncstate (0 at initial sync)
             // On subsequent syncs, we do want to receive delete events.
-            if(strlen($syncstate) == 0 || bin2hex(substr($syncstate,4,4)) == "00000000") {
+            if(strlen($state) == 0 || bin2hex(substr($state,4,4)) == "00000000") {
                 if (!($this->flags & BACKEND_DISCARD_DATA))
                     ZLog::Write(LOGLEVEL_DEBUG, "ExportChangesICS->Config(): synching inital data");
                 $this->exporterflags |= SYNC_NO_SOFT_DELETIONS | SYNC_NO_DELETIONS;
@@ -147,8 +143,8 @@ class ExportChangesICS implements IExportChanges{
 
         // Put the state information in a stream that can be used by ICS
         $stream = mapi_stream_create();
-        if(strlen($syncstate) > 0)
-            mapi_stream_write($stream, $syncstate);
+        if(strlen($state) > 0)
+            mapi_stream_write($stream, $state);
         else
             mapi_stream_write($stream, hex2bin("0000000000000000"));
 
