@@ -101,6 +101,7 @@ class BackendMaildir extends BackendDiff {
      *
      * @access public
      * @return boolean
+     * @throws HTTPReturnCodeException
      */
     public function SendMail($rfc822, $forward = false, $reply = false, $parent = false, $saveInSent = true) {
         return false;
@@ -126,11 +127,14 @@ class BackendMaildir extends BackendDiff {
      *
      * @access public
      * @return boolean
+     * @throws HTTPReturnCodeException
      */
     public function GetAttachmentData($attname) {
         list($id, $part) = explode(":", $attname);
 
         $fn = $this->findMessage($id);
+        if ($fn == false)
+            throw new HTTPReturnCodeException(sprintf("BackendMaildir->GetAttachmentData('%s'): Error, requested message/attachment can not be found", $attname), HTTP_CODE_500, null, LOGLEVEL_WARN);
 
         // Parse e-mail
         $rfc822 = file_get_contents($this->getPath() . "/$fn");
@@ -234,10 +238,26 @@ class BackendMaildir extends BackendDiff {
      * @param int           $type           folder type
      *
      * @access public
-     * @return boolean      status
+     * @return boolean                      status
+     * @throws StatusException              could throw specific SYNC_FSSTATUS_* exceptions
      *
      */
     public function ChangeFolder($folderid, $oldid, $displayname, $type){
+        return false;
+    }
+
+    /**
+     * Deletes a folder
+     *
+     * @param string        $id
+     * @param string        $parent         is normally false
+     *
+     * @access public
+     * @return boolean                      status - false if e.g. does not exist
+     * @throws StatusException              could throw specific SYNC_FSSTATUS_* exceptions
+     *
+     */
+    public function DeleteFolder($id, $parentid){
         return false;
     }
 
@@ -248,7 +268,7 @@ class BackendMaildir extends BackendDiff {
      * @param long          $cutoffdate     timestamp in the past from which on messages should be returned
      *
      * @access public
-     * @return array        of messages
+     * @return array/false  array with messages or false if folder is not available
      */
     public function GetMessageList($folderid, $cutoffdate) {
         $this->moveNewToCur();
@@ -318,7 +338,7 @@ class BackendMaildir extends BackendDiff {
      * @param int           $mimesupport    output the mime message
      *
      * @access public
-     * @return object
+     * @return object/false     false if the message could not be retrieved
      */
     public function GetMessage($folderid, $id, $truncsize, $mimesupport = 0) {
         if($folderid != 'root')
@@ -417,7 +437,8 @@ class BackendMaildir extends BackendDiff {
      * @param SyncXXX       $message        the SyncObject containing a message
      *
      * @access public
-     * @return array        same return value as StatMessage()
+     * @return array                        same return value as StatMessage()
+     * @throws StatusException              could throw specific SYNC_STATUS_* exceptions
      */
     public function ChangeMessage($folderid, $id, $message) {
         return false;
@@ -431,7 +452,8 @@ class BackendMaildir extends BackendDiff {
      * @param int           $flags          read flag of the message
      *
      * @access public
-     * @return boolean      status of the operation
+     * @return boolean                      status of the operation
+     * @throws StatusException              could throw specific SYNC_STATUS_* exceptions
      */
     public function SetReadFlag($folderid, $id, $flags) {
         if($folderid != 'root')
@@ -468,7 +490,8 @@ class BackendMaildir extends BackendDiff {
      * @param string        $id             id of the message
      *
      * @access public
-     * @return boolean      status of the operation
+     * @return boolean                      status of the operation
+     * @throws StatusException              could throw specific SYNC_STATUS_* exceptions
      */
     public function DeleteMessage($folderid, $id) {
         if($folderid != 'root')
@@ -495,7 +518,8 @@ class BackendMaildir extends BackendDiff {
      * @param string        $newfolderid    id of the destination folder
      *
      * @access public
-     * @return boolean      status of the operation
+     * @return boolean                      status of the operation
+     * @throws StatusException              could throw specific SYNC_MOVEITEMSSTATUS_* exceptions
      */
     public function MoveMessage($folderid, $id, $newfolderid) {
         return false;

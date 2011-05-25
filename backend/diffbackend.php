@@ -47,114 +47,155 @@
 * Consult LICENSE file for details
 ************************************************/
 
-/**----------------------------------------------------------------------------------------------------------
- * DIFF ENGINE
- */
-
-/**
- * Differential mechanism
- *
- * @param array        $old
- * @param array        $new
- *
- * @return array
- */
-function GetDiff($old, $new) {
-    $changes = array();
-
-    // Sort both arrays in the same way by ID
-    usort($old, "RowCmp");
-    usort($new, "RowCmp");
-
-    $inew = 0;
-    $iold = 0;
-
-    // Get changes by comparing our list of messages with
-    // our previous state
-    while(1) {
-        $change = array();
-
-        if($iold >= count($old) || $inew >= count($new))
-            break;
-
-        if($old[$iold]["id"] == $new[$inew]["id"]) {
-            // Both messages are still available, compare flags and mod
-            if(isset($old[$iold]["flags"]) && isset($new[$inew]["flags"]) && $old[$iold]["flags"] != $new[$inew]["flags"]) {
-                // Flags changed
-                $change["type"] = "flags";
-                $change["id"] = $new[$inew]["id"];
-                $change["flags"] = $new[$inew]["flags"];
-                $changes[] = $change;
-            }
-
-            if($old[$iold]["mod"] != $new[$inew]["mod"]) {
-                $change["type"] = "change";
-                $change["id"] = $new[$inew]["id"];
-                $changes[] = $change;
-            }
-
-            $inew++;
-            $iold++;
-        } else {
-            if($old[$iold]["id"] > $new[$inew]["id"]) {
-                // Message in state seems to have disappeared (delete)
-                $change["type"] = "delete";
-                $change["id"] = $old[$iold]["id"];
-                $changes[] = $change;
-                $iold++;
-            } else {
-                // Message in new seems to be new (add)
-                $change["type"] = "change";
-                $change["flags"] = SYNC_NEWMESSAGE;
-                $change["id"] = $new[$inew]["id"];
-                $changes[] = $change;
-                $inew++;
-            }
-        }
-    }
-
-    while($iold < count($old)) {
-        // All data left in 'syncstate' have been deleted
-        $change["type"] = "delete";
-        $change["id"] = $old[$iold]["id"];
-        $changes[] = $change;
-        $iold++;
-    }
-
-    while($inew < count($new)) {
-        // All data left in new have been added
-        $change["type"] = "change";
-        $change["flags"] = SYNC_NEWMESSAGE;
-        $change["id"] = $new[$inew]["id"];
-        $changes[] = $change;
-        $inew++;
-    }
-
-    return $changes;
-}
-
-/**
- * Comparing function for differential engine
- *
- * @param array        $a
- * @param array        $b
- *
- * @return boolean
- */
-function RowCmp($a, $b) {
-    return $a["id"] < $b["id"] ? 1 : -1;
-}
-
-
 /**
  * Differential engine
  */
-class DiffState {
+class DiffState implements IChanges {
     protected $syncstate;
     protected $backend;
     protected $flags;
 
-    // Update the state to reflect changes
+    /**
+     * Initializes the state
+     *
+     * @param string        $state
+     * @param int           $flags
+     *
+     * @access public
+     * @return boolean status flag
+     * @throws StatusException
+     */
+    public function Config($state, $flags = 0) {
+        $this->syncstate = unserialize($state);
+        $this->flags = $flags;
+        return true;
+    }
+
+    /**
+     * Returns state
+     *
+     * @access public
+     * @return string
+     * @throws StatusException
+     */
+    public function GetState() {
+        if (!$this->syncstate)
+            throw new StatusException("DiffState->GetState(): Error, state not available", SYNC_FSSTATUS_CODEUNKNOWN, null, LOGLEVEL_WARN);
+
+        return serialize($this->syncstate);
+    }
+
+
+    /**----------------------------------------------------------------------------------------------------------
+     * DiffState specific stuff
+     */
+
+    /**
+     * Comparing function used for sorting of the differential engine
+     *
+     * @param array        $a
+     * @param array        $b
+     *
+     * @access public
+     * @return boolean
+     */
+    static public function RowCmp($a, $b) {
+        return $a["id"] < $b["id"] ? 1 : -1;
+    }
+
+    /**
+     * Differential mechanism
+     * Compares the current syncstate to the sent $new
+     *
+     * @param array        $new
+     *
+     * @access protected
+     * @return array
+     */
+    protected function getDiffTo($new) {
+        $changes = array();
+
+        // Sort both arrays in the same way by ID
+        usort($this->syncstate, array("DiffState", "RowCmp"));
+        usort($new, array("DiffState", "RowCmp"));
+
+        $inew = 0;
+        $iold = 0;
+
+        // Get changes by comparing our list of messages with
+        // our previous state
+        while(1) {
+            $change = array();
+
+            if($iold >= count($this->syncstate) || $inew >= count($new))
+                break;
+
+            if($this->syncstate[$iold]["id"] == $new[$inew]["id"]) {
+                // Both messages are still available, compare flags and mod
+                if(isset($this->syncstate[$iold]["flags"]) && isset($new[$inew]["flags"]) && $this->syncstate[$iold]["flags"] != $new[$inew]["flags"]) {
+                    // Flags changed
+                    $change["type"] = "flags";
+                    $change["id"] = $new[$inew]["id"];
+                    $change["flags"] = $new[$inew]["flags"];
+                    $changes[] = $change;
+                }
+
+                if($this->syncstate[$iold]["mod"] != $new[$inew]["mod"]) {
+                    $change["type"] = "change";
+                    $change["id"] = $new[$inew]["id"];
+                    $changes[] = $change;
+                }
+
+                $inew++;
+                $iold++;
+            } else {
+                if($this->syncstate[$iold]["id"] > $new[$inew]["id"]) {
+                    // Message in state seems to have disappeared (delete)
+                    $change["type"] = "delete";
+                    $change["id"] = $this->syncstate[$iold]["id"];
+                    $changes[] = $change;
+                    $iold++;
+                } else {
+                    // Message in new seems to be new (add)
+                    $change["type"] = "change";
+                    $change["flags"] = SYNC_NEWMESSAGE;
+                    $change["id"] = $new[$inew]["id"];
+                    $changes[] = $change;
+                    $inew++;
+                }
+            }
+        }
+
+        while($iold < count($this->syncstate)) {
+            // All data left in 'syncstate' have been deleted
+            $change["type"] = "delete";
+            $change["id"] = $this->syncstate[$iold]["id"];
+            $changes[] = $change;
+            $iold++;
+        }
+
+        while($inew < count($new)) {
+            // All data left in new have been added
+            $change["type"] = "change";
+            $change["flags"] = SYNC_NEWMESSAGE;
+            $change["id"] = $new[$inew]["id"];
+            $changes[] = $change;
+            $inew++;
+        }
+
+        return $changes;
+    }
+
+    /**
+     * Update the state to reflect changes
+     *
+     * @param string        $type of change
+     * @param array         $change
+     *
+     *
+     * @access protected
+     * @return
+     */
     protected function updateState($type, $change) {
         // Change can be a change or an add
         if($type == "change") {
@@ -183,13 +224,20 @@ class DiffState {
         }
     }
 
-    // Returns TRUE if the given ID conflicts with the given operation. This is only true in the following situations:
-    //
-    // - Changed here and changed there
-    // - Changed here and deleted there
-    // - Deleted here and changed there
-    //
-    // Any other combination of operations can be done (e.g. change flags & move or move & delete)
+    /**
+     * Returns TRUE if the given ID conflicts with the given operation. This is only true in the following situations:
+     *   - Changed here and changed there
+     *   - Changed here and deleted there
+     *   - Deleted here and changed there
+     * Any other combination of operations can be done (e.g. change flags & move or move & delete)
+     *
+     * @param string        $type of change
+     * @param string        $folderid
+     * @param string        $id
+     *
+     * @access protected
+     * @return
+     */
     protected function isConflict($type, $folderid, $id) {
         $stat = $this->backend->StatMessage($folderid, $id);
 
@@ -222,10 +270,6 @@ class DiffState {
         }
     }
 
-    public function GetState() {
-        return serialize($this->syncstate);
-    }
-
 }
 
 
@@ -244,25 +288,11 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
      * @param string        $folderid
      *
      * @access public
+     * @throws StatusException
      */
     public function ImportChangesDiff($backend, $folderid = false) {
         $this->backend = $backend;
         $this->folderid = $folderid;
-    }
-
-    /**
-     * Initializes the importer
-     *
-     * @param string        $state
-     * @param int           $flags
-     *
-     * @access public
-     * @return boolean status flag
-     */
-    public function Config($state, $flags = 0) {
-        $this->syncstate = unserialize($state);
-        $this->flags = $flags;
-        return true;
     }
 
     /**
@@ -275,6 +305,7 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
      *
      * @access public
      * @return string
+     * @throws StatusException
      */
     public function LoadConflicts($mclass, $filtertype, $state) {
         // changes are detected on the fly
@@ -289,11 +320,12 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
      *
      * @access public
      * @return boolean/string - failure / id of message
+     * @throws StatusException
      */
     public function ImportMessageChange($id, $message) {
         //do nothing if it is in a dummy folder
         if ($this->folderid == SYNC_FOLDER_TYPE_DUMMY)
-            return false;
+            throw new StatusException(sprintf("ImportChangesDiff->ImportMessageChange('%s','%s'): can not be done on a dummy folder", $id, get_class($message)), SYNC_STATUS_SYNCCANNOTBECOMPLETED);
 
         if($id) {
             // See if there's a conflict
@@ -308,13 +340,14 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
             $this->updateState("change", $change);
 
             if($conflict && $this->flags == SYNC_CONFLICT_OVERWRITE_PIM)
-                return true;
+                // in these cases the status SYNC_STATUS_CONFLICTCLIENTSERVEROBJECT should be returned, so the mobile client can inform the end user
+                throw new StatusException(sprintf("ImportChangesDiff->ImportMessageChange('%s','%s'): Conflict detected. Data from PIM will be dropped! Server overwrites PIM. User is informed.", $id, get_class($message)), SYNC_STATUS_CONFLICTCLIENTSERVEROBJECT, null, LOGLEVEL_INFO);
         }
 
         $stat = $this->backend->ChangeMessage($this->folderid, $id, $message);
 
         if(!is_array($stat))
-            return $stat;
+            throw new StatusException(sprintf("ImportChangesDiff->ImportMessageChange('%s','%s'): unknown error in backend", $id, get_class($message)), SYNC_STATUS_SYNCCANNOTBECOMPLETED);
 
         // Record the state of the message
         $this->updateState("change", $stat);
@@ -330,11 +363,12 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function ImportMessageDeletion($id) {
         //do nothing if it is in a dummy folder
         if ($this->folderid == SYNC_FOLDER_TYPE_DUMMY)
-            return true;
+            throw new StatusException(sprintf("ImportChangesDiff->ImportMessageDeletion('%s'): can not be done on a dummy folder", $id), SYNC_STATUS_SYNCCANNOTBECOMPLETED);
 
         // See if there's a conflict
         $conflict = $this->isConflict("delete", $this->folderid, $id);
@@ -344,12 +378,16 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
         $change["id"] = $id;
         $this->updateState("delete", $change);
 
-        // If there is a conflict, and the server 'wins', then return OK without performing the change
+        // If there is a conflict, and the server 'wins', then return without performing the change
         // this will cause the exporter to 'see' the overriding item as a change, and send it back to the PIM
-        if($conflict && $this->flags == SYNC_CONFLICT_OVERWRITE_PIM)
-            return true;
+        if($conflict && $this->flags == SYNC_CONFLICT_OVERWRITE_PIM) {
+            ZLog::Write(LOGLEVEL_INFO, sprintf("ImportChangesDiff->ImportMessageDeletion('%s'): Conflict detected. Data from PIM will be dropped! Object was deleted.", $id));
+            return false;
+        }
 
-        $this->backend->DeleteMessage($this->folderid, $id);
+        $stat = $this->backend->DeleteMessage($this->folderid, $id);
+        if(!$stat)
+            throw new StatusException(sprintf("ImportChangesDiff->ImportMessageDeletion('%s'): Unknown error in backend", $id), SYNC_STATUS_OBJECTNOTFOUND);
 
         return true;
     }
@@ -363,11 +401,12 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function ImportMessageReadFlag($id, $flags) {
         //do nothing if it is a dummy folder
         if ($this->folderid == SYNC_FOLDER_TYPE_DUMMY)
-            return true;
+            throw new StatusException(sprintf("ImportChangesDiff->ImportMessageReadFlag('%s','%s'): can not be done on a dummy folder", $id, $flags), SYNC_STATUS_SYNCCANNOTBECOMPLETED);
 
         // Update client state
         $change = array();
@@ -375,7 +414,9 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
         $change["flags"] = $flags;
         $this->updateState("flags", $change);
 
-        $this->backend->SetReadFlag($this->folderid, $id, $flags);
+        $stat = $this->backend->SetReadFlag($this->folderid, $id, $flags);
+        if (!$stat)
+            throw new StatusException(sprintf("ImportChangesDiff->ImportMessageReadFlag('%s','%s'): Error, unable retrieve message from backend", $id, $flags), SYNC_STATUS_OBJECTNOTFOUND);
 
         return true;
     }
@@ -388,11 +429,13 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function ImportMessageMove($id, $newfolder) {
         // don't move messages from or to a dummy folder (GetHierarchy compatibility)
         if ($this->folderid == SYNC_FOLDER_TYPE_DUMMY || $newfolder == SYNC_FOLDER_TYPE_DUMMY)
-            return true;
+            throw new StatusException(sprintf("ImportChangesDiff->ImportMessageMove('%s'): can not be done on a dummy folder", $id), SYNC_MOVEITEMSSTATUS_CANNOTMOVE);
+
         return $this->backend->MoveMessage($this->folderid, $id, $newfolder);
     }
 
@@ -404,6 +447,7 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
      *
      * @access public
      * @return string       id of the folder
+     * @throws StatusException
      */
     public function ImportFolderChange($folder) {
         $id = $folder->serverid;
@@ -413,7 +457,7 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
 
         //do nothing if it is a dummy folder
         if ($parent == SYNC_FOLDER_TYPE_DUMMY)
-            return false;
+            throw new StatusException(sprintf("ImportChangesDiff->ImportFolderChange('%s'): can not be done on a dummy folder", $id), SYNC_FSSTATUS_SERVERERROR);
 
         if($id) {
             $change = array();
@@ -440,22 +484,30 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
      *
      * @access public
      * @return int          SYNC_FOLDERHIERARCHY_STATUS
+     * @throws StatusException
      */
     public function ImportFolderDeletion($id, $parent = false) {
         //do nothing if it is a dummy folder
         if ($parent == SYNC_FOLDER_TYPE_DUMMY)
-            return false;
+            throw new StatusException(sprintf("ImportChangesDiff->ImportFolderDeletion('%s','%s'): can not be done on a dummy folder", $id, $parent), SYNC_FSSTATUS_SERVERERROR);
+
+        // check the foldertype
+        $folder = $this->backend->GetFolder($id);
+        if (isset($folder->type) && Utils::IsSystemFolder($folder->type))
+            throw new StatusException(sprintf("ImportChangesICS->ImportFolderDeletion('%s','%s'): Error deleting system/default folder", $id, $parent), SYNC_FSSTATUS_SYSTEMFOLDER);
+
+        $ret = $this->backend->DeleteFolder($id, $parent);
+        if (!$ret)
+            throw new StatusException(sprintf("ImportChangesDiff->ImportFolderDeletion('%s','%s'): can not be done on a dummy folder", $id, $parent), SYNC_FSSTATUS_FOLDERDOESNOTEXIST);
 
         $change = array();
         $change["id"] = $id;
 
         $this->updateState("delete", $change);
 
-        $this->backend->DeleteFolder($parent, $id);
-
         return true;
     }
-};
+}
 
 
 class ExportChangesDiff extends DiffState implements IExportChanges{
@@ -475,24 +527,11 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
      * @param string        $folderid
      *
      * @access public
+     * @throws StatusException
      */
     public function ExportChangesDiff($backend, $folderid) {
         $this->backend = $backend;
         $this->folderid = $folderid;
-    }
-
-    /**
-     * Initializes the state
-     *
-     * @param string        $state
-     * @param int           $flags
-     *
-     * @access public
-     * @return boolean status flag
-     */
-    public function Config($state, $flags = 0) {
-        $this->syncstate = unserialize($state);
-        $this->flags = $flags;
     }
 
     /**
@@ -504,6 +543,7 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function ConfigContentParameters($mclass, $restrict, $truncation) {
         $this->mclass = $mclass;
@@ -521,6 +561,7 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
     public function InitializeExporter(&$importer) {
         $this->changes = array();
@@ -529,45 +570,47 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
 
         if($this->folderid) {
             // Get the changes since the last sync
-            ZLog::Write(LOGLEVEL_DEBUG, "Initializing message diff engine");
-
             if(!isset($this->syncstate) || !$this->syncstate)
                 $this->syncstate = array();
 
-            ZLog::Write(LOGLEVEL_DEBUG, count($this->syncstate) . " messages in state");
+            ZLog::Write(LOGLEVEL_DEBUG,sprintf("ImportChangesDiff->InitializeExporter(): Initializing message diff engine. '%d' messages in state", count($this->syncstate)));
 
             //do nothing if it is a dummy folder
             if ($this->folderid != SYNC_FOLDER_TYPE_DUMMY) {
                 // on ping: check if backend supports alternative PING mechanism & use it
                 if ($this->mclass === false && $this->flags == BACKEND_DISCARD_DATA && $this->backend->AlterPing()) {
                     $this->changes = $this->backend->AlterPingChanges($this->folderid, $this->syncstate);
+                    // if the folder was deleted, no information is available anymore. A hierarchysync should be executed
+                    if($this->changes === false)
+                        throw new StatusException("ExportChangesDiff->InitializeExporter(): Error, AlterPingChanges() failed on the backend", SYNC_STATUS_FOLDERHIERARCHYCHANGED, null, LOGLEVEL_INFO);
                 }
                 else {
                     // Get our lists - syncstate (old)  and msglist (new)
                     $msglist = $this->backend->GetMessageList($this->folderid, $this->cutoffdate);
+                    // if the folder was deleted, no information is available anymore. A hierarchysync should be executed
                     if($msglist === false)
-                        return false;
+                        throw new StatusException("ExportChangesDiff->InitializeExporter(): Error, no message list available from the backend", SYNC_STATUS_FOLDERHIERARCHYCHANGED, null, LOGLEVEL_INFO);
 
-                    $this->changes = GetDiff($this->syncstate, $msglist);
+                    $this->changes = $this->getDiffTo($msglist);
                 }
             }
-
-            ZLog::Write(LOGLEVEL_INFO, "Found " . count($this->changes) . " message changes");
         }
         else {
             ZLog::Write(LOGLEVEL_DEBUG, "Initializing folder diff engine");
 
+            ZLog::Write(LOGLEVEL_DEBUG, "ImportChangesDiff->InitializeExporter(): Initializing folder diff engine");
+
             $folderlist = $this->backend->GetFolderList();
             if($folderlist === false)
-                return false;
+                throw new StatusException("ExportChangesDiff->InitializeExporter(): error, no folders available from the backend", SYNC_FSSTATUS_CODEUNKNOWN, null, LOGLEVEL_WARN);
 
             if(!isset($this->syncstate) || !$this->syncstate)
                 $this->syncstate = array();
 
-            $this->changes = GetDiff($this->syncstate, $folderlist);
-
-            ZLog::Write(LOGLEVEL_INFO, "Found " . count($this->changes) . " folder changes");
+            $this->changes = $this->getDiffTo($folderlist);
         }
+
+        ZLog::Write(LOGLEVEL_INFO, sprintf("ImportChangesDiff->InitializeExporter(): Found '%d' changes", count($this->changes) ));
     }
 
     /**
@@ -730,10 +773,10 @@ abstract class BackendDiff extends Backend {
     function GetHierarchy() {
         $folders = array();
 
-        $fl = $this->getFolderList();
-        foreach($fl as $f){
-            $folders[] = $this->GetFolder($f['id']);
-        }
+        $fl = $this->GetFolderList();
+        if (is_array($fl))
+            foreach($fl as $f)
+                $folders[] = $this->GetFolder($f['id']);
 
         return $folders;
     }
@@ -746,6 +789,7 @@ abstract class BackendDiff extends Backend {
      *
      * @access public
      * @return object(ImportChanges)
+     * @throws StatusException
      */
     public function GetImporter($folderid = false) {
         return new ImportChangesDiff($this, $folderid);
@@ -759,6 +803,7 @@ abstract class BackendDiff extends Backend {
      *
      * @access public
      * @return object(ExportChanges)
+     * @throws StatusException
      */
     public function GetExporter($folderid = false) {
         return new ExportChangesDiff($this, $folderid);
@@ -773,9 +818,13 @@ abstract class BackendDiff extends Backend {
      *
      * @access public
      * @return object(SyncObject)
+     * @throws StatusException
      */
     public function Fetch($folderid, $id, $mimesupport = 0) {
-        return $this->GetMessage($folderid, $id, 1024*1024, $mimesupport); // Forces entire message (up to 1Mb)
+        $msg = $this->GetMessage($folderid, $id, Utils::GetTruncSize(SYNC_TRUNCATION_ALL), $mimesupport);
+        if ($msg === false)
+            throw new StatusException("BackendDiff->Fetch('%s','%s'): Error, unable retrieve message from backend", SYNC_STATUS_OBJECTNOTFOUND);
+        return $msg;
     }
 
     /**
@@ -790,12 +839,12 @@ abstract class BackendDiff extends Backend {
      * @return string       id of the created/updated calendar obj
      * @throws StatusException
      */
-    public function MeetingResponse($requestid, $folderid, $error) {
-        return false;
+    public function MeetingResponse($requestid, $folderid, $response) {
+        throw new StatusException(sprintf("BackendDiff->MeetingResponse('%s','%s','%s'): Error, this functionality is not supported by the diff backend", $requestid, $folderid, $response), SYNC_MEETRESPSTATUS_MAILBOXERROR);
     }
 
     /**----------------------------------------------------------------------------------------------------------
-     * protected DiffBackend methods
+     * Abstract DiffBackend methods
      *
      * Need to be implemented in the actual diff backend
      */
@@ -807,7 +856,7 @@ abstract class BackendDiff extends Backend {
      * the items within the array is not important though.
      *
      * @access protected
-     * @return array
+     * @return array/boolean        false if the list could not be retrieved
      */
     public abstract function GetFolderList();
 
@@ -849,10 +898,23 @@ abstract class BackendDiff extends Backend {
      * @param int           $type           folder type
      *
      * @access public
-     * @return boolean      status
+     * @return boolean                      status
+     * @throws StatusException              could throw specific SYNC_FSSTATUS_* exceptions
      *
      */
     public abstract function ChangeFolder($folderid, $oldid, $displayname, $type);
+
+    /**
+     * Deletes a folder
+     *
+     * @param string        $id
+     * @param string        $parent         is normally false
+     *
+     * @access public
+     * @return boolean                      status - false if e.g. does not exist
+     * @throws StatusException              could throw specific SYNC_FSSTATUS_* exceptions
+     */
+    public abstract function DeleteFolder($id, $parentid);
 
     /**
      * Returns a list (array) of messages, each entry being an associative array
@@ -869,7 +931,7 @@ abstract class BackendDiff extends Backend {
      * @param long          $cutoffdate     timestamp in the past from which on messages should be returned
      *
      * @access public
-     * @return array        of messages
+     * @return array/false                  array with messages or false if folder is not available
      */
     public abstract function GetMessageList($folderid, $cutoffdate);
 
@@ -885,7 +947,7 @@ abstract class BackendDiff extends Backend {
      * @param int           $mimesupport    output the mime message
      *
      * @access public
-     * @return object
+     * @return object/false                 false if the message could not be retrieved
      */
     public abstract function GetMessage($folderid, $id, $truncsize, $mimesupport = 0);
 
@@ -896,7 +958,7 @@ abstract class BackendDiff extends Backend {
      * @param string        $id             id of the message
      *
      * @access public
-     * @return array
+     * @return array or boolean if fails
      *          Associative array(
      *              string  "id"            Server unique identifier for the message. Again, try to keep this short (under 20 chars)
      *              int     "flags"         simply '0' for unread, '1' for read
@@ -920,7 +982,8 @@ abstract class BackendDiff extends Backend {
      * @param SyncXXX       $message        the SyncObject containing a message
      *
      * @access public
-     * @return array        same return value as StatMessage()
+     * @return array                        same return value as StatMessage()
+     * @throws StatusException              could throw specific SYNC_STATUS_* exceptions
      */
     public abstract function ChangeMessage($folderid, $id, $message);
 
@@ -937,7 +1000,8 @@ abstract class BackendDiff extends Backend {
      * @param int           $flags          read flag of the message
      *
      * @access public
-     * @return boolean      status of the operation
+     * @return boolean                      status of the operation
+     * @throws StatusException              could throw specific SYNC_STATUS_* exceptions
      */
     public abstract function SetReadFlag($folderid, $id, $flags);
 
@@ -952,7 +1016,8 @@ abstract class BackendDiff extends Backend {
      * @param string        $id             id of the message
      *
      * @access public
-     * @return boolean      status of the operation
+     * @return boolean                      status of the operation
+     * @throws StatusException              could throw specific SYNC_STATUS_* exceptions
      */
     public abstract function DeleteMessage($folderid, $id);
 
@@ -967,22 +1032,10 @@ abstract class BackendDiff extends Backend {
      * @param string        $newfolderid    id of the destination folder
      *
      * @access public
-     * @return boolean      status of the operation
+     * @return boolean                      status of the operation
+     * @throws StatusException              could throw specific SYNC_MOVEITEMSSTATUS_* exceptions
      */
     public abstract function MoveMessage($folderid, $id, $newfolderid);
-
-
-// TODO this is deprecated - should be removed
-    /**
-     * DEPRECATED legacy methods
-     */
-    public function GetHierarchyImporter() {
-        return new ImportChangesDiff($this);
-    }
-
-    public function GetContentsImporter($folderid) {
-        return new ImportChangesDiff($this, $folderid);
-    }
 
 }
 ?>

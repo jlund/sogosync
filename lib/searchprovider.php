@@ -58,6 +58,7 @@ class SearchProvider implements ISearchProvider{
      *
      * @access public
      * @return
+     * @throws StatusException, FatalException
      */
     public function SearchProvider() {
     }
@@ -83,6 +84,7 @@ class SearchProvider implements ISearchProvider{
      *
      * @access public
      * @return array        search results
+     * @throws StatusException
      */
     public function GetGALSearchResults($searchquery, $searchrange) {
        return array();
