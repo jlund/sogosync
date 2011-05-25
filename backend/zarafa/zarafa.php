@@ -734,24 +734,24 @@ class BackendZarafa implements IBackend, ISearchProvider {
      * @throws HTTPReturnCodeException
      */
     public function GetAttachmentData($attname) {
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->GetAttachment('%s')",$attname));
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->GetAttachment('%s')", $attname));
         list($id, $attachnum) = explode(":", $attname);
 
         if(!isset($id) || !isset($attachnum))
-            throw new HTTPReturnCodeException(sprintf("Attachment requested for non-existing item: '%s'", $attname), HTTP_CODE_500, null, LOGLEVEL_WARN);
+            throw new HTTPReturnCodeException(sprintf("ZarafaBackend->GetAttachment('%s'): Error, attachment requested for non-existing item", $attname), HTTP_CODE_500, null, LOGLEVEL_WARN);
 
         $entryid = hex2bin($id);
         $message = mapi_msgstore_openentry($this->store, $entryid);
         if(!$message)
-            throw new HTTPReturnCodeException(sprintf("Unable to open item for attachment data for id '%s' with: 0x%X", $id, mapi_last_hresult()), HTTP_CODE_500, null, LOGLEVEL_WARN);
+            throw new HTTPReturnCodeException(sprintf("ZarafaBackend->GetAttachment('%s'): Error, unable to open item for attachment data for id '%s' with: 0x%X", $attname, $id, mapi_last_hresult()), HTTP_CODE_500, null, LOGLEVEL_WARN);
 
         $attach = mapi_message_openattach($message, $attachnum);
         if(!$attach)
-            throw new HTTPReturnCodeException(sprintf("Unable to open attachment number '%s' with: 0x%X", $attachnum, mapi_last_hresult()), HTTP_CODE_500, null, LOGLEVEL_WARN);
+            throw new HTTPReturnCodeException(sprintf("ZarafaBackend->GetAttachment('%s'): Error, unable to open attachment number '%s' with: 0x%X", $attname, $attachnum, mapi_last_hresult()), HTTP_CODE_500, null, LOGLEVEL_WARN);
 
         $stream = mapi_openpropertytostream($attach, PR_ATTACH_DATA_BIN);
         if(!$stream)
-            throw new HTTPReturnCodeException(sprintf("Unable to open attachment data stream: 0x%X", mapi_last_hresult()), HTTP_CODE_500, null, LOGLEVEL_WARN);
+            throw new HTTPReturnCodeException(sprintf("ZarafaBackend->GetAttachment('%s'): Error, unable to open attachment data stream: 0x%X", $attname, mapi_last_hresult()), HTTP_CODE_500, null, LOGLEVEL_WARN);
 
         while(1) {
             $data = mapi_stream_read($stream, 4096);
