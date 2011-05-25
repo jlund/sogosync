@@ -721,7 +721,7 @@ class RequestProcessor {
     static private function HandleGetHierarchy() {
         try {
             $folders = self::$backend->GetHierarchy();
-            if (!$folders)
+            if (!$folders || empty($folders))
                 throw new StatusException("GetHierarchy() did not return any data.");
         }
         catch (StatusException $ex) {
