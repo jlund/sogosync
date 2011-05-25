@@ -91,6 +91,9 @@ abstract class SyncObject extends Streamer {
      * @return boolean
      */
     public function equals($odo, $log = false) {
+        if ($odo === false)
+            return false;
+
         // check objecttype
         if (! ($odo instanceof SyncObject)) {
             ZLog::Write(LOGLEVEL_DEBUG, "SyncObject->equals() the target object is not a SyncObject");
