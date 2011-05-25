@@ -147,7 +147,7 @@ abstract class SyncObject extends Streamer {
             $streamerVars[$v[self::STREAMER_VAR]] = (isset($v[self::STREAMER_TYPE]))?$v[self::STREAMER_TYPE]:false;
 
         foreach (get_object_vars($this) as $k=>$v) {
-            if ($k == "_mapping") continue;
+            if ($k == "mapping") continue;
 
             if (array_key_exists($k, $streamerVars))
                 $strV = "(S) ";
