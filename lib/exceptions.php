@@ -51,7 +51,7 @@ class ZPushException extends Exception {
 
     public function ZPushException($message = "", $code = 0, $previous = NULL, $logLevel = false) {
         if (! $message)
-            $message = $this->httpreturnmessage;
+            $message = $this->httpReturnMessage;
 
         if (!$logLevel)
             $logLevel = $this->defaultLogLevel;
