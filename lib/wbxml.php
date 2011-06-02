@@ -438,10 +438,10 @@ class WBXMLDefs {
                         0x17 => "StartTime", //14.0
                         0x18 => "EndTime", //14.0
                         0x19 => "MergedFreeBusy", //14.0
-                        0x20 => "Picture", // first in 20100501 post 14.0
-                        0x21 => "MaxSize", // first in 20100501 post 14.0
-                        0x22 => "Data", // first in 20100501 post 14.0
-                        0x23 => "MaxPictures", // first in 20100501 post 14.0
+                        0x1A => "Picture", // first in 20100501 post 14.0
+                        0x1B => "MaxSize", // first in 20100501 post 14.0
+                        0x1C => "Data", // first in 20100501 post 14.0
+                        0x1D => "MaxPictures", // first in 20100501 post 14.0
                     ),
                     0xb => array (
                         0x05 => "ValidateCert",
@@ -600,8 +600,8 @@ class WBXMLDefs {
                         0x17 => "ContentType",
                         0x18 => "Preview", //14.0
                         0x19 => "BodyPartPreference", // first in 20100501 post 14.0
-                        0x20 => "BodyPart", // first in 20100501 post 14.0
-                        0x21 => "Status", // first in 20100501 post 14.0
+                        0x1A => "BodyPart", // first in 20100501 post 14.0
+                        0x1B => "Status", // first in 20100501 post 14.0
                     ),
                     0x12 => array( //12.0, 12.1 and 14.0
                         0x05 => "Settings", //12.0, 12.1 and 14.0
@@ -641,7 +641,7 @@ class WBXMLDefs {
                         0x27 => "AccountName", // first in 20100501 post 14.0
                         0x28 => "UserDisplayName", // first in 20100501 post 14.0
                         0x29 => "SendDisabled", // first in 20100501 post 14.0
-                        0x30 => "ihsManagementInformation", // first in 20100501 post 14.0
+                        0x2B => "ihsManagementInformation", // first in 20100501 post 14.0
                     ),
                     0x13 => array( //12.0, 12.1 and 14.0
                         0x05 => "LinkId",
