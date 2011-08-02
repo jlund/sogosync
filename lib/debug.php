@@ -80,7 +80,7 @@ class ZLog {
 
         // log the device id if the global loglevel is set to log devid or the user is in  and has the right log level
         if (Request::getDeviceId() != "" && (LOGLEVEL >= LOGLEVEL_DEVICEID || (LOGUSERLEVEL >= LOGLEVEL_DEVICEID && in_array($user, $specialLogUsers))))
-            self::$devid = '['. $devid.'] ';
+            self::$devid = '['. Request::getDeviceId() .'] ';
         else
             self::$devid = '';
 
