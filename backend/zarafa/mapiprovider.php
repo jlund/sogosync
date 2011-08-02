@@ -1212,8 +1212,15 @@ class MAPIProvider {
                     // a valid compressed RTF with nothing in it.
 
                 }
-                // all properties will be set at once
-                $propsToSet[$mapiprop] = $value;
+                // if an "empty array" is to be saved, it the mvprop should be deleted - fixes Mantis #468
+                if (is_array($value) && empty($value)) {
+                    $propsToDelete[] = $mapiprop;
+                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("MAPIProvider->setPropsInMAPI(): Property '%s' to be deleted as it is an empty array", $asprop));
+                }
+                else {
+                    // all properties will be set at once
+                    $propsToSet[$mapiprop] = $value;
+                }
             }
             elseif (in_array($asprop, $unsetVars)) {
                 $propsToDelete[] = $mapiprop;
