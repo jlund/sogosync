@@ -70,9 +70,9 @@ include_once('version.php');
     set_time_limit(SCRIPT_TIMEOUT);
 
     try {
-        // initialize some basics & check config
-        Request::Initialize();
+        // check config & initialize the basics
         ZPush::CheckConfig();   // throws Exception
+        Request::Initialize();
         ZLog::Initialize();
 
         ZLog::Write(LOGLEVEL_INFO,
@@ -126,6 +126,7 @@ include_once('version.php');
             $deviceManager->ProvisioningRequired(Request::getPolicyKey()) &&
             (LOOSE_PROVISIONING === false ||
             (LOOSE_PROVISIONING === true && Request::wasPolicyKeySent())))
+            //TODO for AS 14 send a wbxml response
             throw new ProvisioningRequiredException();
 
         // Do the actual request
