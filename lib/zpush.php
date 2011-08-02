@@ -134,9 +134,8 @@ class ZPush {
         global $specialLogUsers, $additionalFolders;
 
         // check the php version
-
         if (version_compare(phpversion(),'5.1.0') < 0)
-            throw new FatalException("The configured PHP version is to old. Please make sure at least PHP 5.1 is used.");
+            throw new FatalException("The configured PHP version is too old. Please make sure at least PHP 5.1 is used.");
 
         // set time zone
         // code contributed by Robert Scheck (rsc) - more information: https://developer.berlios.de/mantis/view.php?id=479
