@@ -44,8 +44,8 @@
 /**********************************************************************************
  *  Default settings
  */
-    // Defines the default time zone
-    date_default_timezone_set("Europe/Amsterdam");
+    // Defines the default time zone, change e.g. to "Europe/London" if necessary
+    define('TIMEZONE', '');
 
     // Defines the base path on the server
     define('BASE_PATH', dirname($_SERVER['SCRIPT_FILENAME']). '/');

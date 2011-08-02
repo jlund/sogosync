@@ -138,6 +138,20 @@ class ZPush {
         if (version_compare(phpversion(),'5.1.0') < 0)
             throw new FatalException("The configured PHP version is to old. Please make sure at least PHP 5.1 is used.");
 
+        // set time zone
+        // code contributed by Robert Scheck (rsc) - more information: https://developer.berlios.de/mantis/view.php?id=479
+        if(function_exists("date_default_timezone_set")) {
+            if(defined('TIMEZONE') ? constant('TIMEZONE') : false) {
+                if (! @date_default_timezone_set(TIMEZONE))
+                    throw new FatalMisconfigurationException("The configured TIMEZONE is not valid. Please check supported timezones at http://www.php.net/manual/en/timezones.php");
+
+            }
+            else if(!ini_get('date.timezone')) {
+                date_default_timezone_set('Europe/Amsterdam');
+            }
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("Used timezone '%s'", date_default_timezone_get()));
+        }
+
         // some basic checks
         if (!defined('BASE_PATH'))
             throw new FatalMisconfigurationException("The BASE_PATH is not configured. Check if the config.php file is in place.");
@@ -455,6 +469,7 @@ END;
      * @return string
      */
     static public function GetServerHeader() {
+        // TODO review version number
         return "MS-Server-ActiveSync: 6.5.7638.1";
     }
 
