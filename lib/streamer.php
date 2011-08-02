@@ -99,7 +99,7 @@ class Streamer {
                 // Found a start tag
                 if(!isset($this->mapping[$entity[EN_TAG]])) {
                     // This tag shouldn't be here, abort
-                    debug("Tag " . $entity[EN_TAG] . " unexpected in type XML type " . get_class($this));
+                    ZLog::Write(LOGLEVEL_WBXMLSTACK, sprintf("Tag '%s' unexpected in type XML type '%s'", $entity[EN_TAG], get_class($this)));
                     return false;
                 }
                 else {
@@ -150,7 +150,7 @@ class Streamer {
                                 $decoded = $subdecoder;
 
                                 if(!$decoder->getElementEndTag()) {
-                                    debug("No end tag for " . $entity[EN_TAG]);
+                                    ZLog::Write(LOGLEVEL_WBXMLSTACK, sprintf("No end tag for '%s'", $entity[EN_TAG]));
                                     return false;
                                 }
                             }
@@ -166,7 +166,7 @@ class Streamer {
                             }
 
                             if(!$decoder->getElementEndTag()) {
-                                debug("Unable to get end tag for " . $entity[EN_TAG]);
+                                ZLog::Write(LOGLEVEL_WBXMLSTACK, sprintf("Unable to get end tag for '%s'", $entity[EN_TAG]));
                                 return false;
                             }
                         }
@@ -180,7 +180,7 @@ class Streamer {
                 break;
             }
             else {
-                debug("Unexpected content in type");
+                ZLog::Write(LOGLEVEL_WBXMLSTACK, "Unexpected content in type");
                 break;
             }
         }
