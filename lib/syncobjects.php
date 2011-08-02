@@ -238,7 +238,7 @@ class SyncMeetingRequest extends SyncObject {
     public $recurrenceid;
     public $reminder;
     public $responserequested;
-    public $recurrences = array();
+    public $recurrences;
     public $sensitivity;
     public $busystatus;
     public $timezone;
@@ -277,7 +277,7 @@ class SyncMail extends SyncObject {
     public $displayto;
     public $importance;
     public $read;
-    public $attachments = array();
+    public $attachments;
     public $mimetruncated;
     public $mimedata;
     public $mimesize;
@@ -341,7 +341,7 @@ class SyncContact extends SyncObject {
     public $businessfaxnumber;
     public $businessphonenumber;
     public $carphonenumber;
-    public $children = array();
+    public $children;
     public $companyname;
     public $department;
     public $email1address;
@@ -378,7 +378,7 @@ class SyncContact extends SyncObject {
     public $yomilastname;
     public $rtf;
     public $picture;
-    public $categories = array();
+    public $categories;
 
     // AS 2.5 props
     public $customerid;
@@ -506,7 +506,7 @@ class SyncAppointment extends SyncObject {
     public $exception;
     public $deleted;
     public $exceptionstarttime;
-    public $categories = array();
+    public $categories;
 
     function SyncAppointment() {
         $mapping = array(
@@ -637,7 +637,7 @@ class SyncTask extends SyncObject {
     public $utcstartdate;
     public $subject;
     public $rtf;
-    public $categories = array();
+    public $categories;
 
     function SyncTask() {
         $mapping = array (
@@ -671,7 +671,7 @@ class SyncProvisioning extends SyncObject {
     public $devencenabled;
     public $pwrecoveryenabled;
     public $docbrowseenabled;
-    public $attenabled = 1;
+    public $attenabled;
     public $mindevpwlenngth;
     public $maxinacttimedevlock;
     public $maxdevpwfailedattempts;
@@ -770,7 +770,6 @@ class SyncProvisioning extends SyncObject {
 
     public function Load($policies = array()) {
         if (empty($policies)) {
-            $this->devpwenabled = 0;
             $this->attenabled = 1;
         }
         else foreach ($policies as $p=>$v) {
