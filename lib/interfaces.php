@@ -71,9 +71,10 @@ interface IStateMachine {
     // TODO IStateMachine could offer a mechanisms to realize interprocess mutexes
 
     /**
-     * Gets a state for a specified key and counter.
-     * This method sould call IStateMachine->CleanStates()
-     * to remove older states (same key, previous counters)
+     * Gets a hash value indicating the latest dataset of the named
+     * state with a specified key and counter.
+     * If the state is changed between two calls of this method
+     * the returned hash should be different
      *
      * @param string    $devid              the device id
      * @param string    $key
@@ -83,12 +84,27 @@ interface IStateMachine {
      * @return string
      * @throws StateNotFoundException, StateInvalidException
      */
+    public function GetStateHash($devid, $key, $counter = false);
+
+    /**
+     * Gets a state for a specified key and counter.
+     * This method sould call IStateMachine->CleanStates()
+     * to remove older states (same key, previous counters)
+     *
+     * @param string    $devid              the device id
+     * @param string    $key
+     * @param string    $counter            (opt)
+     *
+     * @access public
+     * @return mixed
+     * @throws StateNotFoundException, StateInvalidException
+     */
     public function GetState($devid, $key, $counter = false);
 
     /**
      * Writes ta state to for a key and counter
      *
-     * @param string    $state
+     * @param mixed     $state
      * @param string    $devid              the device id
      * @param string    $key
      * @param int       $counter    (opt)

@@ -74,6 +74,30 @@ class FileStateMachine implements IStateMachine {
     }
 
     /**
+     * Gets a hash value indicating the latest dataset of the named
+     * state with a specified key and counter.
+     * If the state is changed between two calls of this method
+     * the returned hash should be different
+     *
+     * @param string    $devid              the device id
+     * @param string    $key
+     * @param string    $counter            (opt)
+     *
+     * @access public
+     * @return string
+     * @throws StateNotFoundException, StateInvalidException
+     */
+    public function GetStateHash($devid, $key, $counter = false) {
+        // Read current sync state
+        $filename = $this->getFullFilePath($devid, $key, $counter);
+
+        if(file_exists($filename))
+            return md5(serialize(stat($filename)));
+        else
+            throw new StateNotFoundException(sprintf("Could not locate state '%s'",$filename));
+    }
+
+    /**
      * Gets a state for a specified key and counter.
      * This method sould call IStateMachine->CleanStates()
      * to remove older states (same key, previous counters)
@@ -83,7 +107,7 @@ class FileStateMachine implements IStateMachine {
      * @param string    $counter            (opt)
      *
      * @access public
-     * @return string
+     * @return mixed
      * @throws StateNotFoundException, StateInvalidException
      */
     public function GetState($devid, $key, $counter = false) {
@@ -95,8 +119,12 @@ class FileStateMachine implements IStateMachine {
 
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("FileStateMachine->GetState() on file: '%s'", $filename));
 
-        if(file_exists($filename))
-            return file_get_contents($filename);
+        if(file_exists($filename)) {
+            $data = file_get_contents($filename);
+            if ($key == IStateMachine::DEVICEDATA)
+                $data = unserialize($data);
+            return $data;
+        }
         else
             throw new StateNotFoundException(sprintf("Could not locate state '%s'",$filename));
     }
@@ -104,7 +132,7 @@ class FileStateMachine implements IStateMachine {
     /**
      * Writes ta state to for a key and counter
      *
-     * @param string    $state
+     * @param mixed     $state
      * @param string    $devid              the device id
      * @param string    $key
      * @param int       $counter            (optional)
@@ -114,6 +142,8 @@ class FileStateMachine implements IStateMachine {
      * @throws StateInvalidException
      */
     public function SetState($state, $devid, $key, $counter = false) {
+        if ($key == IStateMachine::DEVICEDATA)
+            $state = serialize($state);
         return file_put_contents($this->getFullFilePath($devid, $key, $counter), $state);
     }
 

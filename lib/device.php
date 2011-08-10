@@ -452,6 +452,7 @@ class DeviceManager {
     const FIXEDHIERARCHYCOUNTER = 99999;
 
     private $device;
+    private $deviceHash;
     private $statemachine;
     private $hierarchyOperation = false;
     private $exceptions;
@@ -477,13 +478,7 @@ class DeviceManager {
         // only continue if deviceid is set
         if ($this->devid) {
             $this->device = new ASDevice($this->devid, Request::getDeviceType(), Request::getGETUser(), Request::getUserAgent());
-
-            try {
-                $data = unserialize($this->statemachine->GetState($this->devid, IStateMachine::DEVICEDATA));
-                $this->device->setData($data);
-            }
-            // TODO might be necessary to catch this and process some StateExceptions later. E.g. -> sync folders -> delete all states -> sync a single folder --> this works, but a full hierarchysync should be triggered!
-            catch (StateNotFoundException $snfex) {}
+            $this->loadDeviceData();
         }
         else
             throw new FatalNotImplementedException("Can not proceed without a device id.");
@@ -495,6 +490,27 @@ class DeviceManager {
     /**----------------------------------------------------------------------------------------------------------
      * Device Stuff
      */
+
+    /**
+     * Loads devicedata from the StateMachine and loads it into the device
+     *
+     * @access public
+     * @return boolean
+     */
+    private function loadDeviceData() {
+        try {
+            $deviceHash = $this->statemachine->GetStateHash($this->devid, IStateMachine::DEVICEDATA);
+            if ($deviceHash != $this->deviceHash) {
+                ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->loadDeviceData(): Device data was changed, reloading");
+                $this->device->setData($this->statemachine->GetState($this->devid, IStateMachine::DEVICEDATA));
+                $this->deviceHash = $deviceHash;
+            }
+        }
+        // TODO might be necessary to catch this and process some StateExceptions later. E.g. -> sync folders -> delete all states -> sync a single folder --> this works, but a full hierarchysync should be triggered!
+        catch (StateNotFoundException $snfex) {
+            $this->device->SetPolicyKey(0);
+        }
+    }
 
     /**
      * Announces amount of transmitted data to the DeviceManager
@@ -547,7 +563,7 @@ class DeviceManager {
                 $data = $this->device->getData();
                 if ($data) {
                     ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->save(): DeviceData changed and to be saved!");
-                    $this->statemachine->SetState(serialize($data), $this->devid, IStateMachine::DEVICEDATA);
+                    $this->statemachine->SetState($data, $this->devid, IStateMachine::DEVICEDATA);
                 }
                 else
                     ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->save(): NO data/updates to be saved!");
