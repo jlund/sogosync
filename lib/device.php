@@ -368,16 +368,15 @@ class ASDevice {
     }
 
    /**
-     * Returns a foldertype for an already synchronized folder id
+     * Returns a foldertype for a folder already known to the mobile
      *
      * @param string        $folderid
      *
      * @access public
-     * @return int/boolean  returns false if there is no UUID associated with the folder or the type is not set
+     * @return int/boolean  returns false if the type is not set
      */
     public function GetFolderType($folderid) {
         if (isset($this->contentData) && isset($this->contentData[$folderid]) &&
-            isset($this->contentData[$folderid][self::FOLDERUUID]) && $this->contentData[$folderid][self::FOLDERUUID] !== false &&
             isset($this->contentData[$folderid][self::FOLDERTYPE]) )
 
             return $this->contentData[$folderid][self::FOLDERTYPE];
