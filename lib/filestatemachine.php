@@ -88,13 +88,13 @@ class FileStateMachine implements IStateMachine {
      * @throws StateNotFoundException, StateInvalidException
      */
     public function GetStateHash($devid, $key, $counter = false) {
-        // Read current sync state
         $filename = $this->getFullFilePath($devid, $key, $counter);
 
+        // the filemodification time is enough to track changes
         if(file_exists($filename))
-            return md5(serialize(stat($filename)));
+            return filemtime($filename);
         else
-            throw new StateNotFoundException(sprintf("Could not locate state '%s'",$filename));
+            throw new StateNotFoundException(sprintf("FileStateMachine->GetStateHash(): Could not locate state '%s'",$filename));
     }
 
     /**
@@ -126,7 +126,7 @@ class FileStateMachine implements IStateMachine {
             return $data;
         }
         else
-            throw new StateNotFoundException(sprintf("Could not locate state '%s'",$filename));
+            throw new StateNotFoundException(sprintf("FileStateMachine->GetState(): Could not locate state '%s'",$filename));
     }
 
     /**
@@ -144,7 +144,13 @@ class FileStateMachine implements IStateMachine {
     public function SetState($state, $devid, $key, $counter = false) {
         if ($key == IStateMachine::DEVICEDATA)
             $state = serialize($state);
-        return file_put_contents($this->getFullFilePath($devid, $key, $counter), $state);
+
+        $filename = $this->getFullFilePath($devid, $key, $counter);
+        if (($bytes = file_put_contents($filename, $state)) === false)
+            throw new FatalMisconfigurationException(sprintf("FileStateMachine->SetState(): Could not write state '%s'",$filename));
+
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("FileStateMachine->SetState() written %d bytes on file: '%s'", $bytes, $filename));
+        return $bytes;
     }
 
     /**
@@ -175,7 +181,7 @@ class FileStateMachine implements IStateMachine {
                 $file =  $this->getFullFilePath($devid, $key);
 
             if ($file !== false) {
-                ZLog::Write(LOGLEVEL_DEBUG, sprintf("FileStateMachine: Deleting file: '%s'", $file));
+                ZLog::Write(LOGLEVEL_DEBUG, sprintf("FileStateMachine->CleanStates(): Deleting file: '%s'", $file));
                 unlink ($file);
             }
         }
@@ -315,7 +321,7 @@ class FileStateMachine implements IStateMachine {
         if (preg_match('/^[a-zA-Z0-9-]+$/', $testkey, $matches))
             $internkey = $testkey . (($counter && is_int($counter))?"-".$counter:"");
         else
-            throw new StateInvalidException("Invalid state deviceid, key or both");
+            throw new StateInvalidException("FileStateMachine->getFullFilePath(): Invalid state deviceid, key or both");
 
         return $this->getDirectoryForDevice($devid, $doNotCreateDirs) ."/". $internkey;
     }
@@ -346,13 +352,13 @@ class FileStateMachine implements IStateMachine {
             if (!is_dir($fldir)) {
                 $dirOK = mkdir($fldir);
                 if (!$dirOK)
-                    throw new FatalMisconfigurationException("Not possible to create state sub-directory: ". $fldir);
+                    throw new FatalMisconfigurationException("FileStateMachine->getDirectoryForDevice(): Not possible to create state sub-directory: ". $fldir);
             }
 
             if (!is_dir($dir)) {
                 $dirOK = mkdir($dir);
                 if (!$dirOK)
-                    throw new FatalMisconfigurationException("Not possible to create state sub-directory: ". $dir);
+                    throw new FatalMisconfigurationException("FileStateMachine->getDirectoryForDevice(): Not possible to create state sub-directory: ". $dir);
             }
             else
                 return $dir;
