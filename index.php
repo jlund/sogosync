@@ -49,6 +49,7 @@ include_once('lib/zpushdefs.php');
 include_once('lib/exceptions.php');
 include_once('lib/utils.php');
 include_once('lib/device.php');
+include_once('lib/devicemanager.php');
 include_once('lib/zpush.php');
 include_once('lib/interfaces.php');
 include_once('lib/streamer.php');
