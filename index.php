@@ -59,6 +59,7 @@ include_once('lib/wbxml.php');
 include_once('lib/backend.php');
 include_once('lib/searchprovider.php');
 include_once('lib/request.php');
+include_once('lib/requestprocessor.php');
 include_once('lib/hierarchymemorywrapper.php');
 
 include_once('config.php');

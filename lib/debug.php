@@ -143,7 +143,7 @@ class ZLog {
         global $specialLogUsers;
 
         if (self::$authUser === false) {
-            if (Request::isUserAuthenticated()) {
+            if (RequestProcessor::isUserAuthenticated()) {
                 $authuser = Request::getAuthUser();
                 if ($authuser && in_array($authuser, $specialLogUsers))
                     self::$authUser = preg_replace('/[^a-z0-9]/', '_', strtolower($authuser));
