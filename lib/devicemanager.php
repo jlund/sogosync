@@ -493,13 +493,14 @@ class DeviceManager {
      * @throws NoHierarchyCacheAvailableException, NotImplementedException
      */
     function GetFolderClassFromCacheByID($folderid) {
-        $typeFromChage = $this->device->GetFolderType($folderid);
-        if ($typeFromChage === false)
+        //TODO check if the parent folder exists and is also beeing synchronized
+        $typeFromChange = $this->device->GetFolderType($folderid);
+        if ($typeFromChange === false)
             throw new NoHierarchyCacheAvailableException(sprintf("Folderid '%s' is not fully synchronized on the device", $folderid));
 
-        $class = ZPush::GetFolderClassFromFolderType($typeFromChage);
-        if ($typeFromChage === false)
-            throw new NotImplementedException(sprintf("Folderid '%s' is saved to be of type '%d' but this type is not implemented", $folderid, $typeFromChage));
+        $class = ZPush::GetFolderClassFromFolderType($typeFromChange);
+        if ($typeFromChange === false)
+            throw new NotImplementedException(sprintf("Folderid '%s' is saved to be of type '%d' but this type is not implemented", $folderid, $typeFromChange));
 
         return $class;
     }
