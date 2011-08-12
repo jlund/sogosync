@@ -515,6 +515,8 @@ class RequestProcessor {
         // Contains all containers requested
         $collections = array();
 
+        $status = SYNC_STATUS_SUCCESS;
+
         // Start decode
         if(!self::$decoder->getElementStartTag(SYNC_SYNCHRONIZE))
             return false;
@@ -532,21 +534,20 @@ class RequestProcessor {
 
         while(self::$decoder->getElementStartTag(SYNC_FOLDER)) {
             $collection = array();
-            $collection["truncation"] = SYNC_TRUNCATION_ALL;
             $collection["clientids"] = array();
             $collection["modifyids"] = array();
             $collection["removeids"] = array();
             $collection["fetchids"] = array();
             $collection["statusids"] = array();
 
-            if(!self::$decoder->getElementStartTag(SYNC_FOLDERTYPE))
-                return false;
+            //for AS versions < 2.5
+            if(self::$decoder->getElementStartTag(SYNC_FOLDERTYPE)) {
+                $collection["class"] = self::$decoder->getElementContent();
+                ZLog::Write(LOGLEVEL_DEBUG, sprintf("Sync folder: '%s'", $collection["class"]));
 
-            $collection["class"] = self::$decoder->getElementContent();
-            ZLog::Write(LOGLEVEL_DEBUG, sprintf("Sync folder: '%s'", $collection["class"]));
-
-            if(!self::$decoder->getElementEndTag())
-                return false;
+                if(!self::$decoder->getElementEndTag())
+                    return false;
+            }
 
             if(!self::$decoder->getElementStartTag(SYNC_SYNCKEY))
                 return false;
@@ -561,6 +562,18 @@ class RequestProcessor {
 
                 if(!self::$decoder->getElementEndTag())
                     return false;
+            }
+
+            // Get class for as versions >= 12.0
+            if (!isset($collection["class"])) {
+                try {
+                    $collection["class"] = self::$deviceManager->GetFolderClassFromCacheByID($collection["collectionid"]);
+                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("GetFolderClassFromCacheByID from Device Manager: '%s' for id:'%s'", $collection["class"], $collection["collectionid"]));
+                }
+                catch (NoHierarchyCacheAvailableException $nhca) {
+                    $status = SYNC_STATUS_FOLDERHIERARCHYCHANGED;
+                    self::$deviceManager->ForceFullResync();
+                }
             }
 
             // SUPPORTED properties
@@ -580,8 +593,20 @@ class RequestProcessor {
             if(self::$decoder->getElementStartTag(SYNC_DELETESASMOVES))
                 $collection["deletesasmoves"] = true;
 
-            if(self::$decoder->getElementStartTag(SYNC_GETCHANGES))
-                $collection["getchanges"] = true;
+            // Get changes can be an empty tag as well as have value
+            // dw2412 contribution start
+            if(self::$decoder->getElementStartTag(SYNC_GETCHANGES)) {
+                //TODO do not send server changes if $collection["getchanges"] is false
+                if (($collection["getchanges"] = self::$decoder->getElementContent()) !== false) {
+                    if(!self::$decoder->getElementEndTag()) {
+                        return false;
+                    }
+                }
+                else {
+                    $collection["getchanges"] = true;
+                }
+            }
+            // dw2412 contribution end
 
             if(self::$decoder->getElementStartTag(SYNC_WINDOWSIZE)) {
                 $collection["windowsize"] = self::$decoder->getElementContent();
@@ -589,32 +614,37 @@ class RequestProcessor {
                     return false;
             }
 
+            // Save all OPTIONS into a ContentParameters object
+            $collection["cpo"] = new ContentParameters();
+            $collection["cpo"]->SetContentClass($collection["class"]);
+            $collection["cpo"]->SetTruncation(SYNC_TRUNCATION_ALL);
+
             if(self::$decoder->getElementStartTag(SYNC_OPTIONS)) {
                 while(1) {
                     if(self::$decoder->getElementStartTag(SYNC_FILTERTYPE)) {
-                        $collection["filtertype"] = self::$decoder->getElementContent();
+                        $collection["cpo"]->SetFilterType(self::$decoder->getElementContent());
                         if(!self::$decoder->getElementEndTag())
                             return false;
                     }
                     if(self::$decoder->getElementStartTag(SYNC_TRUNCATION)) {
-                        $collection["truncation"] = self::$decoder->getElementContent();
+                        $collection["cpo"]->SetTruncation(self::$decoder->getElementContent());
                         if(!self::$decoder->getElementEndTag())
                             return false;
                     }
                     if(self::$decoder->getElementStartTag(SYNC_RTFTRUNCATION)) {
-                        $collection["rtftruncation"] = self::$decoder->getElementContent();
+                        $collection["cpo"]->SetRTFTruncation(self::$decoder->getElementContent());
                         if(!self::$decoder->getElementEndTag())
                             return false;
                     }
 
                     if(self::$decoder->getElementStartTag(SYNC_MIMESUPPORT)) {
-                        $collection["mimesupport"] = self::$decoder->getElementContent();
+                        $collection["cpo"]->SetMimeSupport(self::$decoder->getElementContent());
                         if(!self::$decoder->getElementEndTag())
                             return false;
                     }
 
                     if(self::$decoder->getElementStartTag(SYNC_MIMETRUNCATION)) {
-                        $collection["mimetruncation"] = self::$decoder->getElementContent();
+                        $collection["cpo"]->SetMimeTruncation(self::$decoder->getElementContent());
                         if(!self::$decoder->getElementEndTag())
                             return false;
                     }
@@ -624,6 +654,38 @@ class RequestProcessor {
                         if(!self::$decoder->getElementEndTag())
                             return false;
                     }
+
+                    while (self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_BODYPREFERENCE)) {
+                        if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_TYPE)) {
+                            $bptype = self::$decoder->getElementContent();
+                            $collection["cpo"]->BodyPreference($bptype);
+                            if(!self::$decoder->getElementEndTag()) {
+                                return false;
+                            }
+                        }
+
+                        if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_TRUNCATIONSIZE)) {
+                            $collection["cpo"]->BodyPreference($bptype)->SetTruncationSize(self::$decoder->getElementContent());
+                            if(!self::$decoder->getElementEndTag())
+                                return false;
+                        }
+
+                        if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_ALLORNONE)) {
+                            $collection["cpo"]->BodyPreference($bptype)->SetAllOrNone(self::$decoder->getElementContent());
+                            if(!self::$decoder->getElementEndTag())
+                                return false;
+                        }
+
+                        if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_PREVIEW)) {
+                            $collection["cpo"]->BodyPreference($bptype)->SetPreview(self::$decoder->getElementContent());
+                            if(!self::$decoder->getElementEndTag())
+                                return false;
+                        }
+
+                        if(!self::$decoder->getElementEndTag())
+                            return false;
+                    }
+
                     $e = self::$decoder->peek();
                     if($e[EN_TYPE] == EN_TYPE_ENDTAG) {
                         self::$decoder->getElementEndTag();
@@ -634,8 +696,8 @@ class RequestProcessor {
 
             // limit items to be synchronized to the mobiles if configured
             if (defined('SYNC_FILTERTIME_MAX') && SYNC_FILTERTIME_MAX > SYNC_FILTERTYPE_ALL &&
-                (!isset($collection["filtertype"]) || $collection["filtertype"] > SYNC_FILTERTIME_MAX)) {
-                    $collection["filtertype"] = SYNC_FILTERTIME_MAX;
+                ($collection["cpo"]->GetFilterType() === false || $collection["cpo"]->GetFilterType() > SYNC_FILTERTIME_MAX)) {
+                    $collection["cpo"]->SetFilterType(SYNC_FILTERTIME_MAX);
             }
 
             // compatibility mode AS 1.0 - get folderid which was sent during GetHierarchy()
@@ -653,7 +715,6 @@ class RequestProcessor {
                 $collection["windowsize"] = self::$deviceManager->GetWindowSize();
             }
 
-            $status = SYNC_STATUS_SUCCESS;
             // Get our sync state for this collection
             try {
                 $collection["syncstate"] = self::$deviceManager->GetSyncState($collection["synckey"]);
@@ -699,7 +760,7 @@ class RequestProcessor {
                     // before importing the first change, load potential conflicts
                     // for the current state
                     if ($status == SYNC_STATUS_SUCCESS && $nchanges == 0)
-                        $importer->LoadConflicts($collection["class"], (isset($collection["filtertype"])) ? $collection["filtertype"] : false, $collection["syncstate"]);
+                        $importer->LoadConflicts($collection["cpo"], $collection["syncstate"]);
 
                     if ($status == SYNC_STATUS_SUCCESS)
                         $nchanges++;
@@ -843,9 +904,8 @@ class RequestProcessor {
                             // Stream the messages directly to the PDA
                             $streamimporter = new ImportChangesStream(self::$encoder, ZPush::getSyncObjectFromFolderClass($collection["class"]));
 
-                            $filtertype = isset($collection["filtertype"]) ? $collection["filtertype"] : false;
                             $exporter->Config($collection["syncstate"]);
-                            $exporter->ConfigContentParameters($collection["class"], $filtertype, $collection["truncation"]);
+                            $exporter->ConfigContentParameters($collection["cpo"]);
                             $exporter->InitializeExporter($streamimporter);
 
                             $changecount = $exporter->GetChangeCount();
@@ -864,9 +924,11 @@ class RequestProcessor {
 
                     self::$encoder->startTag(SYNC_FOLDER);
 
-                    self::$encoder->startTag(SYNC_FOLDERTYPE);
-                        self::$encoder->content($collection["class"]);
-                    self::$encoder->endTag();
+                    if(isset($collection["class"])) {
+                        self::$encoder->startTag(SYNC_FOLDERTYPE);
+                            self::$encoder->content($collection["class"]);
+                        self::$encoder->endTag();
+                    }
 
                     self::$encoder->startTag(SYNC_SYNCKEY);
                     if(isset($collection["newsynckey"]))
@@ -882,9 +944,6 @@ class RequestProcessor {
                     self::$encoder->startTag(SYNC_STATUS);
                         self::$encoder->content($status);
                     self::$encoder->endTag();
-
-                    //check the mimesupport because we need it for advanced emails
-                    $mimesupport = isset($collection['mimesupport']) ? $collection['mimesupport'] : 0;
 
                     // Output IDs and status for incoming items & requests
                     if($status == SYNC_STATUS_SUCCESS &&
@@ -941,7 +1000,7 @@ class RequestProcessor {
 
                         foreach($collection["fetchids"] as $id) {
                             try {
-                                $data = self::$backend->Fetch($collection["collectionid"], $id, $mimesupport);
+                                $data = self::$backend->Fetch($collection["collectionid"], $id, $collection["cpo"]);
                                 $fetchstatus = SYNC_STATUS_SUCCESS;
                             }
                             catch (StatusException $stex) {
@@ -980,8 +1039,6 @@ class RequestProcessor {
                         // Output message changes per folder
                         self::$encoder->startTag(SYNC_PERFORM);
 
-                        $filtertype = isset($collection["filtertype"]) ? $collection["filtertype"] : 0;
-
                         $n = 0;
                         while(1) {
                             $progress = $exporter->Synchronize();
@@ -1013,7 +1070,7 @@ class RequestProcessor {
                         else if ($collection["synckey"] == "0")
                             $state = "";
 
-                        if (isset($state))
+                        if (isset($state) && $status == SYNC_STATUS_SUCCESS)
                             self::$deviceManager->SetSyncState($collection["newsynckey"], $state, $collection["collectionid"]);
                         else
                             ZLog::Write(LOGLEVEL_ERROR, sprintf("HandleSync(): error saving '%s' - no state information available", $collection["newsynckey"]));
@@ -1087,7 +1144,9 @@ class RequestProcessor {
             $collection = array();
             $collection["synckey"] = $synckey;
             $collection["class"] = $class;
-            $collection["filtertype"] = $filtertype;
+            $collection["cpo"] = new ContentParameters();
+            $collection["cpo"]->SetContentClass($class);
+            $collection["cpo"]->SetFilterType($filtertype);
             $collection["collectionid"] = $collectionid;
 
             array_push($collections, $collection);
@@ -1113,7 +1172,7 @@ class RequestProcessor {
                         $syncstate = self::$deviceManager->GetSyncState($collection["synckey"]);
 
                         $exporter->Config($syncstate);
-                        $exporter->ConfigContentParameters($collection["class"], $collection["filtertype"], 0);
+                        $exporter->ConfigContentParameters($collection["cpo"]);
                         $exporter->InitializeExporter($importer);
                         $changecount = $exporter->GetChangeCount();
                     }
@@ -1254,7 +1313,10 @@ class RequestProcessor {
                         $importer = false;
 
                         $exporter->Config($collection["state"], BACKEND_DISCARD_DATA);
-                        $exporter->ConfigContentParameters($collection["class"], SYNC_FILTERTYPE_1DAY, 0);
+                        $cpo = new ContentParameters();
+                        $cpo->SetContentClass($collection["class"]);
+                        $cpo->SetFilterType(SYNC_FILTERTYPE_1DAY);
+                        $exporter->ConfigContentParameters($cpo);
                         $exporter->InitializeExporter($importer);
                         while(is_array($exporter->Synchronize()));
                         $collection["state"] = $exporter->GetState();
@@ -1284,7 +1346,7 @@ class RequestProcessor {
             for($n=0;$n<$lifetime / $timeout; $n++ ) {
                 // Check if provisioning is necessary
                 // if a PolicyKey was sent use it. If not, compare with the PolicyKey from the last PING request
-                if (PROVISIONING === true && self::$deviceManager->ProvisioningRequired((Request::wasPolicyKeySent() ? Request::getPolicyKey(): $policykey), false)) {
+                if (PROVISIONING === true && self::$deviceManager->ProvisioningRequired((Request::wasPolicyKeySent() ? Request::getPolicyKey(): $policykey), true)) {
                     // the hierarchysync forces provisioning
                     $pingstatus = SYNC_PINGSTATUS_FOLDERHIERSYNCREQUIRED;
                     break;
@@ -1314,7 +1376,10 @@ class RequestProcessor {
                         $importer = false;
 
                         $exporter->Config($collection["state"], BACKEND_DISCARD_DATA);
-                        $exporter->ConfigContentParameters($collection["class"], SYNC_FILTERTYPE_1DAY, 0);
+                        $cpo = new ContentParameters();
+                        $cpo->SetContentClass($collection["class"]);
+                        $cpo->SetFilterType(SYNC_FILTERTYPE_1DAY);
+                        $exporter->ConfigContentParameters($cpo);
                         $ret = $exporter->InitializeExporter($importer);
 
                         // start over if exporter can not be configured atm

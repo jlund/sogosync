@@ -299,15 +299,14 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
      * Would load objects which are expected to be exported with this state
      * The DiffBackend implements conflict detection on the fly
      *
-     * @param string    $mclass         class of objects
-     * @param int       $restrict       FilterType
-     * @param string    $state
+     * @param ContentParameters         $contentparameters         class of objects
+     * @param string                    $state
      *
      * @access public
-     * @return string
+     * @return boolean
      * @throws StatusException
      */
-    public function LoadConflicts($mclass, $filtertype, $state) {
+    public function LoadConflicts($contentparameters, $state) {
         // changes are detected on the fly
         return true;
     }
@@ -513,9 +512,7 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
 class ExportChangesDiff extends DiffState implements IExportChanges{
     private $importer;
     private $folderid;
-    private $restrict;
-    private $mclass;
-    private $truncation;
+    private $contentparameters;
     private $cutoffdate;
     private $changes;
     private $step;
@@ -537,20 +534,15 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
     /**
      * Configures additional parameters used for content synchronization
      *
-     * @param string        $mclass
-     * @param int           $restrict       FilterType
-     * @param int           $truncation     bytes
+     * @param ContentParameters         $contentparameters
      *
      * @access public
      * @return boolean
      * @throws StatusException
      */
-    public function ConfigContentParameters($mclass, $restrict, $truncation) {
-        $this->mclass = $mclass;
-        $this->restrict = $restrict;
-        $this->truncation = $truncation;
-
-        $this->cutoffdate = Utils::GetCutOffDate($restrict);
+    public function ConfigContentParameters($contentparameters) {
+        $this->contentparameters = $contentparameters;
+        $this->cutoffdate = Utils::GetCutOffDate($contentparameters->GetFilterType());
     }
 
     /**
@@ -578,7 +570,7 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
             //do nothing if it is a dummy folder
             if ($this->folderid != SYNC_FOLDER_TYPE_DUMMY) {
                 // on ping: check if backend supports alternative PING mechanism & use it
-                if ($this->mclass === false && $this->flags == BACKEND_DISCARD_DATA && $this->backend->AlterPing()) {
+                if ($this->contentparameters->GetContentClass() === false && $this->flags == BACKEND_DISCARD_DATA && $this->backend->AlterPing()) {
                     $this->changes = $this->backend->AlterPingChanges($this->folderid, $this->syncstate);
                     // if the folder was deleted, no information is available anymore. A hierarchysync should be executed
                     if($this->changes === false)
@@ -672,14 +664,12 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
 
                 switch($change["type"]) {
                     case "change":
-                        $truncsize = Utils::GetTruncSize($this->truncation);
-
                         // Note: because 'parseMessage' and 'statMessage' are two seperate
                         // calls, we have a chance that the message has changed between both
                         // calls. This may cause our algorithm to 'double see' changes.
 
                         $stat = $this->backend->StatMessage($this->folderid, $change["id"]);
-                        $message = $this->backend->GetMessage($this->folderid, $change["id"], $truncsize);
+                        $message = $this->backend->GetMessage($this->folderid, $change["id"], $this->contentparameters);
 
                         // copy the flag to the message
                         $message->flags = (isset($change["flags"])) ? $change["flags"] : 0;
@@ -812,16 +802,18 @@ abstract class BackendDiff extends Backend {
     /**
      * Returns all available data of a single message
      *
-     * @param string        $folderid
-     * @param string        $id
-     * @param string        $mimesupport flag
+     * @param string            $folderid
+     * @param string            $id
+     * @param ContentParameters $contentparameters flag
      *
      * @access public
      * @return object(SyncObject)
      * @throws StatusException
      */
-    public function Fetch($folderid, $id, $mimesupport = 0) {
-        $msg = $this->GetMessage($folderid, $id, Utils::GetTruncSize(SYNC_TRUNCATION_ALL), $mimesupport);
+    public function Fetch($folderid, $id, $contentparameters) {
+        // override truncation
+        $contentparameters->SetTruncation(SYNC_TRUNCATION_ALL);
+        $msg = $this->GetMessage($folderid, $id, $contentparameters);
         if ($msg === false)
             throw new StatusException("BackendDiff->Fetch('%s','%s'): Error, unable retrieve message from backend", SYNC_STATUS_OBJECTNOTFOUND);
         return $msg;
@@ -941,15 +933,14 @@ abstract class BackendDiff extends Backend {
      * Tasks folder will not do anything. The SyncXXX objects should be filled with as much information as possible,
      * but at least the subject, body, to, from, etc.
      *
-     * @param string        $folderid       id of the parent folder
-     * @param string        $id             id of the message
-     * @param int           $truncsize      truncation size in bytes
-     * @param int           $mimesupport    output the mime message
+     * @param string            $folderid           id of the parent folder
+     * @param string            $id                 id of the message
+     * @param ContentParameters $contentparameters  parameters of the requested message (truncation, mimesupport etc)
      *
      * @access public
      * @return object/false                 false if the message could not be retrieved
      */
-    public abstract function GetMessage($folderid, $id, $truncsize, $mimesupport = 0);
+    public abstract function GetMessage($folderid, $id, $contentparameters);
 
     /**
      * Returns message stats, analogous to the folder stats from StatFolder().

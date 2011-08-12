@@ -96,7 +96,7 @@ abstract class Backend implements IBackend {
      * public function GetImporter($folderid = false);
      * public function GetExporter($folderid = false);
      * public function SendMail($rfc822, $forward = false, $reply = false, $parent = false, $saveInSent = true);
-     * public function Fetch($folderid, $id, $mimesupport = 0);
+     * public function Fetch($folderid, $id, $contentparameters);
      * public function GetWasteBasket();
      * public function GetAttachmentData($attname);
      * public function MeetingResponse($requestid, $folderid, $response);

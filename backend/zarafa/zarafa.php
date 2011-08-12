@@ -689,15 +689,15 @@ class BackendZarafa implements IBackend, ISearchProvider {
     /**
      * Returns all available data of a single message
      *
-     * @param string        $folderid
-     * @param string        $id
-     * @param string        $mimesupport flag
+     * @param string            $folderid
+     * @param string            $id
+     * @param ContentParameters $contentparameters flag
      *
      * @access public
      * @return object(SyncObject)
      * @throws StatusException
      */
-    public function Fetch($folderid, $id, $mimesupport = 0) {
+    public function Fetch($folderid, $id, $contentparameters) {
         // get the entry id of the message
         $entryid = mapi_msgstore_entryidfromsourcekey($this->store, hex2bin($folderid), hex2bin($id));
         if(!$entryid)
@@ -710,7 +710,11 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
         // convert the mapi message into a SyncObject and return it
         $mapiprovider = new MAPIProvider($this->session, $this->store);
-        return $mapiprovider->GetMessage($message, SYNC_TRUNCATION_ALL, $mimesupport);
+
+        // override truncation
+        $contentparameters->SetTruncation(SYNC_TRUNCATION_ALL);
+        // TODO check for body preferences
+        return $mapiprovider->GetMessage($message, $contentparameters);
     }
 
     /**

@@ -246,15 +246,14 @@ class BackendVCDir extends BackendDiff {
     /**
      * Returns the actual SyncXXX object type.
      *
-     * @param string        $folderid       id of the parent folder
-     * @param string        $id             id of the message
-     * @param int           $truncsize      truncation size in bytes
-     * @param int           $mimesupport    output the mime message
+     * @param string            $folderid           id of the parent folder
+     * @param string            $id                 id of the message
+     * @param ContentParameters $contentparameters  parameters of the requested message (truncation, mimesupport etc)
      *
      * @access public
      * @return object/false     false if the message could not be retrieved
      */
-    public function GetMessage($folderid, $id, $truncsize, $mimesupport = 0) {
+    public function GetMessage($folderid, $id, $contentparameters) {
         ZLog::Write(LOGLEVEL_DEBUG, 'VCDir::GetMessage('.$folderid.', '.$id.', ..)');
         if($folderid != "root")
             return;

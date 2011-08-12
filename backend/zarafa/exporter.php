@@ -58,7 +58,7 @@ class ExportChangesICS implements IExportChanges{
     private $store;
     private $session;
     private $restriction;
-    private $truncation;
+    private $contentparameters;
     private $flags;
     private $exporterflags;
     private $exporter;
@@ -152,24 +152,22 @@ class ExportChangesICS implements IExportChanges{
     }
 
     /**
-     * Sets additional parameters
+     * Configures additional parameters used for content synchronization
      *
-     * @param string        $mclass
-     * @param int           $restrict       FilterType
-     * @param int           $truncation     bytes
+     * @param ContentParameters         $contentparameters
      *
      * @access public
      * @return boolean
      * @throws StatusException
      */
-    // TODO eventually it's interesting to create a class which contains these kind of additional information (easier to extend!)
-    public function ConfigContentParameters($mclass, $restrict, $truncation) {
-        switch($mclass) {
+    public function ConfigContentParameters($contentparameters){
+        $filtertype = $contentparameters->GetFilterType();
+        switch($contentparameters->GetContentClass()) {
             case "Email":
-                $this->restriction = ($restrict || !Utils::CheckMapiExtVersion('7')) ? MAPIUtils::GetEmailRestriction(Utils::GetCutOffDate($restrict)) : false;
+                $this->restriction = ($filtertype || !Utils::CheckMapiExtVersion('7')) ? MAPIUtils::GetEmailRestriction(Utils::GetCutOffDate($filtertype)) : false;
                 break;
             case "Calendar":
-                $this->restriction = ($restrict || !Utils::CheckMapiExtVersion('7')) ? MAPIUtils::GetCalendarRestriction($this->store, Utils::GetCutOffDate($restrict)) : false;
+                $this->restriction = ($filtertype || !Utils::CheckMapiExtVersion('7')) ? MAPIUtils::GetCalendarRestriction($this->store, Utils::GetCutOffDate($filtertype)) : false;
                 break;
             default:
             case "Contacts":
@@ -178,8 +176,7 @@ class ExportChangesICS implements IExportChanges{
                 break;
         }
 
-        $this->restriction = $restrict;
-        $this->truncation = $truncation;
+        $this->contentParameters = $contentparameters;
     }
 
 
@@ -201,7 +198,7 @@ class ExportChangesICS implements IExportChanges{
 
         // this should never happen!
         if($this->exporter === false || !isset($this->statestream) || !isset($this->flags) || !isset($this->exporterflags) ||
-            ($this->folderid && (!isset($this->restriction)  || !isset($this->truncation))) )
+            ($this->folderid && !isset($this->contentParameters)) )
             throw new StatusException("ExportChangesICS->InitializeExporter(): Error, exporter or essential data not available", SYNC_FSSTATUS_CODEUNKNOWN, null, LOGLEVEL_ERROR);
 
         // PHP wrapper
@@ -209,8 +206,7 @@ class ExportChangesICS implements IExportChanges{
 
         // with a folderid we are going to get content
         if($this->folderid) {
-            // TODO this might be refactored into an own class, as more options will be necessary
-            $phpwrapper->ConfigContentParameters(false, false, $this->truncation);
+            $phpwrapper->ConfigContentParameters($this->contentParameters);
 
             // ICS c++ wrapper
             $mapiimporter = mapi_wrap_importcontentschanges($phpwrapper);

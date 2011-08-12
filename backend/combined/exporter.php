@@ -146,18 +146,17 @@ class ExportChangesCombined implements IExportChanges {
     /**
      * Configures additional parameters used for content synchronization
      *
-     * @param string        $mclass
-     * @param int           $restrict       FilterType
-     * @param int           $truncation     bytes
+     * @param ContentParameters         $contentparameters
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
-    public function ConfigContentParameters($mclass, $restrict, $truncation) {
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ExportChangesCombined->ConfigContentParameters('%s', '%d', '%d')", $mclass, $restrict, $truncation));
+    public function ConfigContentParameters($contentparameters) {
+        ZLog::Write(LOGLEVEL_DEBUG, "ExportChangesCombined->ConfigContentParameters()");
         foreach($this->exporters as $i => $e){
-            //call the ConfigContentParameters of each exporter
-            $e->ConfigContentParameters($mclass, $restrict, $truncation);
+            //call the ConfigContentParameters() of each exporter
+            $e->ConfigContentParameters($contentparameters);
         }
         ZLog::Write(LOGLEVEL_DEBUG, "ExportChangesCombined->ConfigContentParameters() success");
     }

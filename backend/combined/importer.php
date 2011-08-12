@@ -65,19 +65,19 @@ class ImportChangesCombined implements IImportChanges {
      * Loads objects which are expected to be exported with the state
      * Before importing/saving the actual message from the mobile, a conflict detection should be done
      *
-     * @param string        $mclass         class of objects
-     * @param int           $restrict       FilterType
-     * @param string        $state
+     * @param ContentParameters         $contentparameters         class of objects
+     * @param string                    $state
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
-    public function LoadConflicts($mclass, $filtertype, $state) {
+    public function LoadConflicts($contentparameters, $state) {
         if (!$this->icc) {
             ZLog::Write(LOGLEVEL_ERROR, "ImportChangesCombined->LoadConflicts() icc not configured");
             return false;
         }
-        $this->icc->LoadConflicts($mclass, $filtertype, $state);
+        $this->icc->LoadConflicts($contentparameters, $state);
     }
 
     /**

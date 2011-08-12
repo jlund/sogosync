@@ -69,17 +69,14 @@ class MAPIProvider {
      * Depending on the message class, a contact, appointment, task or email is read
      *
      * @param mixed             $mapimessage
-     * @param int               $truncflag
-     * @param int               $mimesupport
+     * @param ContentParameters $contentparameters
      *
-     * // TODO parameters might be refactored into an own class, as more options will be necessary
      * @access public
      * @return SyncObject
      */
-    public function GetMessage($mapimessage, $truncflag, $mimesupport = 0) {
+    public function GetMessage($mapimessage, $contentparameters) {
         // Gets the Sync object from a MAPI object according to its message class
 
-        $truncsize = Utils::GetTruncSize($truncflag);
         $props = mapi_getprops($mapimessage, array(PR_MESSAGE_CLASS));
         if(isset($props[PR_MESSAGE_CLASS]))
             $messageclass = $props[PR_MESSAGE_CLASS];
@@ -87,27 +84,25 @@ class MAPIProvider {
             $messageclass = "IPM";
 
         if(strpos($messageclass,"IPM.Contact") === 0)
-            return $this->getContact($mapimessage, $truncsize, $mimesupport);
+            return $this->getContact($mapimessage, $contentparameters);
         else if(strpos($messageclass,"IPM.Appointment") === 0)
-            return $this->getAppointment($mapimessage, $truncsize, $mimesupport);
+            return $this->getAppointment($mapimessage, $contentparameters);
         else if(strpos($messageclass,"IPM.Task") === 0)
-            return $this->getTask($mapimessage, $truncsize, $mimesupport);
+            return $this->getTask($mapimessage, $contentparameters);
         else
-            return $this->getEmail($mapimessage, $truncsize, $mimesupport);
+            return $this->getEmail($mapimessage, $contentparameters);
     }
 
     /**
      * Reads a contact object from MAPI
      *
      * @param mixed             $mapimessage
-     * @param int               $truncflag
-     * @param int               $mimesupport    (opt)
+     * @param ContentParameters $contentparameters
      *
-     * // TODO parameters might be refactored into an own class, as more options will be necessary
      * @access private
      * @return SyncContact
      */
-    private function getContact($mapimessage, $truncsize, $mimesupport = 0) {
+    private function getContact($mapimessage, $contentparameters) {
         $message = new SyncContact();
 
         // Standard one-to-one mappings first
@@ -141,14 +136,12 @@ class MAPIProvider {
      * Reads a task object from MAPI
      *
      * @param mixed             $mapimessage
-     * @param int               $truncflag
-     * @param int               $mimesupport    (opt)
+     * @param ContentParameters $contentparameters
      *
-     * // TODO parameters might be refactored into an own class, as more options will be necessary
      * @access private
      * @return SyncTask
      */
-    private function getTask($mapimessage, $truncsize, $mimesupport = 0) {
+    private function getTask($mapimessage, $contentparameters) {
         $message = new SyncTask();
 
         // Standard one-to-one mappings first
@@ -181,14 +174,12 @@ class MAPIProvider {
      * Reads an appointment object from MAPI
      *
      * @param mixed             $mapimessage
-     * @param int               $truncflag
-     * @param int               $mimesupport    (opt)
+     * @param ContentParameters $contentparameters
      *
-     * // TODO parameters might be refactored into an own class, as more options will be necessary
      * @access private
      * @return SyncAppointment
      */
-    private function getAppointment($mapimessage, $truncsize, $mimesupport = 0) {
+    private function getAppointment($mapimessage, $contentparameters) {
         $message = new SyncAppointment();
 
         // Standard one-to-one mappings first
@@ -430,14 +421,12 @@ class MAPIProvider {
      * Reads an email object from MAPI
      *
      * @param mixed             $mapimessage
-     * @param int               $truncflag
-     * @param int               $mimesupport    (opt)
+     * @param ContentParameters $contentparameters
      *
-     * // TODO parameters might be refactored into an own class, as more options will be necessary
      * @access private
      * @return SyncEmail
      */
-    private function getEmail($mapimessage, $truncsize, $mimesupport = 0) {
+    private function getEmail($mapimessage, $contentparameters) {
         $message = new SyncMail();
 
         $this->getPropsFromMAPI($message, $mapimessage, MAPIMapping::GetEmailMapping());
@@ -446,6 +435,7 @@ class MAPIProvider {
         $messageprops = $this->getProps($mapimessage, $emailproperties);
 
         // Override 'body' for truncation
+        $truncsize = Utils::GetTruncSize($contentparameters->GetTruncation());
         $body = mapi_openproperty($mapimessage, PR_BODY);
         if(strlen($body) > $truncsize) {
             $body = Utils::Utf8_truncate($body, $truncsize);
@@ -638,7 +628,7 @@ class MAPIProvider {
         if (!isset($message->body) || strlen($message->body) == 0)
             $message->body = " ";
 
-        if ($mimesupport == 2 && function_exists("mapi_inetmapi_imtoinet")) {
+        if ($contentparameters->GetMimeSupport() == 2 && function_exists("mapi_inetmapi_imtoinet")) {
             $addrBook = mapi_openaddressbook($this->session);
             $mstream = mapi_inetmapi_imtoinet($this->session, $addrBook, $mapimessage, array());
 

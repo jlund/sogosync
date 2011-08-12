@@ -311,8 +311,8 @@ class ChangesMemoryWrapper extends HierarchyCache implements IImportChanges, IEx
      * Implement interfaces which are never used
      */
     public function GetState() { return false;}
-    public function LoadConflicts($mclass, $filtertype, $state) { return true; }
-    public function ConfigContentParameters($mclass, $restrict, $truncation) { return true; }
+    public function LoadConflicts($contentparameters, $state) { return true; }
+    public function ConfigContentParameters($contentparameters) { return true; }
     public function ImportMessageReadFlag($id, $flags) { return true; }
     public function ImportMessageMove($id, $newfolder) { return true; }
 

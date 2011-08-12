@@ -273,21 +273,22 @@ class BackendCombined extends Backend {
     }
 
     /**
-     * Returns all available data of a single message from the right backend
+     * Returns all available data of a single message
      *
-     * @param string        $folderid
-     * @param string        $id
-     * @param string        $mimesupport flag
+     * @param string            $folderid
+     * @param string            $id
+     * @param ContentParameters $contentparameters flag
      *
      * @access public
      * @return object(SyncObject)
+     * @throws StatusException
      */
-    public function Fetch($folderid, $id, $mimesupport = 0){
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("Combined->Fetch('%s', '%s', '%s')", $folderid, $id, $mimesupport));
+    public function Fetch($folderid, $id, $contentparameters) {
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("Combined->Fetch('%s', '%s', CPO)", $folderid, $id));
         $backend = $this->GetBackend($folderid);
         if($backend == false)
             return false;
-        return $backend->Fetch($this->GetBackendFolder($folderid), $id, $mimesupport);
+        return $backend->Fetch($this->GetBackendFolder($folderid), $id, $contentparameters);
     }
 
     /**

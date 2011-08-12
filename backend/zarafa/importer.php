@@ -67,8 +67,7 @@ class ImportChangesICS implements IImportChanges {
     private $memChanges;
     private $mapiprovider;
     private $conflictsLoaded;
-    private $conflictsMclass;
-    private $conflictsFiltertype;
+    private $conflictsContentParameters;
     private $conflictsState;
 
     /**
@@ -191,25 +190,23 @@ class ImportChangesICS implements IImportChanges {
      */
 
     /**
-     * Loads objects which are expected to be exported with the current state
-     * Before importing/saving the actual message from the mobile, a conflict detection is done
+     * Loads objects which are expected to be exported with the state
+     * Before importing/saving the actual message from the mobile, a conflict detection should be done
      *
-     * @param string    $mclass         class of objects
-     * @param int       $restrict       FilterType
-     * @param string    $state
+     * @param ContentParameters         $contentparameters         class of objects
+     * @param string                    $state
      *
      * @access public
      * @return boolean
      * @throws StatusException
      */
-    public function LoadConflicts($mclass, $filtertype, $state) {
+    public function LoadConflicts($contentparameters, $state) {
         if (!isset($this->session) || !isset($this->store) || !isset($this->folderid))
             throw new StatusException("ImportChangesICS->LoadConflicts(): Error, can not load changes for conflict detection. Session, store or folder information not available", SYNC_STATUS_SERVERERROR);
 
         // save data to load changes later if necessary
         $this->conflictsLoaded = false;
-        $this->conflictsMclass = $mclass;
-        $this->conflictsFiltertype = $filtertype;
+        $this->conflictsContentParameters = $contentparameters;
         $this->conflictsState = $state;
 
         ZLog::Write(LOGLEVEL_DEBUG, "ImportChangesICS->LoadConflicts(): will be loaded later if necessary");
@@ -225,7 +222,7 @@ class ImportChangesICS implements IImportChanges {
      */
     private function lazyLoadConflicts() {
         if (!isset($this->session) || !isset($this->store) || !isset($this->folderid) ||
-            !isset($this->conflictsMclass) || !isset($this->conflictsFiltertype) || !isset($this->conflictsState)) {
+            !isset($this->conflictsContentParameters)) {
             ZLog::Write(LOGLEVEL_WARN, "ImportChangesICS->lazyLoadConflicts(): can not load potential conflicting changes in lazymode for conflict detection. Missing information");
             return false;
         }
@@ -236,7 +233,7 @@ class ImportChangesICS implements IImportChanges {
             // configure an exporter so we can detect conflicts
             $exporter = new ExportChangesICS($this->session, $this->store, $this->folderid);
             $exporter->Config($this->conflictsState);
-            $exporter->ConfigContentParameters($this->conflictsMclass, $this->conflictsFiltertype, 0);
+            $exporter->ConfigContentParameters($this->conflictsContentParameters);
             $exporter->InitializeExporter($this->memChanges);
             while(is_array($exporter->Synchronize()));
             $this->conflictsLoaded = true;

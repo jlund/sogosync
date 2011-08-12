@@ -291,17 +291,15 @@ interface IBackend {
     /**
      * Returns all available data of a single message
      *
-     * @param string        $folderid
-     * @param string        $id
-     * @param string        (opt)$mimesupport flag
-     *
-     *  //TODO $mimesupport should be refactored as more options will be necessary
+     * @param string            $folderid
+     * @param string            $id
+     * @param ContentParameters $contentparameters flag
      *
      * @access public
      * @return object(SyncObject)
      * @throws StatusException
      */
-    public function Fetch($folderid, $id, $mimesupport = 0);
+    public function Fetch($folderid, $id, $contentparameters);
 
     /**
      * Returns the waste basket
@@ -454,15 +452,14 @@ interface IImportChanges extends IChanges {
      * Loads objects which are expected to be exported with the state
      * Before importing/saving the actual message from the mobile, a conflict detection should be done
      *
-     * @param string        $mclass         class of objects
-     * @param int           $restrict       FilterType
-     * @param string        $state
+     * @param ContentParameters         $contentparameters
+     * @param string                    $state
      *
      * @access public
      * @return boolean
      * @throws StatusException
      */
-    public function LoadConflicts($mclass, $filtertype, $state);
+    public function LoadConflicts($contentparameters, $state);
 
     /**
      * Imports a single message
@@ -553,16 +550,13 @@ interface IExportChanges extends IChanges {
     /**
      * Configures additional parameters used for content synchronization
      *
-     * // TODO this might be refactored into an own class, as more options will be necessary
-     * @param string        $mclass
-     * @param int           $restrict       FilterType
-     * @param int           $truncation     bytes
+     * @param ContentParameters         $contentparameters
      *
      * @access public
      * @return boolean
      * @throws StatusException
      */
-    public function ConfigContentParameters($mclass, $restrict, $truncation);
+    public function ConfigContentParameters($contentparameters);
 
     /**
      * Sets the importer where the exporter will sent its changes to

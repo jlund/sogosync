@@ -848,16 +848,17 @@ class BackendIMAP extends BackendDiff {
     /**
      * Returns the actual SyncXXX object type.
      *
-     * @param string        $folderid       id of the parent folder
-     * @param string        $id             id of the message
-     * @param int           $truncsize      truncation size in bytes
-     * @param int           $mimesupport    output the mime message
+     * @param string            $folderid           id of the parent folder
+     * @param string            $id                 id of the message
+     * @param ContentParameters $contentparameters  parameters of the requested message (truncation, mimesupport etc)
      *
      * @access public
      * @return object/false     false if the message could not be retrieved
      */
-    public function GetMessage($folderid, $id, $truncsize, $mimesupport = 0) {
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("BackendIMAP->GetMessage('%s','%s','%s','%s')", $folderid,  $id, $truncsize, $mimesupport));
+    public function GetMessage($folderid, $id, $contentparameters) {
+        $truncsize = Utils::GetTruncSize($contentparameters->GetTruncation());
+        $mimesupport = $contentparameters->GetMimeSupport();
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("BackendIMAP->GetMessage('%s','%s')", $folderid,  $id));
 
         // Get flags, etc
         $stat = $this->StatMessage($folderid, $id);
