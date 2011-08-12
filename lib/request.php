@@ -76,7 +76,6 @@ class Request {
     static private $asProtocolVersion = "1.0";
     static private $policykey;
     static private $useragent;
-    static private $userIsAuthenticated;
 
     /**
      * Initializes request data
@@ -85,8 +84,6 @@ class Request {
      * @return
      */
     static public function Initialize() {
-        self::$userIsAuthenticated = false;
-
         // try to open stdin & stdout
         self::$input = fopen("php://input", "r");
         self::$output = fopen("php://output", "w+");
@@ -108,6 +105,8 @@ class Request {
         // TODO check IPv6 addresses
         if(isset($_SERVER["REMOTE_ADDR"]))
             self::$remoteAddr = self::filterEvilInput($_SERVER["REMOTE_ADDR"], self::NUMBERSDOT_ONLY);
+
+        //TODO AS 14 style query string
     }
 
     /**
@@ -131,7 +130,7 @@ class Request {
         else
             self::$policykey = 0;
 
-        ZLog::Write(LOGLEVEL_DEBUG, "Incoming policykey: " . self::$policykey);
+        ZLog::Write(LOGLEVEL_DEBUG, "Incoming PolicyKey: " . (self::wasPolicyKeySent() ? self::$policykey:'none'));
         ZLog::Write(LOGLEVEL_DEBUG, "Client supports version: " . self::$asProtocolVersion);
 
     }
@@ -287,28 +286,6 @@ class Request {
         else
             return false;
     }
-
-    /**
-     * Indicates if the user request was marked as "authenticated"
-     *
-     * @access public
-     * @return boolean
-     */
-    static public function isUserAuthenticated() {
-        return self::$userIsAuthenticated;
-    }
-
-    /**
-     * Marks the user request as "authenticated"
-     *
-     * @access public
-     * @return boolean
-     */
-    static public function ConfirmUserAuthentication() {
-        self::$userIsAuthenticated = true;
-        return true;
-    }
-
 
     /**
      * Returns the RemoteAddress
@@ -500,6 +477,48 @@ class RequestProcessor {
     static private $deviceManager;
     static private $decoder;
     static private $encoder;
+    static private $userIsAuthenticated;
+
+    /**
+     * Authenticates the remote user
+     * The sent HTTP authentication information is used to on Backend->Logon().
+     * As second stept the GET-User verified by Backend->Setup() for permission check
+     * Request::getGETUser() is usually the same as the Request::getAuthUser().
+     * If the GETUser is different from the AuthUser, the AuthUser MUST HAVE admin
+     * permissions on GETUsers data store. Only then the Setup() will be sucessfull.
+     * This allows the user 'john' to do operations as user 'joe' if he has sufficient privileges.
+     *
+     * @access public
+     * @return
+     * @throws AuthenticationRequiredException
+     */
+    static public function Authenticate() {
+        self::$userIsAuthenticated = false;
+
+        $backend = ZPush::GetBackend();
+        if($backend->Logon(Request::getAuthUser(), Request::getAuthDomain(), Request::getAuthPassword()) == false)
+            throw new AuthenticationRequiredException("Access denied. Username or password incorrect");
+
+        // mark this request as "authenticated"
+        self::$userIsAuthenticated = true;
+
+        // check Auth-User's permissions on GETUser's store
+        if($backend->Setup(Request::getGETUser(), true) == false)
+            throw new AuthenticationRequiredException(sprintf("Not enough privileges of '%s' to setup for user '%s': Permission denied", Request::getAuthUser(), Request::getGETUser()));
+    }
+
+    /**
+     * Indicates if the user was "authenticated"
+     *
+     * @access public
+     * @return boolean
+     */
+    static public function isUserAuthenticated() {
+        if (!isset(self::$userIsAuthenticated))
+            return false;
+        return self::$userIsAuthenticated;
+    }
+
 
     /**
      * Initialize the RequestProcessor
@@ -586,7 +605,7 @@ class RequestProcessor {
             case 'ResolveRecipients':
             case 'ValidateCert':
             default:
-                throw new FatalNotImplementedException("Command '$cmd' is not implemented");
+                throw new FatalNotImplementedException(sprintf("RequestProcessor::HandleRequest(): Command '%s' is not implemented", Request::getCommand()));
                 break;
         }
 
@@ -1598,11 +1617,14 @@ class RequestProcessor {
 
         $collections = array();
         $lifetime = 0;
+        $policykey = 0;
 
         // TODO all active PING requests should be logged and terminate themselfs (e.g. volatile devicedata!!)
 
         // Get previous pingdata, if available
-        list($collections, $lifetime) = self::$deviceManager->GetPingState();
+        list($collections, $lifetime, $policykey) = self::$deviceManager->GetPingState();
+
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandlePing(): reference PolicyKey for PING: %s", $policykey));
 
         if(self::$decoder->getElementStartTag(SYNC_PING_PING)) {
             ZLog::Write(LOGLEVEL_DEBUG, "HandlePing(): initialization data received");
@@ -1685,8 +1707,8 @@ class RequestProcessor {
             // Wait for something to happen
             for($n=0;$n<$lifetime / $timeout; $n++ ) {
                 // Check if provisioning is necessary
-                // TODO this could be done over a ProvisioningRequiredException
-                if (PROVISIONING === true && Request::wasPolicyKeySent() && self::$deviceManager->ProvisioningRequired(Request::getPolicyKey())) {
+                // if a PolicyKey was sent use it. If not, compare with the PolicyKey from the last PING request
+                if (PROVISIONING === true && self::$deviceManager->ProvisioningRequired((Request::wasPolicyKeySent() ? Request::getPolicyKey(): $policykey), false)) {
                     // the hierarchysync forces provisioning
                     $pingstatus = SYNC_PINGSTATUS_FOLDERHIERSYNCREQUIRED;
                     break;
@@ -2107,16 +2129,16 @@ class RequestProcessor {
      * @return boolean
      */
     static private function HandleProvision() {
-        // TODO HandleProvision is broken, due changed API
-        return false;
-
-        $devid = Request::getDeviceID();
-        $user = Request::getAuthUser();
-        $auth_pw = Request::getAuthPassword();
-
         $status = SYNC_PROVISION_STATUS_SUCCESS;
-        $rwstatus = self::$backend->getDeviceRWStatus($user, $auth_pw, $devid);
+
+        $rwstatus = self::$deviceManager->GetProvisioningWipeStatus();
         $rwstatusWiped = false;
+
+        // if this is a regular provisioning require that an authenticated remote user
+        if ($rwstatus < SYNC_PROVISION_RWSTATUS_PENDING) {
+            ZLog::Write(LOGLEVEL_DEBUG, "RequestProcessor::HandleProvision(): Forcing delayed Authentication");
+            self::Authenticate();
+        }
 
         $phase2 = true;
 
@@ -2151,7 +2173,7 @@ class RequestProcessor {
                 return false;
 
             $policytype = self::$decoder->getElementContent();
-            if ($policytype != 'MS-WAP-Provisioning-XML') {
+            if ($policytype != 'MS-WAP-Provisioning-XML' && $policytype != 'MS-EAS-Provisioning-WBXML') {
                 $status = SYNC_PROVISION_STATUS_SERVERERROR;
             }
             if(!self::$decoder->getElementEndTag()) //policytype
@@ -2202,22 +2224,15 @@ class RequestProcessor {
 
         self::$encoder->StartWBXML();
 
-        //set the new final policy key in the backend
+        //set the new final policy key in the device manager
         // START ADDED dw2412 Android provisioning fix
-        //in case the send one does not match the one already in backend. If it matches, we
-        //just return the already defined key. (This helps at least the RoadSync 5.0 Client to sync)
-        if (self::$backend->CheckPolicy($policykey,$devid) == SYNC_PROVISION_STATUS_SUCCESS) {
-            ZLog::Write(LOGLEVEL_INFO, "Policykey is OK! Will not generate a new one!");
+        if (!$phase2) {
+            $policykey = self::$deviceManager->GenerateProvisioningPolicyKey();
+            self::$deviceManager->SetProvisioningPolicyKey($policykey);
         }
         else {
-            if (!$phase2) {
-                $policykey = self::$backend->generatePolicyKey();
-                self::$backend->SetPolicyKey($policykey, $devid);
-            }
-            else {
-                // just create a temporary key (i.e. iPhone OS4 Beta does not like policykey 0 in response)
-                $policykey = self::$backend->GeneratePolicyKey();
-            }
+            // just create a temporary key (i.e. iPhone OS4 Beta does not like policykey 0 in response)
+            $policykey = self::$deviceManager->GenerateProvisioningPolicyKey();
         }
         // END ADDED dw2412 Android provisioning fix
 
@@ -2249,6 +2264,11 @@ class RequestProcessor {
                     if ($policytype == 'MS-WAP-Provisioning-XML') {
                         self::$encoder->content('<wap-provisioningdoc><characteristic type="SecurityPolicy"><parm name="4131" value="1"/><parm name="4133" value="1"/></characteristic></wap-provisioningdoc>');
                     }
+                    elseif ($policytype == 'MS-EAS-Provisioning-WBXML') {
+                        self::$encoder->startTag(SYNC_PROVISION_EASPROVISIONDOC);
+                            self::$deviceManager->GetProvisioningObject()->encode(self::$encoder);
+                        self::$encoder->endTag();
+                    }
                     else {
                         ZLog::Write(LOGLEVEL_WARN, "Wrong policy type");
                         return false;
@@ -2260,10 +2280,10 @@ class RequestProcessor {
             self::$encoder->endTag(); //policies
         }
 
-        //wipe data if status is pending or wiped
-        if ($rwstatus == SYNC_PROVISION_RWSTATUS_PENDING || $rwstatus == SYNC_PROVISION_RWSTATUS_WIPED) {
+        //wipe data if a higher RWSTATUS is requested
+        if ($rwstatus > SYNC_PROVISION_RWSTATUS_OK) {
             self::$encoder->startTag(SYNC_PROVISION_REMOTEWIPE, false, true);
-            self::$backend->setDeviceRWStatus($user, $auth_pw, $devid, ($rwstatusWiped)?SYNC_PROVISION_RWSTATUS_WIPED:SYNC_PROVISION_RWSTATUS_PENDING);
+            self::$deviceManager->SetProvisioningWipeStatus(($rwstatusWiped)?SYNC_PROVISION_RWSTATUS_WIPED:SYNC_PROVISION_RWSTATUS_REQUESTED);
         }
 
         self::$encoder->endTag();//provision

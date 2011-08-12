@@ -79,6 +79,11 @@ class ASDevice {
     const USERAGENT = 10;
     const USERAGENTHISTORY = 11;
     const SUPPORTEDFIELDS = 12;
+    const WIPESTATUS = 13;
+    const WIPEREQBY = 14;
+    const WIPEREQON = 15;
+    const WIPEACTIONON = 16;
+
     const FOLDERUUID = 1;
     const FOLDERTYPE = 2;
     const FOLDERSUPPORTEDFIELDS = 3;
@@ -98,6 +103,14 @@ class ASDevice {
     private $lastupdatetime;
     private $useragent;
     private $useragentHistory;
+
+    private $wipeStatus;
+    private $wipeReqBy;
+    private $wipeReqOn;
+    private $wipeActionOn;
+
+    // used to track changes in the WIPESTATUS even if user is not authenticated
+    private $forceSave;
 
     /**
      * AS Device constructor
@@ -121,6 +134,13 @@ class ASDevice {
         $this->lastupdatetime = 0;
         $this->policies = array();
         $this->changed = true;
+        $this->wipeStatus = SYNC_PROVISION_RWSTATUS_NA;
+        $this->wipeReqBy = false;
+        $this->wipeReqOn = false;
+        $this->wipeActionOn = false;
+
+        $this->forceSave = false;
+
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("ASDevice initialized for DeviceID '%s'", $devid));
     }
 
@@ -146,8 +166,33 @@ class ASDevice {
             $this->contentData          = $data[$this->user][self::CONTENTDATA];
             $this->useragent            = $data[$this->user][self::USERAGENT];
             $this->useragentHistory     = $data[$this->user][self::USERAGENTHISTORY];
+            $this->wipeStatus           = $data[$this->user][self::WIPESTATUS];
+            $this->wipeReqBy            = $data[$this->user][self::WIPEREQBY];
+            $this->wipeReqOn            = $data[$this->user][self::WIPEREQON];
+            $this->wipeActionOn         = $data[$this->user][self::WIPEACTIONON];
 
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("ASDevice data loaded for user: '%s'", $this->user));
+        }
+
+        // check if RWStatus from another user on same device may require action
+        if ($data > SYNC_PROVISION_RWSTATUS_OK) {
+            foreach ($data as $user=>$userdata) {
+                if ($user == $this->user) continue;
+
+                // another user has a required action on this device
+                if (isset($userdata[self::WIPESTATUS]) && $userdata[self::WIPESTATUS] > SYNC_PROVISION_RWSTATUS_OK) {
+                    ZLog::Write(LOGLEVEL_INFO, sprintf("User '%s' has requested a remote wipe for this device on %s. Request is still active and will be executed now!", $userdata[self::WIPEREQBY], strftime("%Y-%m-%d %H:%M", $userdata[self::WIPEREQON])));
+
+                    // reset status to PENDING if wipe was executed before
+                    $this->wipeStatus =  ($userdata[self::WIPESTATUS] & SYNC_PROVISION_RWSTATUS_WIPED)?SYNC_PROVISION_RWSTATUS_PENDING:$userdata[self::WIPESTATUS];
+                    $this->wipeReqBy =  $userdata[self::WIPEREQBY];
+                    $this->wipeReqOn =  $userdata[self::WIPEREQON];
+                    $this->wipeActionOn = $userdata[self::WIPEACTIONON];
+
+                    $this->changed = true;
+                    break;
+                }
+            }
         }
 
         $this->loadedData = $data;
@@ -174,15 +219,43 @@ class ASDevice {
             if (isset($this->contentData))      $userdata[self::CONTENTDATA]        = $this->contentData;
             if (isset($this->useragent))        $userdata[self::USERAGENT]          = $this->useragent;
             if (isset($this->useragentHistory)) $userdata[self::USERAGENTHISTORY]   = $this->useragentHistory;
+            if (isset($this->wipeStatus))       $userdata[self::WIPESTATUS]         = $this->wipeStatus;
+            if (isset($this->wipeReqBy))        $userdata[self::WIPEREQBY]          = $this->wipeReqBy;
+            if (isset($this->wipeReqOn))        $userdata[self::WIPEREQON]          = $this->wipeReqOn;
+            if (isset($this->wipeActionOn))     $userdata[self::WIPEACTIONON]       = $this->wipeActionOn;
 
             if (!isset($this->loadedData))
                 $this->loadedData = array();
 
             $this->loadedData[$this->user] = $userdata;
+
+            // check if RWStatus has to be updated for other users on same device
+            if (isset($this->wipeStatus) && $this->wipeStatus > SYNC_PROVISION_RWSTATUS_OK) {
+                foreach ($this->loadedData as $user=>$userdata) {
+                    if ($user == $this->user) continue;
+                    if (isset($this->wipeStatus))       $userdata[self::WIPESTATUS]         = $this->wipeStatus;
+                    if (isset($this->wipeReqBy))        $userdata[self::WIPEREQBY]          = $this->wipeReqBy;
+                    if (isset($this->wipeReqOn))        $userdata[self::WIPEREQON]          = $this->wipeReqOn;
+                    if (isset($this->wipeActionOn))     $userdata[self::WIPEACTIONON]       = $this->wipeActionOn;
+                    $this->loadedData[$user] = $userdata;
+                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("Updated remote wipe status for user '%s' on the same device", $user));
+                }
+            }
+
             return $this->loadedData;
         }
         else
             return false;
+    }
+
+   /**
+     * Indicates if changed device should be saved even if user is not authenticated
+     *
+     * @access public
+     * @return boolean
+     */
+    public function forceSave() {
+        return $this->forceSave;
     }
 
     /**
@@ -239,6 +312,43 @@ class ASDevice {
     }
 
    /**
+     * Returns the current remote wipe status
+     *
+     * @access public
+     * @return int
+     */
+    public function getWipeStatus() {
+        if (isset($this->wipeStatus))
+            return $this->wipeStatus;
+        else
+            return SYNC_PROVISION_RWSTATUS_NA;
+    }
+
+
+   /**
+     * Sets the current remote wipe status
+     *
+     * @param int       $status
+     * @access public
+     * @return int
+     */
+    public function setWipeStatus($status) {
+        // force saving the updated information if there was a transition between the wiping status
+        if ($this->wipeStatus > SYNC_PROVISION_RWSTATUS_OK && $status > SYNC_PROVISION_RWSTATUS_OK)
+            $this->forceSave = true;
+
+        $this->wipeStatus = $status;
+        $this->wipeActionOn = time();
+        $this->changed = true;
+
+        if ($this->wipeStatus > SYNC_PROVISION_RWSTATUS_PENDING)
+            ZLog::Write(LOGLEVEL_INFO, sprintf("ASDevice id '%s' was %s remote wiped on %s. Action requested by user '%s' on %s",
+                                        $this->devid, ($this->wipeStatus == SYNC_PROVISION_RWSTATUS_REQUESTED ? "requested to be": "sucessfully"),
+                                        strftime("%Y-%m-%d %H:%M", $this->wipeActionOn), $this->wipeReqBy, strftime("%Y-%m-%d %H:%M", $this->wipeReqOn)));
+    }
+
+
+   /**
      * Returns the deployed policy key
      * if none is deployed, it returns 0
      *
@@ -255,14 +365,25 @@ class ASDevice {
    /**
      * Sets the deployed policy key
      *
-     * @access public
-     * @return int
+     * @param long      $policykey
+     *
+     * @access int
+     * @return
      */
     public function setPolicyKey($policykey) {
         $this->policykey = $policykey;
         $this->changed = true;
     }
 
+   /**
+     * Gets policies
+     *
+     * @access public
+     * @return array
+     */
+    public function getPolicies() {
+        return $this->policies;
+    }
 
     /**----------------------------------------------------------------------------------------------------------
      * HierarchyCache and ContentData operations
@@ -472,6 +593,7 @@ class DeviceManager {
     public function DeviceManager() {
         $this->statemachine = ZPush::GetStateMachine();
         $this->exceptions = array();
+        $this->deviceHash = false;
         $this->devid = Request::getDeviceID();
 
         // only continue if deviceid is set
@@ -500,7 +622,8 @@ class DeviceManager {
         try {
             $deviceHash = $this->statemachine->GetStateHash($this->devid, IStateMachine::DEVICEDATA);
             if ($deviceHash != $this->deviceHash) {
-                ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->loadDeviceData(): Device data was changed, reloading");
+                if ($this->deviceHash)
+                    ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->loadDeviceData(): Device data was changed, reloading");
                 $this->device->setData($this->statemachine->GetState($this->devid, IStateMachine::DEVICEDATA));
                 $this->deviceHash = $deviceHash;
             }
@@ -551,22 +674,22 @@ class DeviceManager {
         // update the user agent to the device
         $this->device->setUserAgent(Request::getUserAgent());
 
-        if (Request::isUserAuthenticated() && Request::isValidDeviceID()) {
+        // data to be saved
+        $data = $this->device->getData();
+        if ($data && Request::isValidDeviceID()) {
+            ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->save(): Device data changed");
+
             try {
-                // check if this is the first time the device data is saved. If so, link the user to the device id
-                if ($this->device->getLastUpdateTime() == 0) {
+                // check if this is the first time the device data is saved and it is authenticated. If so, link the user to the device id
+                if ($this->device->getLastUpdateTime() == 0 && RequestProcessor::isUserAuthenticated()) {
                     ZLog::Write(LOGLEVEL_INFO, sprintf("Linking device ID '%s' to user '%s'", $this->devid, $this->device->getDeviceUser()));
                     $this->statemachine->LinkUserDevice($this->device->getDeviceUser(), $this->devid);
                 }
 
-                $data = $this->device->getData();
-                if ($data) {
-                    ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->save(): DeviceData changed and to be saved!");
+                if (RequestProcessor::isUserAuthenticated() || $this->device->forceSave() ) {
                     $this->statemachine->SetState($data, $this->devid, IStateMachine::DEVICEDATA);
+                    ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->save(): Device data saved");
                 }
-                else
-                    ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->save(): NO data/updates to be saved!");
-
             }
             catch (StateNotFoundException $snfex) {
                 ZLog::Write(LOGLEVEL_ERROR, "DeviceManager->save(): Exception: ". $snfex->getMessage());
@@ -584,14 +707,24 @@ class DeviceManager {
      * saved for the device
      *
      * @param string        $policykey
+     * @param boolean       $noDebug        (opt) by default, debug message is shown
      *
      * @access public
      * @return boolean
      */
-    public function ProvisioningRequired($policykey) {
-        return false;
-        // TODO implement PROVISIONING command before commenting this in!
-        return ($policykey == 0 || $policykey != $this->device->getPolicyKey());
+    public function ProvisioningRequired($policykey, $noDebug = false) {
+        $this->loadDeviceData();
+
+        // check if a remote wipe is required
+        if ($this->device->getWipeStatus() > SYNC_PROVISION_RWSTATUS_OK) {
+            ZLog::Write(LOGLEVEL_INFO, sprintf("DeviceManager->ProvisioningRequired('%s'): YES, remote wipe requested", $policykey));
+            return true;
+        }
+
+        $p = ($policykey == 0 || $policykey != $this->device->getPolicyKey());
+        if (!$noDebug || $p)
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->ProvisioningRequired('%s') saved device key '%s': %s", $policykey, $this->device->getPolicyKey(), Utils::PrintAsString($p)));
+        return $p;
     }
 
     /**
@@ -600,31 +733,64 @@ class DeviceManager {
      * @access public
      * @return int
      */
-    public function GeneratePolicyKey() {
+    public function GenerateProvisioningPolicyKey() {
         return mt_rand(1000000000, 9999999999);
     }
 
     /**
      * Attributes a provisioned policykey to a device
      *
-     * @param string        $policykey
+     * @param int           $policykey
      *
      * @access public
      * @return boolean      status
      */
-    public function SetPolicyKey($policykey) {
+    public function SetProvisioningPolicyKey($policykey) {
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->SetPolicyKey('%s')", $policykey));
         return $this->device->setPolicyKey($policykey);
     }
 
+    /**
+     * Builds a Provisioning SyncObject with policies
+     *
+     * @access public
+     * @return SyncProvisioning
+     */
+    public function GetProvisioningObject() {
+        $p = new SyncProvisioning();
+        // TODO load systemwide Policies
+        $p->Load($this->device->getPolicies());
+        return $p;
+    }
 
-    // TODO Refactor/remove! <<<END
-    function getDeviceRWStatus($user, $pass, $devid) {
+    /**
+     * Returns the status of the remote wipe policy
+     *
+     * @access public
+     * @return int          returns the current status of the device - SYNC_PROVISION_RWSTATUS_*
+     */
+    public function GetProvisioningWipeStatus() {
+        return $this->device->getWipeStatus();
+    }
+
+    /**
+     * Updates the status of the remote wipe
+     *
+     * @param int           $status - SYNC_PROVISION_RWSTATUS_*
+     *
+     * @access public
+     * @return boolean      could fail if trying to update status to a wipe status which was not requested before
+     */
+    public function SetProvisioningWipeStatus($status) {
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ASDevice->setWipeStatus() change from '%d' to '%d'",$this->device->getWipeStatus(), $status));
+
+        if ($status > SYNC_PROVISION_RWSTATUS_OK && !($this->device->getWipeStatus() > SYNC_PROVISION_RWSTATUS_OK)) {
+            ZLog::Write(LOGLEVEL_ERROR, "Not permitted to update remote wipe status to a higher value as remote wipe was not initiated!");
+            return false;
+        }
+        $this->device->setWipeStatus($status);
         return true;
     }
-    function setDeviceRWStatus($user, $pass, $devid, $status) {
-        return true;
-    }
-    //END
 
     /**----------------------------------------------------------------------------------------------------------
      * State Stuff
@@ -664,7 +830,7 @@ class DeviceManager {
      * Returns the pingstate for a device
      *
      * @access public
-     * @return array        array keys: "lifetime", "collections"
+     * @return array        array keys: "lifetime", "collections", "policykey"
      */
     public function GetPingState() {
         $collections = array();
@@ -676,11 +842,12 @@ class DeviceManager {
                 $ping = unserialize($data);
                 $lifetime = $ping["lifetime"];
                 $collections = $ping["collections"];
+                $policykey = $ping["policykey"];
             }
         }
         catch (StateNotFoundException $ex) {}
 
-        return array($collections, $lifetime);
+        return array($collections, $lifetime, $policykey);
     }
 
     /**
@@ -693,7 +860,8 @@ class DeviceManager {
      * @return boolean
      */
     public function SetPingState($collections, $lifetime) {
-        return $this->statemachine->SetState(serialize(array("lifetime" => $lifetime, "collections" => $collections)), $this->devid, IStateMachine::PINGDATA, $this->device->getFirstSyncTime());
+        return $this->statemachine->SetState(serialize(array("lifetime" => $lifetime, "collections" => $collections, "policykey" => $this->device->getPolicyKey())),
+                                             $this->devid, IStateMachine::PINGDATA, $this->device->getFirstSyncTime());
     }
 
     /**

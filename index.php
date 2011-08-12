@@ -91,43 +91,28 @@ include_once('version.php');
         if(Request::isMethodPOST() && (!Request::getCommand() || !Request::getGETUser() || !Request::getDeviceID() || !Request::getDeviceType()))
             throw new FatalException("Requested the Z-Push URL without the required GET parameters");
 
-        // Load our backend drivers
+        // Load the backend
         $backend = ZPush::GetBackend();
 
-        // most commands need authentication
-        if (ZPush::CommandNeedsAuthentication(Request::getCommand())) {
-            if (! Request::AuthenticationInfo())
-                throw new AuthenticationRequiredException("Access denied. Please send authorisation information");
-
-            if($backend->Logon(Request::getAuthUser(), Request::getAuthDomain(), Request::getAuthPassword()) == false)
-                throw new AuthenticationRequiredException("Access denied. Username or password incorrect");
-
-            // mark this request as "authenticated"
-            Request::ConfirmUserAuthentication();
-
-            // do Backend->Setup() for permission check
-            // Request::getGETUser() is usually the same as the Request::getAuthUser().
-            // If the GETUser is different from the AuthUser, the AuthUser MUST HAVE admin
-            // permissions on GETUser store. Only then the Setup() will be sucessfull.
-            // This allows the user 'john' do operations as user 'joe' if he has sufficient privileges.
-            if($backend->Setup(Request::getGETUser(), true) == false)
-                throw new AuthenticationRequiredException(sprintf("Not enough privileges of '%s' to setup for user '%s': Permission denied", Request::getAuthUser(), Request::getGETUser()));
-        }
-
-        // Do the actual processing of the request
-        if (Request::isMethodGET())
-            throw new NoPostRequestException("This is the Z-Push location and can only be accessed by Microsoft ActiveSync-capable devices", NoPostRequestException::GET_REQUEST);
-
-        // Get the DeviceManager
-        $deviceManager = ZPush::GetDeviceManager();
+        // always request the authorization header
+        if (! Request::AuthenticationInfo())
+            throw new AuthenticationRequiredException("Access denied. Please send authorisation information");
 
         // check the provisioning information
         if (PROVISIONING === true && Request::isMethodPOST() && ZPush::CommandNeedsProvisioning(Request::getCommand()) &&
-            $deviceManager->ProvisioningRequired(Request::getPolicyKey()) &&
+            ((Request::wasPolicyKeySent() && Request::getPolicyKey() == 0) || ZPush::GetDeviceManager()->ProvisioningRequired(Request::getPolicyKey())) &&
             (LOOSE_PROVISIONING === false ||
             (LOOSE_PROVISIONING === true && Request::wasPolicyKeySent())))
             //TODO for AS 14 send a wbxml response
             throw new ProvisioningRequiredException();
+
+        // most commands require an authenticated user
+        if (ZPush::CommandNeedsAuthentication(Request::getCommand()))
+            RequestProcessor::Authenticate();
+
+        // Do the actual processing of the request
+        if (Request::isMethodGET())
+            throw new NoPostRequestException("This is the Z-Push location and can only be accessed by Microsoft ActiveSync-capable devices", NoPostRequestException::GET_REQUEST);
 
         // Do the actual request
         header(ZPush::getServerHeader());
@@ -142,7 +127,7 @@ include_once('version.php');
 
         // log amount of data transferred
         // TODO check $len when streaming more data (e.g. Attachments), as the data will be send chunked
-        $deviceManager->sentData($len);
+        ZPush::GetDeviceManager()->sentData($len);
 
         // Unfortunately, even though Z-Push can stream the data to the client
         // with a chunked encoding, using chunked encoding breaks the progress bar
@@ -201,9 +186,9 @@ include_once('version.php');
         }
     }
 
-    // save device data anyway
-    if (isset($deviceManager))
-        $deviceManager->save();
+    // save device data if the DeviceManager is available
+    if (ZPush::GetDeviceManager(false))
+        ZPush::GetDeviceManager()->save();
 
     // end gracefully
     ZLog::Write(LOGLEVEL_INFO, '-------- End');

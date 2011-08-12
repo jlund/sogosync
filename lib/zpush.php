@@ -62,22 +62,25 @@ class ZPush {
                                             'GetAttachment' => false,
                                             'GetHierarchy' => array(self::HIERARCHYCOMMAND),
                                             // TODO: CreateCollection, DeleteCollection and MoveCollection should be self::HIERARCHYCOMMAND ... ?
-                                            'CreateCollection' => false,
-                                            'DeleteCollection' => false,
-                                            'MoveCollection' => false,
+                                            'CreateCollection' => false,                                        // deprecated
+                                            'DeleteCollection' => false,                                        // deprecated
+                                            'MoveCollection' => false,                                          // deprecated
                                             'FolderSync' => array(self::HIERARCHYCOMMAND),
                                             'FolderCreate' => array(self::HIERARCHYCOMMAND),
                                             'FolderDelete' => array(self::HIERARCHYCOMMAND),
                                             'FolderUpdate' => array(self::HIERARCHYCOMMAND),
                                             'MoveItems' => false,
-                                            'GetItemEstimate' => false,
+                                            'GetItemEstimate' => false,                                         // deprecated
                                             'MeetingResponse' => false,
                                             'ResolveRecipients' => false,
                                             'ValidateCert' => false,
                                             'Provision' => array(self::UNAUTHENTICATED, self::UNPROVISIONED),
                                             'Search' => false,
                                             'Ping' => array(self::UNPROVISIONED),
-                                            'Notify' => false,
+                                            'Notify' => false,                                                  //deprecated
+                                            //'ItemOperations' => false,
+                                            //'Settings' => false,
+                                            //'Autodiscover' => false,
                                           );
 
     static private $classes = array("Email"     => array(
@@ -254,16 +257,17 @@ class ZPush {
     /**
      * Returns the DeviceManager object
      *
+     * @param boolean   $initialize     (opt) default true: initializes the DeviceManager if not already done
+     *
      * @access public
      * @return object DeviceManager
      */
-    static public function GetDeviceManager() {
-        if (!isset(ZPush::$deviceManager))
+    static public function GetDeviceManager($initialize = true) {
+        if (!isset(ZPush::$deviceManager) && $initialize)
             ZPush::$deviceManager = new DeviceManager();
 
         return ZPush::$deviceManager;
     }
-
 
     /**
      * Returns the SearchProvider object
