@@ -716,18 +716,20 @@ class RequestProcessor {
             }
 
             // Get our sync state for this collection
-            try {
-                $collection["syncstate"] = self::$deviceManager->GetSyncState($collection["synckey"]);
+            if ($status == SYNC_STATUS_SUCCESS) {
+                try {
+                    $collection["syncstate"] = self::$deviceManager->GetSyncState($collection["synckey"]);
 
-                // if this is an additional folder the backend has to be setup correctly
-                if (!self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore($collection["collectionid"])))
-                    throw new StatusException(sprintf("HandleSync() could not Setup() the backend for folder id '%s'", $collection["collectionid"]), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
-            }
-            catch (StateNotFoundException $snfex) {
-                $status = SYNC_STATUS_INVALIDSYNCKEY;
-            }
-            catch (StatusException $stex) {
-               $status = $stex->getCode();
+                    // if this is an additional folder the backend has to be setup correctly
+                    if (!self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore($collection["collectionid"])))
+                        throw new StatusException(sprintf("HandleSync() could not Setup() the backend for folder id '%s'", $collection["collectionid"]), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
+                }
+                catch (StateNotFoundException $snfex) {
+                    $status = SYNC_STATUS_INVALIDSYNCKEY;
+                }
+                catch (StatusException $stex) {
+                   $status = $stex->getCode();
+                }
             }
 
             if(self::$decoder->getElementStartTag(SYNC_PERFORM)) {

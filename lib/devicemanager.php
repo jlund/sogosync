@@ -543,6 +543,26 @@ class DeviceManager {
         return $this->device->getSupportedFields($folderid);
     }
 
+    /**
+     * Removes all linked states from a device.
+     * During next requests a full resync is triggered.
+     *
+     * @access public
+     * @return boolean
+     */
+    public function ForceFullResync() {
+        ZLog::Write(LOGLEVEL_INFO, "Full device resync requested");
+
+        // delete hierarchy states
+        $this->unLinkState(false);
+
+        // delete all other uuids
+        foreach ($this->device->getAllFolderIds() as $folderid)
+            $uuid = $this->unLinkState($folderid);
+
+        return true;
+    }
+
     /**----------------------------------------------------------------------------------------------------------
      * private DeviceManager methods
      */
@@ -635,6 +655,8 @@ class DeviceManager {
         if ($savedUuid) {
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->unLinkState('%s'): saved state '%s' is obsolete as folder was deleted on device. Old state files will be deleted.", $folderid, $savedUuid));
             $this->statemachine->CleanStates($this->devid, $savedUuid, self::FIXEDHIERARCHYCOUNTER *2);
+            if ($folderid === false && $savedUuid !== false)
+                $this->statemachine->CleanStates($this->devid, $savedUuid. "-hc", self::FIXEDHIERARCHYCOUNTER *2);
         }
         // delete this id from the uuid cache
         return $this->device->setFolderUUID(false, $folderid);

@@ -424,6 +424,18 @@ class ASDevice {
     }
 
    /**
+     * Returns all known folderids
+     *
+     * @access public
+     * @return array
+     */
+    public function getAllFolderIds() {
+        if (isset($this->contentData) && is_array($this->contentData))
+            return array_keys($this->contentData);
+        return false;
+    }
+
+   /**
      * Returns a linked UUID for a folder id
      *
      * @param string        $folderid       (opt) if not set, Hierarchy UUID is returned
