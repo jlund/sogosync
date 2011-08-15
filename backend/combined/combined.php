@@ -44,9 +44,9 @@
 ************************************************/
 
 //include the CombinedBackend's own config file
-require_once("config.php");
-require_once("importer.php");
-require_once("exporter.php");
+require_once("backend/combined/config.php");
+require_once("backend/combined/importer.php");
+require_once("backend/combined/exporter.php");
 
 class BackendCombined extends Backend {
     public $config;
@@ -62,6 +62,8 @@ class BackendCombined extends Backend {
         $this->config = BackendCombinedConfig::GetBackendCombinedConfig();
 
         foreach ($this->config['backends'] as $i => $b){
+            // load and instatiate backend
+            ZPush::IncludeBackend($b['name']);
             $this->backends[$i] = new $b['name']($b['config']);
         }
         ZLog::Write(LOGLEVEL_INFO, sprintf("Combined %d backends loaded.", count($this->backends)));

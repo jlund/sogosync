@@ -53,8 +53,8 @@
 * Consult LICENSE file for details
 ************************************************/
 
-include_once('diffbackend.php');
-include_once('mimeDecode.php');
+include_once('lib/diffbackend.php');
+include_once('include/mimeDecode.php');
 
 
 class BackendMaildir extends BackendDiff {

@@ -3,7 +3,7 @@
 * File      :   searchldap/config.php
 * Project   :   Z-Push
 * Descr     :   configuration file for the
-*               SearchLDAP backend.
+*               BackendSearchLDAP backend.
 *
 * Created   :   03.08.2010
 *

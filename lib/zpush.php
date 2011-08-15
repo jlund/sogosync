@@ -140,20 +140,6 @@ class ZPush {
         if (version_compare(phpversion(),'5.1.0') < 0)
             throw new FatalException("The configured PHP version is too old. Please make sure at least PHP 5.1 is used.");
 
-        // set time zone
-        // code contributed by Robert Scheck (rsc) - more information: https://developer.berlios.de/mantis/view.php?id=479
-        if(function_exists("date_default_timezone_set")) {
-            if(defined('TIMEZONE') ? constant('TIMEZONE') : false) {
-                if (! @date_default_timezone_set(TIMEZONE))
-                    throw new FatalMisconfigurationException("The configured TIMEZONE is not valid. Please check supported timezones at http://www.php.net/manual/en/timezones.php");
-
-            }
-            else if(!ini_get('date.timezone')) {
-                date_default_timezone_set('Europe/Amsterdam');
-            }
-            ZLog::Write(LOGLEVEL_DEBUG, sprintf("Used timezone '%s'", date_default_timezone_get()));
-        }
-
         // some basic checks
         if (!defined('BASE_PATH'))
             throw new FatalMisconfigurationException("The BASE_PATH is not configured. Check if the config.php file is in place.");
@@ -181,9 +167,6 @@ class ZPush {
 
         if (!is_array($specialLogUsers))
             throw new FatalMisconfigurationException("The WBXML log users is not an array.");
-
-        // get the statemachine, which will also try to load the backend.. This could throw errors
-        self::GetStateMachine();
 
         // the check on additional folders will not throw hard errors, as this is probably changed on live systems
         if (isset($additionalFolders) && !is_array($additionalFolders))
@@ -222,6 +205,32 @@ class ZPush {
 
         }
         return true;
+    }
+
+    /**
+     * Verifies Timezone, StateMachine and Backend configuration
+     *
+     * @access public
+     * @return boolean
+     * @trows FatalMisconfigurationException
+     */
+    static public function CheckAdvancedConfig() {
+        // set time zone
+        // code contributed by Robert Scheck (rsc) - more information: https://developer.berlios.de/mantis/view.php?id=479
+        if(function_exists("date_default_timezone_set")) {
+            if(defined('TIMEZONE') ? constant('TIMEZONE') : false) {
+                if (! @date_default_timezone_set(TIMEZONE))
+                    throw new FatalMisconfigurationException("The configured TIMEZONE is not valid. Please check supported timezones at http://www.php.net/manual/en/timezones.php");
+
+            }
+            else if(!ini_get('date.timezone')) {
+                date_default_timezone_set('Europe/Amsterdam');
+            }
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("Used timezone '%s'", date_default_timezone_get()));
+        }
+
+        // get the statemachine, which will also try to load the backend.. This could throw errors
+        self::GetStateMachine();
     }
 
     /**
@@ -270,20 +279,59 @@ class ZPush {
     }
 
     /**
+     * Loads a backend file
+     *
+     * @param string $backendname
+
+     * @access public
+     * @throws FatalNotImplementedException
+     * @return boolean
+     */
+    static public function IncludeBackend($backendname) {
+        if ($backendname == false) return false;
+
+        $backendname = strtolower($backendname);
+        if (substr($backendname, 0, 7) !== 'backend')
+            throw new FatalNotImplementedException(sprintf("Backend '%s' is not allowed",$backendname));
+
+        $rbn = substr($backendname, 7);
+
+        $subdirbackend = BASE_PATH . "backend/" . $rbn . "/" . $rbn . ".php";
+        $stdbackend = BASE_PATH . "backend/" . $rbn . ".php";
+
+        if (is_file($subdirbackend))
+            $toLoad = $subdirbackend;
+        else if (is_file($stdbackend))
+            $toLoad = $stdbackend;
+        else
+            return false;
+
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("Including backend file: '%s'", $toLoad));
+        include_once($toLoad);
+        return true;
+    }
+
+    /**
      * Returns the SearchProvider object
      * which has to be an ISearchProvider implementation
      *
      * @access public
      * @return object   implementation of ISearchProvider
-     * @throws FatalNotImplementedException
+     * @throws FatalMisconfigurationException, FatalNotImplementedException
      */
     static public function GetSearchProvider() {
         if (!isset(ZPush::$searchProvider)) {
             // is a global searchprovider configured ? It will  outrank the backend
-            // TODO eventually the searchprovider class has to be loaded separately
-            if (defined('SEARCH_PROVIDER') && @constant('SEARCH_PROVIDER') != "" && class_exists(SEARCH_PROVIDER)) {
+            if (defined('SEARCH_PROVIDER') && @constant('SEARCH_PROVIDER') != "") {
                 $searchClass = @constant('SEARCH_PROVIDER');
-                $aSearchProvider = new $searchClass();
+
+                if (! class_exists($searchClass))
+                    self::IncludeBackend($searchClass);
+
+                if (class_exists($searchClass))
+                    $aSearchProvider = new $searchClass();
+                else
+                    throw new FatalMisconfigurationException(sprintf("Search provider '%s' can not be loaded. Check configuration!", $searchClass));
             }
             // get the searchprovider from the backend
             else
@@ -307,35 +355,14 @@ class ZPush {
     static public function GetBackend() {
         // if the backend is not yet loaded, load backend drivers and instantiate it
         if (!isset(ZPush::$backend)) {
-            $backend_dir = opendir(BASE_PATH . "backend");
-            while($entry = readdir($backend_dir)) {
-                // TODO Only load our main backend (or it's subfolder should be included by default). The backend should then load all other dependencies.
-                $subdirfile = BASE_PATH . "backend/" . $entry . "/" . $entry . ".php";
-
-                if(substr($entry,0,1) == "." || (substr($entry,-3) != "php" && !is_file($subdirfile)))
-                    continue;
-
-                // do not load Zarafa backend if PHP-MAPI is unavailable
-                if (!function_exists("mapi_logon") && ($entry == "zarafa"))
-                    continue;
-
-                // do not load Kolab backend if not a Kolab system
-                if (! file_exists('Horde/Kolab/Kolab_Zpush/lib/kolabActivesyncData.php') && ($entry == "kolab"))
-                    continue;
-
-                if (is_file($subdirfile))
-                    $entry = $entry . "/" . $entry . ".php";
-
-                ZLog::Write(LOGLEVEL_DEBUG, "including backend file: " . $entry);
-                include_once(BASE_PATH . "backend/" . $entry);
-            }
-
             // Initialize our backend
             $ourBackend = @constant('BACKEND_PROVIDER');
+            self::IncludeBackend($ourBackend);
+
             if (class_exists($ourBackend))
                 ZPush::$backend = new $ourBackend();
             else
-                throw new FatalMisconfigurationException("Backend provider '".@constant('BACKEND_PROVIDER')."' can not be loaded. Check configuration!");
+                throw new FatalMisconfigurationException(sprintf("Backend provider '%s' can not be loaded. Check configuration!", $ourBackend));
         }
         return ZPush::$backend;
     }
@@ -565,6 +592,7 @@ END;
      * @param string $option        e.g. UNAUTHENTICATED
 
      * @access public
+     * @throws FatalNotImplementedException
      * @return object StateMachine
      */
     static private function checkCommandOptions($command, $option) {

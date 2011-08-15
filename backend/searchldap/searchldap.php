@@ -45,7 +45,7 @@
 
 require_once("backend/searchldap/config.php");
 
-class SearchLDAP implements ISearchProvider {
+class BackendSearchLDAP implements ISearchProvider {
     private $connection;
 
     /**
@@ -57,9 +57,9 @@ class SearchLDAP implements ISearchProvider {
      * @return
      * @throws StatusException
      */
-    public function SearchLDAP() {
+    public function BackendSearchLDAP() {
         if (!function_exists("ldap_connect"))
-            throw new StatusException("SearchLDAP(): php-ldap is not installed. Search aborted.", SYNC_SEARCHSTATUS_STORE_SERVERERROR, null, LOGLEVEL_FATAL);
+            throw new StatusException("BackendSearchLDAP(): php-ldap is not installed. Search aborted.", SYNC_SEARCHSTATUS_STORE_SERVERERROR, null, LOGLEVEL_FATAL);
 
         // connect to LDAP
         $this->connection = @ldap_connect(LDAP_HOST, LDAP_PORT);
@@ -69,20 +69,20 @@ class SearchLDAP implements ISearchProvider {
         if (constant('ANONYMOUS_BIND') === true) {
             if(! @ldap_bind($this->connection)) {
                 $this->connection = false;
-                throw new StatusException("SearchLDAP(): Could not bind anonymously to server! Search aborted.", SYNC_SEARCHSTATUS_STORE_CONNECTIONFAILED, null, LOGLEVEL_ERROR);
+                throw new StatusException("BackendSearchLDAP(): Could not bind anonymously to server! Search aborted.", SYNC_SEARCHSTATUS_STORE_CONNECTIONFAILED, null, LOGLEVEL_ERROR);
             }
         }
         else if (constant('LDAP_BIND_USER') != "") {
             if(! @ldap_bind($this->connection, LDAP_BIND_USER, LDAP_BIND_PASSWORD)) {
                 $this->connection = false;
-                throw new StatusException(sprintf("SearchLDAP(): Could not bind to server with user '%s' and specified password! Search aborted.", LDAP_BIND_USER), SYNC_SEARCHSTATUS_STORE_ACCESSDENIED, null, LOGLEVEL_ERROR);
+                throw new StatusException(sprintf("BackendSearchLDAP(): Could not bind to server with user '%s' and specified password! Search aborted.", LDAP_BIND_USER), SYNC_SEARCHSTATUS_STORE_ACCESSDENIED, null, LOGLEVEL_ERROR);
             }
         }
         else {
             // it would be possible to use the users login and password to authenticate on the LDAP server
             // the main $backend has to keep these values so they could be used here
             $this->connection = false;
-            throw new StatusException("SearchLDAP(): neither anonymous nor default bind enabled. Other options not implemented.", SYNC_SEARCHSTATUS_STORE_CONNECTIONFAILED, null, LOGLEVEL_ERROR);
+            throw new StatusException("BackendSearchLDAP(): neither anonymous nor default bind enabled. Other options not implemented.", SYNC_SEARCHSTATUS_STORE_CONNECTIONFAILED, null, LOGLEVEL_ERROR);
         }
     }
 
@@ -115,7 +115,7 @@ class SearchLDAP implements ISearchProvider {
             $searchfilter = str_replace("SEARCHVALUE", $searchquery, LDAP_SEARCH_FILTER);
             $result = @ldap_search($this->connection, LDAP_SEARCH_BASE, $searchfilter);
             if (!$result) {
-                ZLog::Write(LOGLEVEL_ERROR, "SearchLDAP: Error in search query. Search aborted");
+                ZLog::Write(LOGLEVEL_ERROR, "BackendSearchLDAP: Error in search query. Search aborted");
                 return false;
             }
 

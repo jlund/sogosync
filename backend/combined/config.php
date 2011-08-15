@@ -54,7 +54,6 @@ class BackendCombinedConfig {
     // *************************
     public static $BackendIMAP_config = array(
         // Defines the server to which we want to connect
-        // recommended to use local servers only
         'IMAP_SERVER' => IMAP_SERVER,
         // connecting to default port (143)
         'IMAP_PORT' => IMAP_PORT,
@@ -67,9 +66,9 @@ class BackendCombinedConfig {
         'IMAP_DEFAULTFROM' => IMAP_DEFAULTFROM,
         // copy outgoing mail to this folder. If not set z-push will try the default folders
         'IMAP_SENTFOLDER' => IMAP_SENTFOLDER,
-        // forward messages inline (default off - as attachment)
+        // forward messages inline (default false - as attachment)
         'IMAP_INLINE_FORWARD' => IMAP_INLINE_FORWARD,
-        // use imap_mail() to send emails (default) - off uses mail()
+        // use imap_mail() to send emails (default) - if false mail() is used
         'IMAP_USE_IMAPMAIL' => IMAP_USE_IMAPMAIL,
     );
 
@@ -82,9 +81,9 @@ class BackendCombinedConfig {
     );
 
     // *************************
-    //  BackendVCDir settings
+    //  BackendVCardDir settings
     // *************************
-    public static $BackendVCDir_config = array('VCARDDIR_DIR' => VCARDDIR_DIR);
+    public static $BackendVCardDir_config = array('VCARDDIR_DIR' => VCARDDIR_DIR);
 
     // *************************
     //  BackendCombined settings
@@ -117,8 +116,8 @@ class BackendCombinedConfig {
                     'config' => self::$BackendMaildir_config,
                 ),
                 'v' => array(
-                    'name' => 'BackendVCDir',
-                    'config' => self::$BackendVCDir_config,
+                    'name' => 'BackendVCardDir',
+                    'config' => self::$BackendVCardDir_config,
                 ),
             ),
             'delimiter' => '/',

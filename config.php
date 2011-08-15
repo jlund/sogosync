@@ -50,12 +50,10 @@
     // Defines the base path on the server
     define('BASE_PATH', dirname($_SERVER['SCRIPT_FILENAME']). '/');
 
+    // TODO check if path settings
     // Define the include paths
     ini_set('include_path',
                         BASE_PATH. PATH_SEPARATOR .
-                        BASE_PATH. 'include/'. PATH_SEPARATOR .
-                        BASE_PATH. 'libs/'. PATH_SEPARATOR .
-                        BASE_PATH. 'backends/'. PATH_SEPARATOR .
                         ini_get('include_path'). PATH_SEPARATOR .
                         '/usr/share/php/'. PATH_SEPARATOR .
                         '/usr/share/php5/');
@@ -116,6 +114,7 @@
     //   SYNC_FILTERTYPE_1MONTH, SYNC_FILTERTYPE_3MONTHS, SYNC_FILTERTYPE_6MONTHS
     define('SYNC_FILTERTIME_MAX', SYNC_FILTERTYPE_ALL);
 
+
 /**********************************************************************************
  *  Backend settings
  */
@@ -126,7 +125,6 @@
     // ************************
     //  BackendZarafa settings
     // ************************
-
     // Defines the server to which we want to connect
     define('MAPI_SERVER', 'file:///var/run/zarafa');
 
@@ -134,9 +132,7 @@
     // ************************
     //  BackendIMAP settings
     // ************************
-
     // Defines the server to which we want to connect
-    // recommended to use local servers only
     define('IMAP_SERVER', 'localhost');
     // connecting to default port (143)
     define('IMAP_PORT', 143);
@@ -149,9 +145,9 @@
     define('IMAP_DEFAULTFROM', '');
     // copy outgoing mail to this folder. If not set z-push will try the default folders
     define('IMAP_SENTFOLDER', '');
-    // forward messages inline (default off - as attachment)
+    // forward messages inline (default false - as attachment)
     define('IMAP_INLINE_FORWARD', false);
-    // use imap_mail() to send emails (default) - off uses mail()
+    // use imap_mail() to send emails (default) - if false mail() is used
     define('IMAP_USE_IMAPMAIL', true);
 
 
@@ -162,13 +158,19 @@
     define('MAILDIR_SUBDIR', 'Maildir');
 
     // **********************
-    //  BackendVCDir settings
+    //  BackendVCardDir settings
     // **********************
     define('VCARDDIR_DIR', '/home/%u/.kde/share/apps/kabc/stdvcf');
 
-    // Alternative backend to perform SEARCH requests (GAL search)
-    // if an empty value is used, the default search functionality of the main backend is used
-    // use 'SearchLDAP' to search in a LDAP directory (see backend/searchldap/config.php)
+
+/**********************************************************************************
+ *  Search provider settings
+ *
+ *  Alternative backend to perform SEARCH requests (GAL search)
+ *  By default the main Backend defines the preferred search functionality.
+ *  If set, the Search Provider will always be preferred.
+ *  Use 'BackendSearchLDAP' to search in a LDAP directory (see backend/searchldap/config.php)
+ */
     define('SEARCH_PROVIDER', '');
 
 

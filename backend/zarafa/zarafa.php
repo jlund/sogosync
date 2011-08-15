@@ -67,12 +67,12 @@ include_once('include/mimeDecode.php');
 require_once('include/z_RFC822.php');
 
 // components of Zarafa backend
-include_once('mapiutils.php');
-include_once('mapimapping.php');
-include_once('mapiprovider.php');
-include_once('mapiphpwrapper.php');
-include_once('importer.php');
-include_once('exporter.php');
+include_once('backend/zarafa/mapiutils.php');
+include_once('backend/zarafa/mapimapping.php');
+include_once('backend/zarafa/mapiprovider.php');
+include_once('backend/zarafa/mapiphpwrapper.php');
+include_once('backend/zarafa/importer.php');
+include_once('backend/zarafa/exporter.php');
 // TODO use own mapi include and recurrence classes files
 // TODO use this define in the own file
 if (!defined("PSETID_AirSync")) define ("PSETID_AirSync", makeguid("{71035549-0739-4DCB-9163-00F0580DBBDF}"));

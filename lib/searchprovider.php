@@ -48,7 +48,7 @@
  * The SearchProvider is a stub to implement own search funtionality
  *
  * If you wish to implement an alternative search method, you should implement the
- * ISearchProvider interface like the SearchLDAP backend
+ * ISearchProvider interface like the BackendSearchLDAP backend
  */
 class SearchProvider implements ISearchProvider{
 

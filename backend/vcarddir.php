@@ -40,9 +40,9 @@
 *
 * Consult LICENSE file for details
 ************************************************/
-include_once('diffbackend.php');
+include_once('lib/diffbackend.php');
 
-class BackendVCDir extends BackendDiff {
+class BackendVCardDir extends BackendDiff {
     /**----------------------------------------------------------------------------------------------------------
      * default backend methods
      */

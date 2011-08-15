@@ -74,18 +74,21 @@ include_once('version.php');
 
     try {
         // check config & initialize the basics
-        ZPush::CheckConfig();   // throws Exception
+        ZPush::CheckConfig();
         Request::Initialize();
         ZLog::Initialize();
 
+        ZLog::Write(LOGLEVEL_DEBUG,"-------- Start");
         ZLog::Write(LOGLEVEL_INFO,
-                    sprintf("-------- Start version='%s' method='%s' from='%s' cmd='%s' getUser='%s' devId='%s' devType='%s'",
+                    sprintf("Version='%s' method='%s' from='%s' cmd='%s' getUser='%s' devId='%s' devType='%s'",
                                     @constant('ZPUSH_VERSION'), Request::getMethod(), Request::getRemoteAddr(),
                                     Request::getCommand(), Request::getGETUser(), Request::getDeviceID(), Request::getDeviceType()));
 
         // Stop here if this is an OPTIONS request
         if (Request::isMethodOPTIONS())
             throw new NoPostRequestException("Options request", NoPostRequestException::OPTIONS_REQUEST);
+
+        ZPush::CheckAdvancedConfig();
 
         // Process request headers and look for AS headers
         Request::ProcessHeaders();
@@ -194,5 +197,5 @@ include_once('version.php');
         ZPush::GetDeviceManager()->save();
 
     // end gracefully
-    ZLog::Write(LOGLEVEL_INFO, '-------- End');
+    ZLog::Write(LOGLEVEL_DEBUG, '-------- End');
 ?>
