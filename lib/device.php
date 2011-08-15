@@ -343,9 +343,9 @@ class ASDevice {
    /**
      * Sets the deployed policy key
      *
-     * @param long      $policykey
+     * @param int       $policykey
      *
-     * @access int
+     * @access public
      * @return
      */
     public function setPolicyKey($policykey) {
