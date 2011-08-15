@@ -130,7 +130,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
      *
      * @access public
      * @return boolean
-     * @throws FatalException
+     * @throws AuthenticationRequiredException
      */
     public function Logon($user, $domain, $pass) {
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->Logon(): Trying to authenticate user '%s'..", $user));
@@ -143,7 +143,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
             throw new AuthenticationRequiredException($ex->getMessage(), AUTHENTICATION_FAILED);
         }
 
-        if($this->session === false) {
+        if(!$this->session) {
             ZLog::Write(LOGLEVEL_WARN, "logon failed for user $user");
             $this->defaultstore = false;
             return false;
@@ -153,7 +153,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         $this->defaultstore = $this->openMessageStore($user);
 
         if($this->defaultstore === false)
-            throw new FatalException(sprintf("ZarafaBackend->Logon(): User '%s' has no default store", $user));
+            throw new AuthenticationRequiredException(sprintf("ZarafaBackend->Logon(): User '%s' has no default store", $user));
 
         $this->store = $this->defaultstore;
         $this->storeName = $user;
@@ -1047,6 +1047,11 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
         if($entryid) {
             $store = @mapi_openmsgstore($this->session, $entryid);
+
+            if (!$store) {
+                ZLog::Write(LOGLEVEL_WARN, sprintf("ZarafaBackend->openMessageStore('%s'): Could not open store", $user));
+                return false;
+            }
 
             // add this store to the cache
             if (!isset($this->storeCache[$user]))
