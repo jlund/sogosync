@@ -138,15 +138,6 @@ class RequestProcessor {
             case 'GetHierarchy':
                 $status = self::HandleGetHierarchy();
                 break;
-            case 'CreateCollection':
-                $status = self::HandleCreateCollection();
-                break;
-            case 'DeleteCollection':
-                $status = self::HandleDeleteCollection();
-                break;
-            case 'MoveCollection':
-                $status = self::HandleMoveCollection();
-                break;
             case 'FolderSync':
                 $status = self::HandleFolderSync();
                 break;
@@ -180,6 +171,10 @@ class RequestProcessor {
             // TODO implement ResolveRecipients and ValidateCert
             case 'ResolveRecipients':
             case 'ValidateCert':
+            // deprecated commands
+            case 'CreateCollection':
+            case 'DeleteCollection':
+            case 'MoveCollection':
             default:
                 throw new FatalNotImplementedException(sprintf("RequestProcessor::HandleRequest(): Command '%s' is not implemented", Request::getCommand()));
                 break;

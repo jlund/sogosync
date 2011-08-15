@@ -61,10 +61,9 @@ class ZPush {
                                             'SmartReply' => array(self::PLAININPUT),
                                             'GetAttachment' => false,
                                             'GetHierarchy' => array(self::HIERARCHYCOMMAND),
-                                            // TODO: CreateCollection, DeleteCollection and MoveCollection should be self::HIERARCHYCOMMAND ... ?
-                                            'CreateCollection' => false,                                        // deprecated
-                                            'DeleteCollection' => false,                                        // deprecated
-                                            'MoveCollection' => false,                                          // deprecated
+                                            'CreateCollection' => false,                                        // deprecated & not implemented
+                                            'DeleteCollection' => false,                                        // deprecated & not implemented
+                                            'MoveCollection' => false,                                          // deprecated & not implemented
                                             'FolderSync' => array(self::HIERARCHYCOMMAND),
                                             'FolderCreate' => array(self::HIERARCHYCOMMAND),
                                             'FolderDelete' => array(self::HIERARCHYCOMMAND),
