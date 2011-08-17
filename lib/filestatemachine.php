@@ -58,13 +58,13 @@ class FileStateMachine implements IStateMachine {
      */
     public function FileStateMachine() {
         if (!defined('STATE_DIR'))
-            throw new FatalMisconfigurationException("The configured state directory is not available.");
+            throw new FatalMisconfigurationException("No configuration for the state directory available.");
 
         if (substr(STATE_DIR, -1,1) != "/")
             throw new FatalMisconfigurationException("The configured state directory should terminate with a '/'");
 
         if (!file_exists(STATE_DIR))
-            throw new FatalMisconfigurationException("The configured state directory does not exist or can not be accessed.");
+            throw new FatalMisconfigurationException("The configured state directory does not exist or can not be accessed: ". STATE_DIR);
         // checks if the directory exists and tries to create the necessary subfolders if they do not exist
         $this->getDirectoryForDevice(Request::getDeviceID());
         $this->userfilename = STATE_DIR . 'users';
