@@ -57,7 +57,7 @@ class ZPushException extends Exception {
             $logLevel = $this->defaultLogLevel;
 
         ZLog::Write($logLevel, get_class($this) .': '. $message . ' - code: '.$code);
-        parent::__construct($message, $code);
+        parent::__construct($message, (int) $code);
     }
 
     public function getHTTPCodeString() {
@@ -93,7 +93,7 @@ class HTTPReturnCodeException extends FatalException {
     public function HTTPReturnCodeException($message = "", $code = 0, $previous = NULL, $logLevel = false) {
         if ($code)
             $this->httpReturnCode = $code;
-        parent::__construct($message, $code, $previous, $logLevel);
+        parent::__construct($message, (int) $code, $previous, $logLevel);
     }
 }
 
