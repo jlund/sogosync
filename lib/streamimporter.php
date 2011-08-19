@@ -99,7 +99,7 @@ class ImportChangesStream implements IImportChanges {
                 $this->encoder->content($id);
             $this->encoder->endTag();
             $this->encoder->startTag(SYNC_DATA);
-                $message->encode($this->encoder);
+                $message->Encode($this->encoder);
             $this->encoder->endTag();
         $this->encoder->endTag();
 
@@ -180,7 +180,7 @@ class ImportChangesStream implements IImportChanges {
         else
             $this->encoder->startTag(SYNC_FOLDERHIERARCHY_UPDATE);
 
-        $folder->encode($this->encoder);
+        $folder->Encode($this->encoder);
         $this->encoder->endTag();
 
         return true;

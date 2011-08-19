@@ -81,7 +81,7 @@ class Streamer {
      *
      * @access public
      */
-    public function decode(&$decoder) {
+    public function Decode(&$decoder) {
         while(1) {
             $entity = $decoder->getElement();
 
@@ -112,7 +112,7 @@ class Streamer {
                                 break;
                             if(isset($map[self::STREAMER_TYPE])) {
                                 $decoded = new $map[self::STREAMER_TYPE];
-                                $decoded->decode($decoder);
+                                $decoded->Decode($decoder);
                             }
                             else {
                                 $decoded = $decoder->getElementContent();
@@ -144,7 +144,7 @@ class Streamer {
                             }
                             else {
                                 $subdecoder = new $map[self::STREAMER_TYPE]();
-                                if($subdecoder->decode($decoder) === false)
+                                if($subdecoder->Decode($decoder) === false)
                                     return false;
 
                                 $decoded = $subdecoder;
@@ -193,14 +193,14 @@ class Streamer {
      *
      * @access public
      */
-    public function encode(&$encoder) {
+    public function Encode(&$encoder) {
         foreach($this->mapping as $tag => $map) {
             if(isset($this->$map[self::STREAMER_VAR])) {
                 // Variable is available
                 if(is_object($this->$map[self::STREAMER_VAR])) {
                     // Subobjects can do their own encoding
                     $encoder->startTag($tag);
-                    $this->$map[self::STREAMER_VAR]->encode($encoder);
+                    $this->$map[self::STREAMER_VAR]->Encode($encoder);
                     $encoder->endTag();
                 }
                 else if(isset($map[self::STREAMER_ARRAY])) {
@@ -209,7 +209,7 @@ class Streamer {
                     foreach ($this->$map[self::STREAMER_VAR] as $element) {
                         if(is_object($element)) {
                             $encoder->startTag($map[self::STREAMER_ARRAY]); // Outputs object container (eg Attachment)
-                            $element->encode($encoder);
+                            $element->Encode($encoder);
                             $encoder->endTag();
                         }
                         else {

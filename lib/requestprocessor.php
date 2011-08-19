@@ -322,7 +322,7 @@ class RequestProcessor {
         self::$encoder->startTag(SYNC_FOLDERHIERARCHY_FOLDERS);
         foreach ($folders as $folder) {
             self::$encoder->startTag(SYNC_FOLDERHIERARCHY_FOLDER);
-            $folder->encode(self::$encoder);
+            $folder->Encode(self::$encoder);
             self::$encoder->endTag();
         }
         self::$encoder->endTag();
@@ -392,7 +392,7 @@ class RequestProcessor {
             $importer = false;
             while(1) {
                 $folder = new SyncFolder();
-                if(!$folder->decode(self::$decoder))
+                if(!$folder->Decode(self::$decoder))
                     break;
 
                 try {
@@ -783,7 +783,7 @@ class RequestProcessor {
                     // Get the SyncMessage if sent
                     if(self::$decoder->getElementStartTag(SYNC_DATA)) {
                         $message = ZPush::getSyncObjectFromFolderClass($collection["class"]);
-                        $message->decode(self::$decoder);
+                        $message->Decode(self::$decoder);
                         // set Ghosted fields
                         $message->emptySupported(self::$deviceManager->GetSupportedFields($collection["collectionid"]));
                         if(!self::$decoder->getElementEndTag()) // end applicationdata
@@ -1015,7 +1015,7 @@ class RequestProcessor {
 
                                 if($data !== false && $status == SYNC_STATUS_SUCCESS) {
                                     self::$encoder->startTag(SYNC_DATA);
-                                        $data->encode(self::$encoder);
+                                        $data->Encode(self::$encoder);
                                     self::$encoder->endTag();
                                 }
                                 else
@@ -1904,7 +1904,7 @@ class RequestProcessor {
                     }
                     elseif ($policytype == 'MS-EAS-Provisioning-WBXML') {
                         self::$encoder->startTag(SYNC_PROVISION_EASPROVISIONDOC);
-                            self::$deviceManager->GetProvisioningObject()->encode(self::$encoder);
+                            self::$deviceManager->GetProvisioningObject()->Encode(self::$encoder);
                         self::$encoder->endTag();
                     }
                     else {
