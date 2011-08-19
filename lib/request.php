@@ -291,7 +291,7 @@ class Request {
      * @return string
      */
     static public function getRemoteAddr() {
-        if (isset(self::$getUser))
+        if (isset(self::$remoteAddr))
             return self::$remoteAddr;
         else
             return "UNKNOWN";
@@ -304,7 +304,7 @@ class Request {
      * @return string/boolean       false if not available
      */
     static public function getCommand() {
-        if (isset(self::$getUser))
+        if (isset(self::$command))
             return self::$command;
         else
             return false;
