@@ -85,17 +85,17 @@ class DeviceManager {
         $this->statemachine = ZPush::GetStateMachine();
         $this->exceptions = array();
         $this->deviceHash = false;
-        $this->devid = Request::getDeviceID();
+        $this->devid = Request::GetDeviceID();
 
         // only continue if deviceid is set
         if ($this->devid) {
-            $this->device = new ASDevice($this->devid, Request::getDeviceType(), Request::getGETUser(), Request::getUserAgent());
+            $this->device = new ASDevice($this->devid, Request::GetDeviceType(), Request::GetGETUser(), Request::GetUserAgent());
             $this->loadDeviceData();
         }
         else
             throw new FatalNotImplementedException("Can not proceed without a device id.");
 
-        $this->hierarchyOperation = ZPush::HierarchyCommand(Request::getCommand());
+        $this->hierarchyOperation = ZPush::HierarchyCommand(Request::GetCommand());
     }
 
 
@@ -135,7 +135,7 @@ class DeviceManager {
      */
     public function sentData($datacounter) {
         // TODO save this somewhere
-        $this->incomingData = Request::getContentLength();
+        $this->incomingData = Request::GetContentLength();
         $this->outgoingData = $datacounter;
     }
 
@@ -163,11 +163,11 @@ class DeviceManager {
         // TODO save other stuff
 
         // update the user agent to the device
-        $this->device->setUserAgent(Request::getUserAgent());
+        $this->device->setUserAgent(Request::GetUserAgent());
 
         // data to be saved
         $data = $this->device->getData();
-        if ($data && Request::isValidDeviceID()) {
+        if ($data && Request::IsValidDeviceID()) {
             ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->save(): Device data changed");
 
             try {

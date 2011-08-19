@@ -314,7 +314,7 @@ class SyncMail extends SyncObject {
                     SYNC_POOMMAIL_REPLY_TO => array (self::STREAMER_VAR => "reply_to"),
                 );
 
-        if(Request::getProtocolVersion() >= 2.5) {
+        if(Request::GetProtocolVersion() >= 2.5) {
             $mapping += array(
                         SYNC_POOMMAIL_INTERNETCPID => array (self::STREAMER_VAR => "internetcpid"),
                     );
@@ -450,7 +450,7 @@ class SyncContact extends SyncObject {
                     SYNC_POOMCONTACTS_CATEGORIES => array (self::STREAMER_VAR => "categories", self::STREAMER_ARRAY => SYNC_POOMCONTACTS_CATEGORY ),
                 );
 
-        if(Request::getProtocolVersion() >= 2.5) {
+        if(Request::GetProtocolVersion() >= 2.5) {
             $mapping += array(
                         SYNC_POOMCONTACTS2_CUSTOMERID => array (self::STREAMER_VAR => "customerid"),
                         SYNC_POOMCONTACTS2_GOVERNMENTID => array (self::STREAMER_VAR => "governmentid"),
@@ -730,7 +730,7 @@ class SyncProvisioning extends SyncObject {
                     SYNC_PROVISION_DEVPWHISTORY => array (self::STREAMER_VAR => "devpwhistory"),
                 );
 
-        if(Request::getProtocolVersion() >= 12.1) {
+        if(Request::GetProtocolVersion() >= 12.1) {
             $mapping += array (
                     SYNC_PROVISION_ALLOWSTORAGECARD => array (self::STREAMER_VAR => "allostoragecard"),
                     SYNC_PROVISION_ALLOWCAM => array (self::STREAMER_VAR => "allowcam"),

@@ -66,7 +66,7 @@ class FileStateMachine implements IStateMachine {
         if (!file_exists(STATE_DIR))
             throw new FatalMisconfigurationException("The configured state directory does not exist or can not be accessed: ". STATE_DIR);
         // checks if the directory exists and tries to create the necessary subfolders if they do not exist
-        $this->getDirectoryForDevice(Request::getDeviceID());
+        $this->getDirectoryForDevice(Request::GetDeviceID());
         $this->userfilename = STATE_DIR . 'users';
 
         if (!touch($this->userfilename))

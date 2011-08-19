@@ -64,7 +64,7 @@ class ZLog {
         if (!defined('LOGLEVEL'))
             define('LOGLEVEL', LOGLEVEL_OFF);
 
-        list($user,) = Utils::SplitDomainUser(Request::getGETUser());
+        list($user,) = Utils::SplitDomainUser(Request::GetGETUser());
         if (!defined('WBXML_DEBUG') && $user) {
             // define the WBXML_DEBUG mode on user basis depending on the configurations
             if (LOGLEVEL >= LOGLEVEL_WBXML || (LOGUSERLEVEL >= LOGLEVEL_WBXML && in_array($user, $specialLogUsers)))
@@ -79,8 +79,8 @@ class ZLog {
             self::$user = '';
 
         // log the device id if the global loglevel is set to log devid or the user is in  and has the right log level
-        if (Request::getDeviceId() != "" && (LOGLEVEL >= LOGLEVEL_DEVICEID || (LOGUSERLEVEL >= LOGLEVEL_DEVICEID && in_array($user, $specialLogUsers))))
-            self::$devid = '['. Request::getDeviceId() .'] ';
+        if (Request::GetDeviceID() != "" && (LOGLEVEL >= LOGLEVEL_DEVICEID || (LOGUSERLEVEL >= LOGLEVEL_DEVICEID && in_array($user, $specialLogUsers))))
+            self::$devid = '['. Request::GetDeviceID() .'] ';
         else
             self::$devid = '';
 
@@ -144,7 +144,7 @@ class ZLog {
 
         if (self::$authUser === false) {
             if (RequestProcessor::isUserAuthenticated()) {
-                $authuser = Request::getAuthUser();
+                $authuser = Request::GetAuthUser();
                 if ($authuser && in_array($authuser, $specialLogUsers))
                     self::$authUser = preg_replace('/[^a-z0-9]/', '_', strtolower($authuser));
             }

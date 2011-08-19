@@ -59,7 +59,7 @@ class RequestProcessor {
      * Authenticates the remote user
      * The sent HTTP authentication information is used to on Backend->Logon().
      * As second stept the GET-User verified by Backend->Setup() for permission check
-     * Request::getGETUser() is usually the same as the Request::getAuthUser().
+     * Request::GetGETUser() is usually the same as the Request::GetAuthUser().
      * If the GETUser is different from the AuthUser, the AuthUser MUST HAVE admin
      * permissions on GETUsers data store. Only then the Setup() will be sucessfull.
      * This allows the user 'john' to do operations as user 'joe' if he has sufficient privileges.
@@ -72,15 +72,15 @@ class RequestProcessor {
         self::$userIsAuthenticated = false;
 
         $backend = ZPush::GetBackend();
-        if($backend->Logon(Request::getAuthUser(), Request::getAuthDomain(), Request::getAuthPassword()) == false)
+        if($backend->Logon(Request::GetAuthUser(), Request::GetAuthDomain(), Request::GetAuthPassword()) == false)
             throw new AuthenticationRequiredException("Access denied. Username or password incorrect");
 
         // mark this request as "authenticated"
         self::$userIsAuthenticated = true;
 
         // check Auth-User's permissions on GETUser's store
-        if($backend->Setup(Request::getGETUser(), true) == false)
-            throw new AuthenticationRequiredException(sprintf("Not enough privileges of '%s' to setup for user '%s': Permission denied", Request::getAuthUser(), Request::getGETUser()));
+        if($backend->Setup(Request::GetGETUser(), true) == false)
+            throw new AuthenticationRequiredException(sprintf("Not enough privileges of '%s' to setup for user '%s': Permission denied", Request::GetAuthUser(), Request::GetGETUser()));
     }
 
     /**
@@ -106,10 +106,10 @@ class RequestProcessor {
         self::$backend = ZPush::GetBackend();
         self::$deviceManager = ZPush::GetDeviceManager();
 
-        if (!ZPush::CommandNeedsPlainInput(Request::getCommand()))
-            self::$decoder = new WBXMLDecoder(Request::getInputStream());
+        if (!ZPush::CommandNeedsPlainInput(Request::GetCommand()))
+            self::$decoder = new WBXMLDecoder(Request::GetInputStream());
 
-        self::$encoder = new WBXMLEncoder(Request::getOutputStream());
+        self::$encoder = new WBXMLEncoder(Request::GetOutputStream());
     }
 
     /**
@@ -119,7 +119,7 @@ class RequestProcessor {
      * @return boolean
      */
     static public function HandleRequest() {
-        switch(Request::getCommand()) {
+        switch(Request::GetCommand()) {
             case 'Sync':
                 $status = self::HandleSync();
                 break;
@@ -176,7 +176,7 @@ class RequestProcessor {
             case 'DeleteCollection':
             case 'MoveCollection':
             default:
-                throw new FatalNotImplementedException(sprintf("RequestProcessor::HandleRequest(): Command '%s' is not implemented", Request::getCommand()));
+                throw new FatalNotImplementedException(sprintf("RequestProcessor::HandleRequest(): Command '%s' is not implemented", Request::GetCommand()));
                 break;
         }
 
@@ -445,8 +445,8 @@ class RequestProcessor {
             if ($status == SYNC_FSSTATUS_SUCCESS) {
                 try {
                     // do nothing if this is an invalid device id (like the 'validate' Androids internal client sends)
-                    if (!Request::isValidDeviceID())
-                        throw new StatusException(sprintf("Request::isValidDeviceID() indicated that '%s' is not a valid device id", Request::getDeviceID()), SYNC_FSSTATUS_SERVERERROR);
+                    if (!Request::IsValidDeviceID())
+                        throw new StatusException(sprintf("Request::IsValidDeviceID() indicated that '%s' is not a valid device id", Request::GetDeviceID()), SYNC_FSSTATUS_SERVERERROR);
 
                     // Changes from backend are sent to the MemImporter and processed for the HierarchyCache.
                     // The state which is saved is from the backend, as the MemImporter is only a proxy.
@@ -1225,7 +1225,7 @@ class RequestProcessor {
      * @return boolean
      */
     static private function HandleGetAttachment() {
-        $attname = Request::getGETAttachmentName();
+        $attname = Request::GetGETAttachmentName();
         if(!$attname)
             return false;
 
@@ -1343,7 +1343,7 @@ class RequestProcessor {
             for($n=0;$n<$lifetime / $timeout; $n++ ) {
                 // Check if provisioning is necessary
                 // if a PolicyKey was sent use it. If not, compare with the PolicyKey from the last PING request
-                if (PROVISIONING === true && self::$deviceManager->ProvisioningRequired((Request::wasPolicyKeySent() ? Request::getPolicyKey(): $policykey), true)) {
+                if (PROVISIONING === true && self::$deviceManager->ProvisioningRequired((Request::WasPolicyKeySent() ? Request::GetPolicyKey(): $policykey), true)) {
                     // the hierarchysync forces provisioning
                     $pingstatus = SYNC_PINGSTATUS_FOLDERHIERSYNCREQUIRED;
                     break;
@@ -1456,11 +1456,11 @@ class RequestProcessor {
     static private function HandleSendMail($forward = false, $reply = false, $parent = false) {
         // read rfc822 message from stdin
         $rfc822 = "";
-        while($data = fread(Request::getInputStream(), 4096))
+        while($data = fread(Request::GetInputStream(), 4096))
             $rfc822 .= $data;
 
         // no wbxml output is provided, only a http OK
-        return self::$backend->SendMail($rfc822, $forward, $reply, $parent, Request::getGETSaveInSent());
+        return self::$backend->SendMail($rfc822, $forward, $reply, $parent, Request::GetGETSaveInSent());
     }
 
     /**
@@ -1472,7 +1472,7 @@ class RequestProcessor {
      * @return boolean
      */
     static private function HandleSmartForward() {
-        return self::HandleSendMail(Request::getGETItemId(), false, Request::getGETCollectionId());
+        return self::HandleSendMail(Request::GetGETItemId(), false, Request::GetGETCollectionId());
     }
 
     /**
@@ -1483,7 +1483,7 @@ class RequestProcessor {
      * @return boolean
      */
     static private function HandleSmartReply() {
-        return self::HandleSendMail(false, Request::getGETItemId(), Request::getGETCollectionId());
+        return self::HandleSendMail(false, Request::GetGETItemId(), Request::GetGETCollectionId());
     }
 
     /**

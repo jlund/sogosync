@@ -408,7 +408,7 @@ class ZPush {
 
         $class = self::$classes[$folderclass][self::CLASS_NAME];
         if (self::$classes[$folderclass][self::CLASS_REQUIRESPROTOCOLVERSION])
-            return new $class(Request::getProtocolVersion());
+            return new $class(Request::GetProtocolVersion());
         else
             return new $class();
     }

@@ -127,7 +127,7 @@ class Request {
         else
             self::$policykey = 0;
 
-        ZLog::Write(LOGLEVEL_DEBUG, "Incoming PolicyKey: " . (self::wasPolicyKeySent() ? self::$policykey:'none'));
+        ZLog::Write(LOGLEVEL_DEBUG, "Incoming PolicyKey: " . (self::WasPolicyKeySent() ? self::$policykey:'none'));
         ZLog::Write(LOGLEVEL_DEBUG, "Client supports version: " . self::$asProtocolVersion);
 
     }
@@ -159,7 +159,7 @@ class Request {
      * @access public
      * @return handle/boolean      false if not available
      */
-    static public function getInputStream() {
+    static public function GetInputStream() {
         if (isset(self::$input))
             return self::$input;
         else
@@ -172,7 +172,7 @@ class Request {
      * @access public
      * @return handle/boolean      false if not available
      */
-    static public function getOutputStream() {
+    static public function GetOutputStream() {
         if (isset(self::$output))
             return self::$output;
         else
@@ -185,7 +185,7 @@ class Request {
      * @access public
      * @return string
      */
-    static public function getMethod() {
+    static public function GetMethod() {
         if (isset(self::$method))
             return self::$method;
         else
@@ -198,7 +198,7 @@ class Request {
      * @access public
      * @return string/boolean       false if not available
      */
-    static public function getGETUser() {
+    static public function GetGETUser() {
         if (isset(self::$getUser))
             return self::$getUser;
         else
@@ -211,7 +211,7 @@ class Request {
      * @access public
      * @return string/boolean       false if not available
      */
-    static public function getGETItemId() {
+    static public function GetGETItemId() {
         return (isset($_GET["ItemId"]))? self::filterEvilInput($_GET["ItemId"], self::HEX_ONLY) : false;
     }
 
@@ -221,7 +221,7 @@ class Request {
      * @access public
      * @return string/boolean       false if not available
      */
-    static public function getGETCollectionId() {
+    static public function GetGETCollectionId() {
         return (isset($_GET["CollectionId"]))? self::filterEvilInput($_GET["CollectionId"], self::HEX_ONLY) : false;
     }
 
@@ -231,7 +231,7 @@ class Request {
      * @access public
      * @return boolean
      */
-    static public function getGETSaveInSent() {
+    static public function GetGETSaveInSent() {
         return (isset($_GET["SaveInSent"]))? ($_GET["SaveInSent"] == "T") : false;
     }
 
@@ -241,7 +241,7 @@ class Request {
      * @access public
      * @return string/boolean       false if not available
      */
-    static public function getGETAttachmentName() {
+    static public function GetGETAttachmentName() {
         return (isset($_GET["AttachmentName"]))? self::filterEvilInput($_GET["AttachmentName"], self::HEX_EXTENDED) : false;
     }
 
@@ -251,7 +251,7 @@ class Request {
      * @access public
      * @return string/boolean       false if not available
      */
-    static public function getAuthUser() {
+    static public function GetAuthUser() {
         if (isset(self::$authUser))
             return self::$authUser;
         else
@@ -264,7 +264,7 @@ class Request {
      * @access public
      * @return string/boolean       false if not available
      */
-    static public function getAuthDomain() {
+    static public function GetAuthDomain() {
         if (isset(self::$authDomain))
             return self::$authDomain;
         else
@@ -277,7 +277,7 @@ class Request {
      * @access public
      * @return string/boolean       false if not available
      */
-    static public function getAuthPassword() {
+    static public function GetAuthPassword() {
         if (isset(self::$authPassword))
             return self::$authPassword;
         else
@@ -290,7 +290,7 @@ class Request {
      * @access public
      * @return string
      */
-    static public function getRemoteAddr() {
+    static public function GetRemoteAddr() {
         if (isset(self::$remoteAddr))
             return self::$remoteAddr;
         else
@@ -303,7 +303,7 @@ class Request {
      * @access public
      * @return string/boolean       false if not available
      */
-    static public function getCommand() {
+    static public function GetCommand() {
         if (isset(self::$command))
             return self::$command;
         else
@@ -316,7 +316,7 @@ class Request {
      * @access public
      * @return string/boolean       false if not available
      */
-    static public function getDeviceID() {
+    static public function GetDeviceID() {
         if (isset(self::$devid))
             return self::$devid;
         else
@@ -329,7 +329,7 @@ class Request {
      * @access public
      * @return string/boolean       false if not available
      */
-    static public function getDeviceType() {
+    static public function GetDeviceType() {
         if (isset(self::$devtype))
             return self::$devtype;
         else
@@ -342,7 +342,7 @@ class Request {
      * @access public
      * @return string/boolean       false if not available
      */
-    static public function getProtocolVersion() {
+    static public function GetProtocolVersion() {
         if (isset(self::$asProtocolVersion))
             return self::$asProtocolVersion;
         else
@@ -355,7 +355,7 @@ class Request {
      * @access public
      * @return string/boolean       false if not available
      */
-    static public function getUserAgent() {
+    static public function GetUserAgent() {
         if (isset(self::$useragent))
             return self::$useragent;
         else
@@ -368,7 +368,7 @@ class Request {
      * @access public
      * @return int/boolean       false if not available
      */
-    static public function getPolicyKey() {
+    static public function GetPolicyKey() {
         if (isset(self::$policykey))
             return self::$policykey;
         else
@@ -381,7 +381,7 @@ class Request {
      * @access public
      * @return boolean
      */
-    static public function wasPolicyKeySent() {
+    static public function WasPolicyKeySent() {
         return isset(self::$headers["x-ms-policykey"]);
     }
 
@@ -391,7 +391,7 @@ class Request {
      * @access public
      * @return boolean
      */
-    static public function isMethodPOST() {
+    static public function IsMethodPOST() {
         return (self::$method == "POST");
     }
 
@@ -401,7 +401,7 @@ class Request {
      * @access public
      * @return boolean
      */
-    static public function isMethodGET() {
+    static public function IsMethodGET() {
         return (self::$method == "GET");
     }
 
@@ -411,7 +411,7 @@ class Request {
      * @access public
      * @return boolean
      */
-    static public function isMethodOPTIONS() {
+    static public function IsMethodOPTIONS() {
         return (self::$method == "OPTIONS");
     }
 
@@ -422,8 +422,8 @@ class Request {
      * @access public
      * @return boolean       false if invalid
      */
-    static public function isValidDeviceID() {
-        if (self::getDeviceID() === "validate")
+    static public function IsValidDeviceID() {
+        if (self::GetDeviceID() === "validate")
             return false;
         else
             return true;
@@ -435,7 +435,7 @@ class Request {
      * @access public
      * @return int
      */
-    static public function getContentLength() {
+    static public function GetContentLength() {
         return (isset(self::$headers["content-length"]))? (int) self::$headers["content-length"] : 0;
     }
 

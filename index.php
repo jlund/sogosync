@@ -81,11 +81,11 @@ include_once('version.php');
         ZLog::Write(LOGLEVEL_DEBUG,"-------- Start");
         ZLog::Write(LOGLEVEL_INFO,
                     sprintf("Version='%s' method='%s' from='%s' cmd='%s' getUser='%s' devId='%s' devType='%s'",
-                                    @constant('ZPUSH_VERSION'), Request::getMethod(), Request::getRemoteAddr(),
-                                    Request::getCommand(), Request::getGETUser(), Request::getDeviceID(), Request::getDeviceType()));
+                                    @constant('ZPUSH_VERSION'), Request::GetMethod(), Request::GetRemoteAddr(),
+                                    Request::GetCommand(), Request::GetGETUser(), Request::GetDeviceID(), Request::GetDeviceType()));
 
         // Stop here if this is an OPTIONS request
-        if (Request::isMethodOPTIONS())
+        if (Request::IsMethodOPTIONS())
             throw new NoPostRequestException("Options request", NoPostRequestException::OPTIONS_REQUEST);
 
         ZPush::CheckAdvancedConfig();
@@ -94,7 +94,7 @@ include_once('version.php');
         Request::ProcessHeaders();
 
         // Check required GET parameters
-        if(Request::isMethodPOST() && (!Request::getCommand() || !Request::getGETUser() || !Request::getDeviceID() || !Request::getDeviceType()))
+        if(Request::IsMethodPOST() && (!Request::GetCommand() || !Request::GetGETUser() || !Request::GetDeviceID() || !Request::GetDeviceType()))
             throw new FatalException("Requested the Z-Push URL without the required GET parameters");
 
         // Load the backend
@@ -105,19 +105,19 @@ include_once('version.php');
             throw new AuthenticationRequiredException("Access denied. Please send authorisation information");
 
         // check the provisioning information
-        if (PROVISIONING === true && Request::isMethodPOST() && ZPush::CommandNeedsProvisioning(Request::getCommand()) &&
-            ((Request::wasPolicyKeySent() && Request::getPolicyKey() == 0) || ZPush::GetDeviceManager()->ProvisioningRequired(Request::getPolicyKey())) &&
+        if (PROVISIONING === true && Request::IsMethodPOST() && ZPush::CommandNeedsProvisioning(Request::GetCommand()) &&
+            ((Request::WasPolicyKeySent() && Request::GetPolicyKey() == 0) || ZPush::GetDeviceManager()->ProvisioningRequired(Request::GetPolicyKey())) &&
             (LOOSE_PROVISIONING === false ||
-            (LOOSE_PROVISIONING === true && Request::wasPolicyKeySent())))
+            (LOOSE_PROVISIONING === true && Request::WasPolicyKeySent())))
             //TODO for AS 14 send a wbxml response
             throw new ProvisioningRequiredException();
 
         // most commands require an authenticated user
-        if (ZPush::CommandNeedsAuthentication(Request::getCommand()))
+        if (ZPush::CommandNeedsAuthentication(Request::GetCommand()))
             RequestProcessor::Authenticate();
 
         // Do the actual processing of the request
-        if (Request::isMethodGET())
+        if (Request::IsMethodGET())
             throw new NoPostRequestException("This is the Z-Push location and can only be accessed by Microsoft ActiveSync-capable devices", NoPostRequestException::GET_REQUEST);
 
         // Do the actual request
@@ -156,16 +156,16 @@ include_once('version.php');
             ZLog::Write(LOGLEVEL_INFO, $nopostex->getMessage());
         }
         else if ($nopostex->getCode() == NoPostRequestException::GET_REQUEST) {
-            if (Request::getUserAgent())
-                ZLog::Write(LOGLEVEL_INFO, sprintf("User-agent: '%s'", Request::getUserAgent()));
+            if (Request::GetUserAgent())
+                ZLog::Write(LOGLEVEL_INFO, sprintf("User-agent: '%s'", Request::GetUserAgent()));
             if (!headers_sent() && $nopostex->showLegalNotice())
                 ZPush::PrintZPushLegal('GET not supported', $nopostex->getMessage());
         }
     }
 
     catch (Exception $ex) {
-        if (Request::getUserAgent())
-            ZLog::Write(LOGLEVEL_INFO, sprintf("User-agent: '%s'", Request::getUserAgent()));
+        if (Request::GetUserAgent())
+            ZLog::Write(LOGLEVEL_INFO, sprintf("User-agent: '%s'", Request::GetUserAgent()));
         $exclass = get_class($ex);
 
         if(!headers_sent()) {
@@ -186,14 +186,14 @@ include_once('version.php');
 
             // log the failed login attemt e.g. for fail2ban
             if (defined('LOGAUTHFAIL') && LOGAUTHFAIL != false)
-                ZLog::Write(LOGLEVEL_WARN, sprintf("IP: %s failed to authenticate user '%s'",  Request::getRemoteAddr(), Request::getAuthUser()? Request::getAuthUser(): Request::getGETUser() ));
+                ZLog::Write(LOGLEVEL_WARN, sprintf("IP: %s failed to authenticate user '%s'",  Request::GetRemoteAddr(), Request::GetAuthUser()? Request::GetAuthUser(): Request::GetGETUser() ));
         }
 
         // Try to output some kind of error information. This is only possible if
         // the output had not started yet. If it has started already, we can't show the user the error, and
         // the device will give its own (useless) error message.
         else if (!($ex instanceof ZPushException) || $ex->showLegalNotice()) {
-            $cmdinfo = (Request::getCommand())? sprintf(" processing command <i>%s</i>", Request::getCommand()): "";
+            $cmdinfo = (Request::GetCommand())? sprintf(" processing command <i>%s</i>", Request::GetCommand()): "";
             $extrace = $ex->getTrace();
             $trace = (!empty($extrace))? "\n\nTrace:\n". print_r($extrace,1):"";
             ZPush::PrintZPushLegal($exclass . $cmdinfo, sprintf('<pre>%s</pre>',$ex->getMessage() . $trace));
