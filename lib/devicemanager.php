@@ -433,7 +433,7 @@ class DeviceManager {
             $this->uuid = $this->device->GetFolderUUID();
             $this->oldStateCounter = self::FIXEDHIERARCHYCOUNTER;
 
-            ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->getFolderIdFromCacheByClass() is about to load saved HierarchyCache with UUID:". $this->uuid);
+            ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->GetFolderIdFromCacheByClass() is about to load saved HierarchyCache with UUID:". $this->uuid);
 
             // force loading the saved HierarchyCache
             $this->loadHierarchyCache(true);
@@ -442,8 +442,8 @@ class DeviceManager {
             throw new NoHierarchyCacheAvailableException($ex->getMessage());
         }
 
-        $folderid = $device->GetHierarchyCache->getFolderIdByType($type);
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->getFolderIdFromCacheByClass('%s'): '%s' => '%s'", $class, $type, $folderid));
+        $folderid = $device->GetHierarchyCache->GetFolderIdByType($type);
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->GetFolderIdFromCacheByClass('%s'): '%s' => '%s'", $class, $type, $folderid));
         return $folderid;
     }
 
@@ -589,10 +589,10 @@ class DeviceManager {
 
         // check all folders and deleted folders to update data of ASDevice and delete old states
         $hc = $this->device->getHierarchyCache();
-        foreach ($hc->getDeletedFolders() as $delfolder)
+        foreach ($hc->GetDeletedFolders() as $delfolder)
             $this->unLinkState($delfolder->serverid);
 
-        foreach ($hc->exportFolders() as $folder)
+        foreach ($hc->ExportFolders() as $folder)
             $this->device->SetFolderType($folder->serverid, $folder->type);
 
         $hierarchydata = $this->device->GetHierarchyCacheData();

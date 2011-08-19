@@ -47,20 +47,19 @@
 * Consult LICENSE file for details
 *************************************************/
 
-// default PHP-MAPI classes
-include_once('mapi/mapi.util.php');
-include_once('mapi/mapidefs.php');
-include_once('mapi/mapitags.php');
-include_once('mapi/mapicode.php');
-include_once('mapi/mapiguid.php');
-//task recurrence support in php-mapi is available since ZCP 6.40.4
-if (Utils::CheckMapiExtVersion('6.40.4')) {
-    include_once('mapi/class.baserecurrence.php');
-    include_once('mapi/class.taskrecurrence.php');
-}
-include_once('mapi/class.recurrence.php');
-include_once('mapi/class.meetingrequest.php');
-include_once('mapi/class.freebusypublish.php');
+// include PHP-MAPI classes
+include_once('backend/zarafa/mapi/mapi.util.php');
+include_once('backend/zarafa/mapi/mapidefs.php');
+include_once('backend/zarafa/mapi/mapitags.php');
+include_once('backend/zarafa/mapi/mapicode.php');
+include_once('backend/zarafa/mapi/mapiguid.php');
+include_once('backend/zarafa/mapi/class.baseexception.php');
+include_once('backend/zarafa/mapi/class.mapiexception.php');
+include_once('backend/zarafa/mapi/class.baserecurrence.php');
+include_once('backend/zarafa/mapi/class.taskrecurrence.php');
+include_once('backend/zarafa/mapi/class.recurrence.php');
+include_once('backend/zarafa/mapi/class.meetingrequest.php');
+include_once('backend/zarafa/mapi/class.freebusypublish.php');
 
 // processing of RFC822 messages
 include_once('include/mimeDecode.php');
@@ -73,9 +72,6 @@ include_once('backend/zarafa/mapiprovider.php');
 include_once('backend/zarafa/mapiphpwrapper.php');
 include_once('backend/zarafa/importer.php');
 include_once('backend/zarafa/exporter.php');
-// TODO use own mapi include and recurrence classes files
-// TODO use this define in the own file
-if (!defined("PSETID_AirSync")) define ("PSETID_AirSync", makeguid("{71035549-0739-4DCB-9163-00F0580DBBDF}"));
 
 
 class BackendZarafa implements IBackend, ISearchProvider {
@@ -139,8 +135,8 @@ class BackendZarafa implements IBackend, ISearchProvider {
         try {
             $this->session = @mapi_logon_zarafa($user, $pass, MAPI_SERVER);
         }
-        catch (Exception $ex) {
-            throw new AuthenticationRequiredException($ex->getMessage(), AUTHENTICATION_FAILED);
+        catch (MAPIException $ex) {
+            throw new AuthenticationRequiredException($ex->getDisplayMessage());
         }
 
         if(!$this->session) {

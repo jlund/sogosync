@@ -265,7 +265,7 @@ class ImportChangesICS implements IImportChanges {
 
             // check for conflicts
             $this->lazyLoadConflicts();
-            if($this->memChanges->isChanged($id)) {
+            if($this->memChanges->IsChanged($id)) {
                 if ($this->flags & SYNC_CONFLICT_OVERWRITE_PIM) {
                     // in these cases the status SYNC_STATUS_CONFLICTCLIENTSERVEROBJECT should be returned, so the mobile client can inform the end user
                     throw new StatusException(sprintf("ImportChangesICS->ImportMessageChange('%s','%s'): Conflict detected. Data from PIM will be dropped! Server overwrites PIM. User is informed.", $id, get_class($message)), SYNC_STATUS_CONFLICTCLIENTSERVEROBJECT, null, LOGLEVEL_INFO);
@@ -274,7 +274,7 @@ class ImportChangesICS implements IImportChanges {
                 else
                     ZLog::Write(LOGLEVEL_INFO, sprintf("ImportChangesICS->ImportMessageChange('%s','%s'): Conflict detected. Data from Server will be dropped! PIM overwrites server.", $id, get_class($message)));
             }
-            if($this->memChanges->isDeleted($id)) {
+            if($this->memChanges->IsDeleted($id)) {
                 ZLog::Write(LOGLEVEL_INFO, sprintf("ImportChangesICS->ImportMessageChange('%s','%s'): Conflict detected. Data from PIM will be dropped! Object was deleted on server.", $id, get_class($message)));
                 return false;
             }
@@ -308,7 +308,7 @@ class ImportChangesICS implements IImportChanges {
     public function ImportMessageDeletion($id) {
         // check for conflicts
         $this->lazyLoadConflicts();
-        if($this->memChanges->isChanged($id)) {
+        if($this->memChanges->IsChanged($id)) {
             ZLog::Write(LOGLEVEL_INFO, sprintf("ImportChangesICS->ImportMessageDeletion('%s'): detected. Data from Server will be dropped! PIM deleted object.", $id));
         }
 

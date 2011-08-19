@@ -382,13 +382,13 @@ class ASDevice {
     public function SetHierarchyCache($hierarchydata = false) {
         if (!is_array($hierarchydata) && $hierarchydata !== false) {
             $this->hierarchyCache = unserialize($hierarchydata);
-            $this->hierarchyCache->copyOldState();
+            $this->hierarchyCache->CopyOldState();
         }
         else
             $this->hierarchyCache = new ChangesMemoryWrapper();
 
         if (is_array($hierarchydata))
-            return $this->hierarchyCache->importFolders($hierarchydata);
+            return $this->hierarchyCache->ImportFolders($hierarchydata);
         return true;
     }
 
@@ -419,7 +419,7 @@ class ASDevice {
             $this->SetHierarchyCache();
         }
 
-        ZLog::Write(LOGLEVEL_DEBUG, "ASDevice->GetHierarchyCache(): ". $this->hierarchyCache->getStat());
+        ZLog::Write(LOGLEVEL_DEBUG, "ASDevice->GetHierarchyCache(): ". $this->hierarchyCache->GetStat());
         return $this->hierarchyCache;
     }
 

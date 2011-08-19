@@ -472,7 +472,7 @@ class RequestProcessor {
 
             if ($status == SYNC_FSSTATUS_SUCCESS) {
                 self::$encoder->startTag(SYNC_FOLDERHIERARCHY_SYNCKEY);
-                $synckey = ($changesMem->isStateChanged()) ? $newsynckey : $synckey;
+                $synckey = ($changesMem->IsStateChanged()) ? $newsynckey : $synckey;
                 self::$encoder->content($synckey);
                 self::$encoder->endTag();
 
@@ -1594,7 +1594,7 @@ class RequestProcessor {
                 $importer->Config($syncstate);
 
                 // the messages from the PIM will be forwarded to the real importer
-                $changesMem->setDestinationImporter($importer);
+                $changesMem->SetDestinationImporter($importer);
 
                 // process incoming change
                 if (!$delete) {
