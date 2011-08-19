@@ -50,14 +50,6 @@
     // Defines the base path on the server
     define('BASE_PATH', dirname($_SERVER['SCRIPT_FILENAME']). '/');
 
-    // TODO check if path settings
-    // Define the include paths
-    ini_set('include_path',
-                        BASE_PATH. PATH_SEPARATOR .
-                        ini_get('include_path'). PATH_SEPARATOR .
-                        '/usr/share/php/'. PATH_SEPARATOR .
-                        '/usr/share/php5/');
-
     // Try to set unlimited timeout
     define('SCRIPT_TIMEOUT', 0);
 
