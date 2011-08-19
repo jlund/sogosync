@@ -168,7 +168,7 @@ class ZLog {
         if (!isset(self::$devid))
             self::$devid = '';
 
-        return @strftime("%x %X") ." ". self::$pidstr . self::$user . self::getLogLevelString($loglevel, (LOGLEVEL > LOGLEVEL_INFO)) ." ". self::$devid;
+        return @strftime("%d/%m/%Y %T") ." ". self::$pidstr . self::$user . self::getLogLevelString($loglevel, (LOGLEVEL > LOGLEVEL_INFO)) ." ". self::$devid;
     }
 
     /**

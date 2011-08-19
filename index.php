@@ -181,10 +181,18 @@ include_once('version.php');
         else
             ZLog::Write(LOGLEVEL_FATAL, "Exception: ($exclass) - headers were already sent. Message: ". $ex->getMessage());
 
+        if ($ex instanceof AuthenticationRequiredException) {
+            ZPush::PrintZPushLegal($exclass, sprintf('<pre>%s</pre>',$ex->getMessage()));
+
+            // log the failed login attemt e.g. for fail2ban
+            if (defined('LOGAUTHFAIL') && LOGAUTHFAIL != false)
+                ZLog::Write(LOGLEVEL_WARN, sprintf("IP: %s failed to authenticate user '%s'",  Request::getRemoteAddr(), Request::getAuthUser()? Request::getAuthUser(): Request::getGETUser() ));
+        }
+
         // Try to output some kind of error information. This is only possible if
         // the output had not started yet. If it has started already, we can't show the user the error, and
         // the device will give its own (useless) error message.
-        if (!($ex instanceof ZPushException) || $ex->showLegalNotice()) {
+        else if (!($ex instanceof ZPushException) || $ex->showLegalNotice()) {
             $cmdinfo = (Request::getCommand())? sprintf(" processing command <i>%s</i>", Request::getCommand()): "";
             $extrace = $ex->getTrace();
             $trace = (!empty($extrace))? "\n\nTrace:\n". print_r($extrace,1):"";

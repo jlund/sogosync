@@ -57,7 +57,7 @@ class Request {
     static private $output;
     static private $headers;
     static private $getparameters;
-    static private $command = "-";
+    static private $command;
     static private $device;
     static private $method;
     static private $remoteAddr;
