@@ -133,7 +133,7 @@ include_once('version.php');
 
         // log amount of data transferred
         // TODO check $len when streaming more data (e.g. Attachments), as the data will be send chunked
-        ZPush::GetDeviceManager()->sentData($len);
+        ZPush::GetDeviceManager()->SentData($len);
 
         // Unfortunately, even though Z-Push can stream the data to the client
         // with a chunked encoding, using chunked encoding breaks the progress bar
@@ -202,7 +202,7 @@ include_once('version.php');
 
     // save device data if the DeviceManager is available
     if (ZPush::GetDeviceManager(false))
-        ZPush::GetDeviceManager()->save();
+        ZPush::GetDeviceManager()->Save();
 
     // end gracefully
     ZLog::Write(LOGLEVEL_DEBUG, '-------- End');

@@ -66,7 +66,6 @@ class DeviceManager {
     private $deviceHash;
     private $statemachine;
     private $hierarchyOperation = false;
-    private $exceptions;
     private $incomingData = 0;
     private $outgoingData = 0;
 
@@ -83,7 +82,6 @@ class DeviceManager {
      */
     public function DeviceManager() {
         $this->statemachine = ZPush::GetStateMachine();
-        $this->exceptions = array();
         $this->deviceHash = false;
         $this->devid = Request::GetDeviceID();
 
@@ -104,28 +102,6 @@ class DeviceManager {
      */
 
     /**
-     * Loads devicedata from the StateMachine and loads it into the device
-     *
-     * @access public
-     * @return boolean
-     */
-    private function loadDeviceData() {
-        try {
-            $deviceHash = $this->statemachine->GetStateHash($this->devid, IStateMachine::DEVICEDATA);
-            if ($deviceHash != $this->deviceHash) {
-                if ($this->deviceHash)
-                    ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->loadDeviceData(): Device data was changed, reloading");
-                $this->device->setData($this->statemachine->GetState($this->devid, IStateMachine::DEVICEDATA));
-                $this->deviceHash = $deviceHash;
-            }
-        }
-        // TODO might be necessary to catch this and process some StateExceptions later. E.g. -> sync folders -> delete all states -> sync a single folder --> this works, but a full hierarchysync should be triggered!
-        catch (StateNotFoundException $snfex) {
-            $this->device->SetPolicyKey(0);
-        }
-    }
-
-    /**
      * Announces amount of transmitted data to the DeviceManager
      *
      * @param int           $datacounter
@@ -133,57 +109,44 @@ class DeviceManager {
      * @access public
      * @return boolean
      */
-    public function sentData($datacounter) {
+    public function SentData($datacounter) {
         // TODO save this somewhere
         $this->incomingData = Request::GetContentLength();
         $this->outgoingData = $datacounter;
     }
 
     /**
-     * Announces an occured exception to the DeviceManager
-     *
-     * @param Exception     $exception
-     *
-     * @access public
-     * @return boolean
-     */
-    public function setException($exception) {
-        // TODO save this somewhere
-        $this->exceptions[] = $exception;
-    }
-
-    /**
      * Called at the end of the request
-     * Statistics about received/sent data, Exceptions etc. is saved here
+     * Statistics about received/sent data is saved here
      *
      * @access public
      * @return boolean
      */
-    public function save() {
+    public function Save() {
         // TODO save other stuff
 
         // update the user agent to the device
-        $this->device->setUserAgent(Request::GetUserAgent());
+        $this->device->SetUserAgent(Request::GetUserAgent());
 
         // data to be saved
-        $data = $this->device->getData();
+        $data = $this->device->GetData();
         if ($data && Request::IsValidDeviceID()) {
-            ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->save(): Device data changed");
+            ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->Save(): Device data changed");
 
             try {
                 // check if this is the first time the device data is saved and it is authenticated. If so, link the user to the device id
-                if ($this->device->getLastUpdateTime() == 0 && RequestProcessor::isUserAuthenticated()) {
-                    ZLog::Write(LOGLEVEL_INFO, sprintf("Linking device ID '%s' to user '%s'", $this->devid, $this->device->getDeviceUser()));
-                    $this->statemachine->LinkUserDevice($this->device->getDeviceUser(), $this->devid);
+                if ($this->device->GetLastUpdateTime() == 0 && RequestProcessor::isUserAuthenticated()) {
+                    ZLog::Write(LOGLEVEL_INFO, sprintf("Linking device ID '%s' to user '%s'", $this->devid, $this->device->GetDeviceUser()));
+                    $this->statemachine->LinkUserDevice($this->device->GetDeviceUser(), $this->devid);
                 }
 
-                if (RequestProcessor::isUserAuthenticated() || $this->device->forceSave() ) {
+                if (RequestProcessor::isUserAuthenticated() || $this->device->ForceSave() ) {
                     $this->statemachine->SetState($data, $this->devid, IStateMachine::DEVICEDATA);
-                    ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->save(): Device data saved");
+                    ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->Save(): Device data saved");
                 }
             }
             catch (StateNotFoundException $snfex) {
-                ZLog::Write(LOGLEVEL_ERROR, "DeviceManager->save(): Exception: ". $snfex->getMessage());
+                ZLog::Write(LOGLEVEL_ERROR, "DeviceManager->Save(): Exception: ". $snfex->getMessage());
             }
         }
         return true;
@@ -207,14 +170,14 @@ class DeviceManager {
         $this->loadDeviceData();
 
         // check if a remote wipe is required
-        if ($this->device->getWipeStatus() > SYNC_PROVISION_RWSTATUS_OK) {
+        if ($this->device->GetWipeStatus() > SYNC_PROVISION_RWSTATUS_OK) {
             ZLog::Write(LOGLEVEL_INFO, sprintf("DeviceManager->ProvisioningRequired('%s'): YES, remote wipe requested", $policykey));
             return true;
         }
 
-        $p = ($policykey == 0 || $policykey != $this->device->getPolicyKey());
+        $p = ($policykey == 0 || $policykey != $this->device->GetPolicyKey());
         if (!$noDebug || $p)
-            ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->ProvisioningRequired('%s') saved device key '%s': %s", $policykey, $this->device->getPolicyKey(), Utils::PrintAsString($p)));
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->ProvisioningRequired('%s') saved device key '%s': %s", $policykey, $this->device->GetPolicyKey(), Utils::PrintAsString($p)));
         return $p;
     }
 
@@ -238,7 +201,7 @@ class DeviceManager {
      */
     public function SetProvisioningPolicyKey($policykey) {
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->SetPolicyKey('%s')", $policykey));
-        return $this->device->setPolicyKey($policykey);
+        return $this->device->SetPolicyKey($policykey);
     }
 
     /**
@@ -250,7 +213,7 @@ class DeviceManager {
     public function GetProvisioningObject() {
         $p = new SyncProvisioning();
         // TODO load systemwide Policies
-        $p->Load($this->device->getPolicies());
+        $p->Load($this->device->GetPolicies());
         return $p;
     }
 
@@ -261,7 +224,7 @@ class DeviceManager {
      * @return int          returns the current status of the device - SYNC_PROVISION_RWSTATUS_*
      */
     public function GetProvisioningWipeStatus() {
-        return $this->device->getWipeStatus();
+        return $this->device->GetWipeStatus();
     }
 
     /**
@@ -273,13 +236,13 @@ class DeviceManager {
      * @return boolean      could fail if trying to update status to a wipe status which was not requested before
      */
     public function SetProvisioningWipeStatus($status) {
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ASDevice->setWipeStatus() change from '%d' to '%d'",$this->device->getWipeStatus(), $status));
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->SetProvisioningWipeStatus() change from '%d' to '%d'",$this->device->GetWipeStatus(), $status));
 
-        if ($status > SYNC_PROVISION_RWSTATUS_OK && !($this->device->getWipeStatus() > SYNC_PROVISION_RWSTATUS_OK)) {
+        if ($status > SYNC_PROVISION_RWSTATUS_OK && !($this->device->GetWipeStatus() > SYNC_PROVISION_RWSTATUS_OK)) {
             ZLog::Write(LOGLEVEL_ERROR, "Not permitted to update remote wipe status to a higher value as remote wipe was not initiated!");
             return false;
         }
-        $this->device->setWipeStatus($status);
+        $this->device->SetWipeStatus($status);
         return true;
     }
 
@@ -329,7 +292,7 @@ class DeviceManager {
         $policykey = 0;
 
         try {
-            $data = $this->statemachine->GetState($this->devid, IStateMachine::PINGDATA, $this->device->getFirstSyncTime());
+            $data = $this->statemachine->GetState($this->devid, IStateMachine::PINGDATA, $this->device->GetFirstSyncTime());
             if ($data !== false) {
                 $ping = unserialize($data);
                 $lifetime = $ping["lifetime"];
@@ -352,8 +315,8 @@ class DeviceManager {
      * @return boolean
      */
     public function SetPingState($collections, $lifetime) {
-        return $this->statemachine->SetState(serialize(array("lifetime" => $lifetime, "collections" => $collections, "policykey" => $this->device->getPolicyKey())),
-                                             $this->devid, IStateMachine::PINGDATA, $this->device->getFirstSyncTime());
+        return $this->statemachine->SetState(serialize(array("lifetime" => $lifetime, "collections" => $collections, "policykey" => $this->device->GetPolicyKey())),
+                                             $this->devid, IStateMachine::PINGDATA, $this->device->GetFirstSyncTime());
     }
 
     /**
@@ -418,7 +381,7 @@ class DeviceManager {
      * @return object           HierarchyCache
      */
     public function GetHierarchyChangesWrapper() {
-        return $this->device->getHierarchyCache();
+        return $this->device->GetHierarchyCache();
     }
 
     /**
@@ -443,7 +406,7 @@ class DeviceManager {
         $this->newStateCounter = self::FIXEDHIERARCHYCOUNTER;
 
         // initialize legacy HierarchCache
-        $this->device->setHierarchyCache($folders);
+        $this->device->SetHierarchyCache($folders);
 
         // force saving the hierarchy cache!
         return $this->saveHierarchyCache(true);
@@ -467,7 +430,7 @@ class DeviceManager {
         // load the hierarchycache, we will need it
         try {
             // as there is no hierarchy uuid from the associated state, we have to read it from the device data
-            $this->uuid = $this->device->getFolderUUID();
+            $this->uuid = $this->device->GetFolderUUID();
             $this->oldStateCounter = self::FIXEDHIERARCHYCOUNTER;
 
             ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->getFolderIdFromCacheByClass() is about to load saved HierarchyCache with UUID:". $this->uuid);
@@ -479,7 +442,7 @@ class DeviceManager {
             throw new NoHierarchyCacheAvailableException($ex->getMessage());
         }
 
-        $folderid = $device->getHierarchyCache->getFolderIdByType($type);
+        $folderid = $device->GetHierarchyCache->getFolderIdByType($type);
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->getFolderIdFromCacheByClass('%s'): '%s' => '%s'", $class, $type, $folderid));
         return $folderid;
     }
@@ -528,7 +491,7 @@ class DeviceManager {
      * @return boolean
      */
     public function SetSupportedFields($folderid, $fieldlist) {
-        return $this->device->setSupportedFields($folderid, $fieldlist);
+        return $this->device->SetSupportedFields($folderid, $fieldlist);
     }
 
     /**
@@ -541,7 +504,7 @@ class DeviceManager {
      * @return array/boolean
      */
     public function GetSupportedFields($folderid) {
-        return $this->device->getSupportedFields($folderid);
+        return $this->device->GetSupportedFields($folderid);
     }
 
     /**
@@ -558,7 +521,7 @@ class DeviceManager {
         $this->unLinkState(false);
 
         // delete all other uuids
-        foreach ($this->device->getAllFolderIds() as $folderid)
+        foreach ($this->device->GetAllFolderIds() as $folderid)
             $uuid = $this->unLinkState($folderid);
 
         return true;
@@ -567,6 +530,28 @@ class DeviceManager {
     /**----------------------------------------------------------------------------------------------------------
      * private DeviceManager methods
      */
+
+    /**
+     * Loads devicedata from the StateMachine and loads it into the device
+     *
+     * @access public
+     * @return boolean
+     */
+    private function loadDeviceData() {
+        try {
+            $deviceHash = $this->statemachine->GetStateHash($this->devid, IStateMachine::DEVICEDATA);
+            if ($deviceHash != $this->deviceHash) {
+                if ($this->deviceHash)
+                    ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->loadDeviceData(): Device data was changed, reloading");
+                $this->device->SetData($this->statemachine->GetState($this->devid, IStateMachine::DEVICEDATA));
+                $this->deviceHash = $deviceHash;
+            }
+        }
+        // TODO might be necessary to catch this and process some StateExceptions later. E.g. -> sync folders -> delete all states -> sync a single folder --> this works, but a full hierarchysync should be triggered!
+        catch (StateNotFoundException $snfex) {
+            $this->device->SetPolicyKey(0);
+        }
+    }
 
     /**
      * Loads the HierarchyCacheState and initializes the HierarchyChache
@@ -582,7 +567,7 @@ class DeviceManager {
 
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->loadHierarchyCache(): '%s' - '%s' - %d",$this->devid, $this->uuid . "-hc", $this->oldStateCounter));
         $hierarchydata = $this->statemachine->GetState($this->devid, $this->uuid . "-hc", $this->oldStateCounter);
-        $this->device->setHierarchyCache($hierarchydata);
+        $this->device->SetHierarchyCache($hierarchydata);
         return true;
     }
 
@@ -599,7 +584,7 @@ class DeviceManager {
             return false;
 
         // link the hierarchy cache again, if the UUID does not match the UUID saved in the devicedata
-        if (($this->uuid != $this->device->getFolderUUID() || $forceSaving) )
+        if (($this->uuid != $this->device->GetFolderUUID() || $forceSaving) )
             $this->linkState();
 
         // check all folders and deleted folders to update data of ASDevice and delete old states
@@ -610,7 +595,7 @@ class DeviceManager {
         foreach ($hc->exportFolders() as $folder)
             $this->device->SetFolderType($folder->serverid, $folder->type);
 
-        $hierarchydata = $this->device->getHierarchyCacheData();
+        $hierarchydata = $this->device->GetHierarchyCacheData();
         return $this->statemachine->SetState($hierarchydata, $this->devid, $this->uuid . "-hc", $this->newStateCounter);
     }
 
@@ -625,7 +610,7 @@ class DeviceManager {
      * @return boolean
      */
     private function linkState($folderid = false) {
-        $savedUuid = $this->device->getFolderUUID($folderid);
+        $savedUuid = $this->device->GetFolderUUID($folderid);
         // delete 'old' states!
         if ($savedUuid != $this->uuid) {
             if ($savedUuid) {
@@ -636,7 +621,7 @@ class DeviceManager {
 
             }
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->linkState('%s'): linked to uuid '%s'.", (($folderid === false)?'HierarchyCache':$folderid), $this->uuid));
-            return $this->device->setFolderUUID($this->uuid, $folderid);
+            return $this->device->SetFolderUUID($this->uuid, $folderid);
         }
         return true;
     }
@@ -652,7 +637,7 @@ class DeviceManager {
      * @return boolean
      */
     private function unLinkState($folderid) {
-        $savedUuid = $this->device->getFolderUUID($folderid);
+        $savedUuid = $this->device->GetFolderUUID($folderid);
         if ($savedUuid) {
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->unLinkState('%s'): saved state '%s' is obsolete as folder was deleted on device. Old state files will be deleted.", $folderid, $savedUuid));
             $this->statemachine->CleanStates($this->devid, $savedUuid, self::FIXEDHIERARCHYCOUNTER *2);
@@ -660,7 +645,7 @@ class DeviceManager {
                 $this->statemachine->CleanStates($this->devid, $savedUuid. "-hc", self::FIXEDHIERARCHYCOUNTER *2);
         }
         // delete this id from the uuid cache
-        return $this->device->setFolderUUID(false, $folderid);
+        return $this->device->SetFolderUUID(false, $folderid);
     }
 
     /**

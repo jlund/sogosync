@@ -128,7 +128,7 @@ class ASDevice {
      * @access public
      * @return
      */
-    public function setData($data) {
+    public function SetData($data) {
         // TODO trigger a full resync should be done if the device data is invalid ?!
         if (!is_array($data)) return;
 
@@ -184,7 +184,7 @@ class ASDevice {
      * @access public
      * @return array/boolean
      */
-    public function getData() {
+    public function GetData() {
         if ($this->changed) {
             $userdata = array();
             if (isset($this->devicetype))       $userdata[self::DEVICETYPE]         = $this->devicetype;
@@ -232,7 +232,7 @@ class ASDevice {
      * @access public
      * @return boolean
      */
-    public function forceSave() {
+    public function ForceSave() {
         return $this->forceSave;
     }
 
@@ -242,7 +242,7 @@ class ASDevice {
      * @access public
      * @return long
      */
-    public function getFirstSyncTime() {
+    public function GetFirstSyncTime() {
         return $this->firstsynctime;
     }
 
@@ -252,7 +252,7 @@ class ASDevice {
      * @access public
      * @return string
      */
-    public function getDeviceUser() {
+    public function GetDeviceUser() {
         return $this->user;
     }
 
@@ -262,7 +262,7 @@ class ASDevice {
      * @access public
      * @return long
      */
-    public function getLastUpdateTime() {
+    public function GetLastUpdateTime() {
         return $this->lastupdatetime;
     }
 
@@ -275,7 +275,7 @@ class ASDevice {
      * @access public
      * @return boolean
      */
-    public function setUserAgent($useragent) {
+    public function SetUserAgent($useragent) {
         if ($useragent == $this->useragent)
             return true;
 
@@ -295,7 +295,7 @@ class ASDevice {
      * @access public
      * @return int
      */
-    public function getWipeStatus() {
+    public function GetWipeStatus() {
         if (isset($this->wipeStatus))
             return $this->wipeStatus;
         else
@@ -310,7 +310,7 @@ class ASDevice {
      * @access public
      * @return int
      */
-    public function setWipeStatus($status) {
+    public function SetWipeStatus($status) {
         // force saving the updated information if there was a transition between the wiping status
         if ($this->wipeStatus > SYNC_PROVISION_RWSTATUS_OK && $status > SYNC_PROVISION_RWSTATUS_OK)
             $this->forceSave = true;
@@ -333,7 +333,7 @@ class ASDevice {
      * @access public
      * @return int
      */
-    public function getPolicyKey() {
+    public function GetPolicyKey() {
         if (isset($this->policykey))
             return $this->policykey;
         else
@@ -348,7 +348,7 @@ class ASDevice {
      * @access public
      * @return
      */
-    public function setPolicyKey($policykey) {
+    public function SetPolicyKey($policykey) {
         $this->policykey = $policykey;
         $this->changed = true;
     }
@@ -359,7 +359,7 @@ class ASDevice {
      * @access public
      * @return array
      */
-    public function getPolicies() {
+    public function GetPolicies() {
         return $this->policies;
     }
 
@@ -379,7 +379,7 @@ class ASDevice {
      * @access public
      * @return boolean
      */
-    public function setHierarchyCache($hierarchydata = false) {
+    public function SetHierarchyCache($hierarchydata = false) {
         if (!is_array($hierarchydata) && $hierarchydata !== false) {
             $this->hierarchyCache = unserialize($hierarchydata);
             $this->hierarchyCache->copyOldState();
@@ -398,11 +398,11 @@ class ASDevice {
      * @access public
      * @return string
      */
-    public function getHierarchyCacheData() {
+    public function GetHierarchyCacheData() {
         if (isset($this->hierarchyCache))
             return serialize($this->hierarchyCache);
 
-        ZLog::Write(LOGLEVEL_WARN, "ASDevice->getHierarchyCacheData() has no data! HierarchyCache probably never initialized.");
+        ZLog::Write(LOGLEVEL_WARN, "ASDevice->GetHierarchyCacheData() has no data! HierarchyCache probably never initialized.");
         return false;
     }
 
@@ -412,14 +412,14 @@ class ASDevice {
      * @access public
      * @return object   HierarchyCache
      */
-    public function getHierarchyCache() {
+    public function GetHierarchyCache() {
         if (!isset($this->hierarchyCache)) {
             ZLog::Write(LOGLEVEL_WARN, "The HierarchyCache should have been initialized by now. Getting empty cache").
             // TODO this should also trigger a full hierarchy resync???
-            $this->setHierarchyCache();
+            $this->SetHierarchyCache();
         }
 
-        ZLog::Write(LOGLEVEL_DEBUG, "ASDevice->getHierarchyCache(): ". $this->hierarchyCache->getStat());
+        ZLog::Write(LOGLEVEL_DEBUG, "ASDevice->GetHierarchyCache(): ". $this->hierarchyCache->getStat());
         return $this->hierarchyCache;
     }
 
@@ -429,7 +429,7 @@ class ASDevice {
      * @access public
      * @return array
      */
-    public function getAllFolderIds() {
+    public function GetAllFolderIds() {
         if (isset($this->contentData) && is_array($this->contentData))
             return array_keys($this->contentData);
         return false;
@@ -443,7 +443,7 @@ class ASDevice {
      * @access public
      * @return string
      */
-    public function getFolderUUID($folderid = false) {
+    public function GetFolderUUID($folderid = false) {
         if ($folderid === false)
             return ($this->hierarchyUuid !== self::UNDEFINED)?$this->hierarchyUuid : false;
         else if (isset($this->contentData) && isset($this->contentData[$folderid]) && isset($this->contentData[$folderid][self::FOLDERUUID]))
@@ -461,7 +461,7 @@ class ASDevice {
      * @access public
      * @return
      */
-    public function setFolderUUID($uuid, $folderid = false) {
+    public function SetFolderUUID($uuid, $folderid = false) {
         if ($folderid === false)
             $this->hierarchyUuid = $uuid;
         else {
@@ -523,7 +523,7 @@ class ASDevice {
      * @access public
      * @return array/boolean        false means no supportedFields are available
      */
-    public function getSupportedFields($folderid) {
+    public function GetSupportedFields($folderid) {
         if (isset($this->contentData) && isset($this->contentData[$folderid]) &&
             isset($this->contentData[$folderid][self::FOLDERUUID]) && $this->contentData[$folderid][self::FOLDERUUID] !== false &&
             isset($this->contentData[$folderid][self::FOLDERSUPPORTEDFIELDS]) )
@@ -542,7 +542,7 @@ class ASDevice {
      * @access public
      * @return boolean
      */
-    public function setSupportedFields($folderid, $fieldlist) {
+    public function SetSupportedFields($folderid, $fieldlist) {
         if (!is_array($this->contentData[$folderid]))
             $this->contentData[$folderid] = array();
 
