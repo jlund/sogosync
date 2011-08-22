@@ -846,6 +846,7 @@ class MAPIProvider {
         if(isset($appointment->recurrence)) {
             // Set PR_ICON_INDEX to 1025 to show correct icon in category view
             $props[$appointmentprops["icon"]] = 1025;
+            $props[$appointmentprops["recurrencetype"]] = $appointment->recurrence->type;
 
             //if there aren't any exceptions, use the 'old style' set recurrence
             $noexceptions = true;
@@ -1718,6 +1719,9 @@ class MAPIProvider {
 
         if(!isset($message->recurrence->interval))
             $message->recurrence->interval = 1;
+
+        //set the default value of numoccur
+        $recur["numoccur"] = 0;
 
         switch($message->recurrence->type) {
             case 0:

@@ -335,7 +335,8 @@ class MAPIMapping {
             "mrwassent"             => "PT_BOOLEAN:PSETID_Appointment:0x8229",
             "endtime"               => "PT_SYSTIME:PSETID_Appointment:0x820e",//this is here for calendar restriction, tnef and ical
             "starttime"             => "PT_SYSTIME:PSETID_Appointment:0x820d",//this is here for calendar restriction, tnef and ical
-            "clipstart"             => "PT_SYSTIME:PSETID_Appointment:0x8235" //ical only
+            "clipstart"             => "PT_SYSTIME:PSETID_Appointment:0x8235", //ical only
+            "recurrencetype"        => "PT_LONG:PSETID_Appointment:0x8231"
         );
     }
 

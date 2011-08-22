@@ -658,7 +658,7 @@
 
                   $data = mapi_message_getprops($exception, array($this->proptags["basedate"]));
 
-                  if($this->isSameDay($this->fromGMT($this->tz,$data[$this->proptags["basedate"]]), $base_date)) {
+                  if(isset($data[$this->proptags["basedate"]]) && $this->isSameDay($this->fromGMT($this->tz,$data[$this->proptags["basedate"]]), $base_date)) {
                       return $tempattach;
                   }
             }
