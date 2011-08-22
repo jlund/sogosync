@@ -271,29 +271,28 @@ class MAPIProvider {
      * @param mixed             $mapimessage
      * @param array             $recurprops
      * @param SyncObject        &$syncMessage       the message
-     * @param SyncObject        &$syncRecurrence    the  recurrene message
+     * @param SyncObject        &$syncRecurrence    the  recurrence message
      * @param array             $tz                 timezone information
      *
      * @access private
      * @return
      */
     private function getRecurrence($mapimessage, $recurprops, &$syncMessage, &$syncRecurrence, $tz) {
-        if (class_exists('TaskRecurrence') && $syncRecurrence instanceof SyncTaskRecurrence)
-            $recurrence = new TaskRecurrence($this->store, $recurprops);
+        if ($syncRecurrence instanceof SyncTaskRecurrence)
+            $recurrence = new TaskRecurrence($this->store, $mapimessage);
         else
-            $recurrence = new Recurrence($this->store, $recurprops);
+            $recurrence = new Recurrence($this->store, $mapimessage);
 
-//TODO formatting
         switch($recurrence->recur["type"]) {
             case 10: // daily
                 switch($recurrence->recur["subtype"]) {
                     default:
-                    $syncRecurrence->type = 0;
+                        $syncRecurrence->type = 0;
                         break;
                     case 1:
-                    $syncRecurrence->type = 0;
-                    $syncRecurrence->dayofweek = 62; // mon-fri
-                    $syncRecurrence->interval = 1;
+                        $syncRecurrence->type = 0;
+                        $syncRecurrence->dayofweek = 62; // mon-fri
+                        $syncRecurrence->interval = 1;
                         break;
                 }
                 break;
@@ -303,23 +302,23 @@ class MAPIProvider {
             case 12: // monthly
                 switch($recurrence->recur["subtype"]) {
                     default:
-                    $syncRecurrence->type = 2;
+                        $syncRecurrence->type = 2;
                         break;
                     case 3:
-                    $syncRecurrence->type = 3;
+                        $syncRecurrence->type = 3;
                         break;
                 }
                 break;
             case 13: // yearly
                 switch($recurrence->recur["subtype"]) {
                     default:
-                    $syncRecurrence->type = 4;
+                        $syncRecurrence->type = 4;
                         break;
                     case 2:
-                    $syncRecurrence->type = 5;
+                        $syncRecurrence->type = 5;
                         break;
                     case 3:
-                    $syncRecurrence->type = 6;
+                        $syncRecurrence->type = 6;
                 }
         }
         // Termination
@@ -347,21 +346,25 @@ class MAPIProvider {
         switch($recurrence->recur["type"]) {
             case 10:
                 if($recurrence->recur["subtype"] == 0)
-                $syncRecurrence->interval = (int)($recurrence->recur["everyn"] / 1440);  // minutes
+                    $syncRecurrence->interval = (int)($recurrence->recur["everyn"] / 1440);  // minutes
                 break;
             case 11:
-            case 12: $syncRecurrence->interval = $recurrence->recur["everyn"]; break; // months / weeks
-            case 13: $syncRecurrence->interval = (int)($recurrence->recur["everyn"] / 12); break; // months
+            case 12:
+                $syncRecurrence->interval = $recurrence->recur["everyn"];
+                break; // months / weeks
+            case 13:
+                $syncRecurrence->interval = (int)($recurrence->recur["everyn"] / 12);
+                break; // months
         }
 
         if(isset($recurrence->recur["weekdays"]))
-        $syncRecurrence->dayofweek = $recurrence->recur["weekdays"]; // bitmask of days (1 == sunday, 128 == saturday
+            $syncRecurrence->dayofweek = $recurrence->recur["weekdays"]; // bitmask of days (1 == sunday, 128 == saturday
         if(isset($recurrence->recur["nday"]))
-        $syncRecurrence->weekofmonth = $recurrence->recur["nday"]; // N'th {DAY} of {X} (0-5)
+            $syncRecurrence->weekofmonth = $recurrence->recur["nday"]; // N'th {DAY} of {X} (0-5)
         if(isset($recurrence->recur["month"]))
-        $syncRecurrence->monthofyear = (int)($recurrence->recur["month"] / (60 * 24 * 29)) + 1; // works ok due to rounding. see also $monthminutes below (1-12)
+            $syncRecurrence->monthofyear = (int)($recurrence->recur["month"] / (60 * 24 * 29)) + 1; // works ok due to rounding. see also $monthminutes below (1-12)
         if(isset($recurrence->recur["monthday"]))
-        $syncRecurrence->dayofmonth = $recurrence->recur["monthday"]; // day of month (1-31)
+            $syncRecurrence->dayofmonth = $recurrence->recur["monthday"]; // day of month (1-31)
 
         // All changed exceptions are appointments within the 'exceptions' array. They contain the same items as a normal appointment
         foreach($recurrence->recur["changed_occurences"] as $change) {
@@ -372,8 +375,16 @@ class MAPIProvider {
                 $exception->starttime = $this->getGMTTimeByTZ($change["start"], $tz);
             if(isset($change["end"]))
                 $exception->endtime = $this->getGMTTimeByTZ($change["end"], $tz);
-            if(isset($change["basedate"]))
+            if(isset($change["basedate"])) {
                 $exception->exceptionstarttime = $this->getGMTTimeByTZ($this->getDayStartOfTimestamp($change["basedate"]) + $recurrence->recur["startocc"] * 60, $tz);
+
+                //open body because getting only property might not work because of memory limit
+                $exceptionatt = $recurrence->getExceptionAttachment($change["basedate"]);
+                if($exceptionatt) {
+                    $exceptionobj = mapi_attach_openobj($exceptionatt, 0);
+                    $exception->body = mapi_openproperty($exceptionobj, PR_BODY);
+                }
+            }
             if(isset($change["subject"]))
                 $exception->subject = w2u($change["subject"]);
             if(isset($change["reminder_before"]) && $change["reminder_before"])
@@ -800,9 +811,10 @@ class MAPIProvider {
 
         mapi_setprops($mapimessage, array(PR_MESSAGE_CLASS => "IPM.Appointment"));
 
-        $this->setPropsInMAPI($mapimessage, $appointment, MAPIMapping::GetAppointmentMapping());
+        $appointmentmapping = MAPIMapping::GetAppointmentMapping();
+        $this->setPropsInMAPI($mapimessage, $appointment, $appointmentmapping);
         $appointmentprops = MAPIMapping::GetAppointmentProperties();
-        $appointmentprops = $this->getPropIdsFromStrings($appointmentprops);
+        $appointmentprops = array_merge($this->getPropIdsFromStrings($appointmentmapping), $this->getPropIdsFromStrings($appointmentprops));
         //appointment specific properties to be set
         $props = array();
 
@@ -835,6 +847,9 @@ class MAPIProvider {
             // Set PR_ICON_INDEX to 1025 to show correct icon in category view
             $props[$appointmentprops["icon"]] = 1025;
 
+            //if there aren't any exceptions, use the 'old style' set recurrence
+            $noexceptions = true;
+
             $recurrence = new Recurrence($this->store, $mapimessage);
             $recur = array();
             $this->setRecurrence($appointment, $recur);
@@ -866,35 +881,59 @@ class MAPIProvider {
                         array_push($recur["deleted_occurences"], $this->getDayStartOfTimestamp($exception->exceptionstarttime));
                     } else {
                         // Change exception
-                        $mapiexception = array("basedate" => $this->getDayStartOfTimestamp($exception->exceptionstarttime));
+                        $basedate = $this->getDayStartOfTimestamp($exception->exceptionstarttime);
+                        $mapiexception = array("basedate" => $basedate);
+                        //other exception properties which are not handled in recurrence
+                        $exceptionprops = array();
 
-                        if(isset($exception->starttime))
+                        if(isset($exception->starttime)) {
                             $mapiexception["start"] = $this->getLocaltimeByTZ($exception->starttime, $tz);
-                        if(isset($exception->endtime))
+                            $exceptionprops[$appointmentprops["starttime"]] = $exception->starttime;
+                        }
+                        if(isset($exception->endtime)) {
                             $mapiexception["end"] = $this->getLocaltimeByTZ($exception->endtime, $tz);
+                            $exceptionprops[$appointmentprops["endtime"]] = $exception->endtime;
+                        }
                         if(isset($exception->subject))
-                            $mapiexception["subject"] = u2w($exception->subject);
+                            $exceptionprops[$appointmentprops["subject"]] = $mapiexception["subject"] = u2w($exception->subject);
                         if(isset($exception->location))
-                            $mapiexception["location"] = u2w($exception->location);
+                            $exceptionprops[$appointmentprops["location"]] = $mapiexception["location"] = u2w($exception->location);
                         if(isset($exception->busystatus))
-                            $mapiexception["busystatus"] = $exception->busystatus;
+                            $exceptionprops[$appointmentprops["busystatus"]] = $mapiexception["busystatus"] = $exception->busystatus;
                         if(isset($exception->reminder)) {
-                            $mapiexception["reminder_set"] = 1;
-                            $mapiexception["remind_before"] = $exception->reminder;
+                            $exceptionprops[$appointmentprops["reminderset"]] = $mapiexception["reminder_set"] = 1;
+                            $exceptionprops[$appointmentprops["remindertime"]] = $mapiexception["remind_before"] = $exception->reminder;
                         }
                         if(isset($exception->alldayevent))
-                            $mapiexception["alldayevent"] = $exception->alldayevent;
+                            $exceptionprops[$appointmentprops["alldayevent"]] = $mapiexception["alldayevent"] = $exception->alldayevent;
+
 
                         if(!isset($recur["changed_occurences"]))
                             $recur["changed_occurences"] = array();
 
+                        if (isset($exception->body))
+                            $exceptionprops[$appointmentprops["body"]] = u2w($exception->body);
+
                         array_push($recur["changed_occurences"], $mapiexception);
+
+                        if (!empty($exceptionprops)) {
+                            $noexceptions = false;
+                            if($recurrence->isException($basedate)){
+                                $recurrence->modifyException($exceptionprops, $basedate);
+                            }
+                            else {
+                                $recurrence->createException($exceptionprops, $basedate);
+                            }
+                        }
 
                     }
                 }
             }
 
-            $recurrence->setRecurrence($tz, $recur);
+            //setRecurrence deletes the attachments from an appointment
+            if ($noexceptions) {
+                $recurrence->setRecurrence($tz, $recur);
+            }
         }
         else {
             $props[$appointmentprops["isrecurring"]] = false;
