@@ -48,53 +48,6 @@
  *
  */
 
-
-/*
- *  M A P I T A G S . P H P
- *
- *  Property tag definitions for standard properties of MAPI
- *  objects.
- *
- *  The following ranges should be used for all property IDs. Note that
- *  property IDs for objects other than messages and recipients should
- *  all fall in the range 0x3000 to 0x3FFF:
- *
- *  From    To      Kind of property
- *  --------------------------------
- *  0001    0BFF    MAPI_defined envelope property
- *  0C00    0DFF    MAPI_defined per-recipient property
- *  0E00    0FFF    MAPI_defined non-transmittable property
- *  1000    2FFF    MAPI_defined message content property
- *
- *  3000    3FFF    MAPI_defined property (usually not message or recipient)
- *
- *  4000    57FF    Transport-defined envelope property
- *  5800    5FFF    Transport-defined per-recipient property
- *  6000    65FF    User-defined non-transmittable property
- *  6600    67FF    Provider-defined internal non-transmittable property
- *  6800    7BFF    Message class-defined content property
- *  7C00    7FFF    Message class-defined non-transmittable
- *                  property
- *
- *  8000    FFFE    User-defined Name-to-id mapped property
- *
- *  The 3000-3FFF range is further subdivided as follows:
- *
- *  From    To      Kind of property
- *  --------------------------------
- *  3000    33FF    Common property such as display name, entry ID
- *  3400    35FF    Message store object
- *  3600    36FF    Folder or AB container
- *  3700    38FF    Attachment
- *  3900    39FF    Address book object
- *  3A00    3BFF    Mail user
- *  3C00    3CFF    Distribution list
- *  3D00    3DFF    Profile section
- *  3E00    3FFF    Status object
- *
- *  Copyright 1986-1996 Microsoft Corporation. All Rights Reserved.
- */
-
 define('PR_ACKNOWLEDGEMENT_MODE'                      ,mapi_prop_tag(PT_LONG,        0x0001));
 define('PR_ALTERNATE_RECIPIENT_ALLOWED'               ,mapi_prop_tag(PT_BOOLEAN,     0x0002));
 define('PR_AUTHORIZING_USERS'                         ,mapi_prop_tag(PT_BINARY,      0x0003));
@@ -1227,7 +1180,7 @@ define('PR_CHANGE_KEY'								  ,mapi_prop_tag(PT_BINARY, 	0x65E0+0x02));
 define('PR_PREDECESSOR_CHANGE_LIST'					  ,mapi_prop_tag(PT_BINARY, 	0x65E0+0x03));
 
 
-define('PR_PROCESS_MEETING_REQUESTS', mapi_prop_tag(PT_BOOLEAN, 0x686D));
+define('PR_PROCESS_MEETING_REQUESTS',           mapi_prop_tag(PT_BOOLEAN, 0x686D));
 define('PR_DECLINE_RECURRING_MEETING_REQUESTS', mapi_prop_tag(PT_BOOLEAN, 0x686E));
 define('PR_DECLINE_CONFLICTING_MEETING_REQUESTS', mapi_prop_tag(PT_BOOLEAN, 0x686F));
 
