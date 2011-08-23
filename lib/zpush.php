@@ -132,9 +132,6 @@ class ZPush {
      * @trows FatalMisconfigurationException
      */
     static public function CheckConfig() {
-        // this is a legacy thing
-        global $specialLogUsers, $additionalFolders;
-
         // check the php version
         if (version_compare(phpversion(),'5.1.0') < 0)
             throw new FatalException("The configured PHP version is too old. Please make sure at least PHP 5.1 is used.");
@@ -163,6 +160,31 @@ class ZPush {
 
         if (!touch(LOGERRORFILE))
             throw new FatalMisconfigurationException("The configured LOGFILE can not be modified.");
+
+        // set time zone
+        // code contributed by Robert Scheck (rsc) - more information: https://developer.berlios.de/mantis/view.php?id=479
+        if(function_exists("date_default_timezone_set")) {
+            if(defined('TIMEZONE') ? constant('TIMEZONE') : false) {
+                if (! @date_default_timezone_set(TIMEZONE))
+                    throw new FatalMisconfigurationException(sprintf("The configured TIMEZONE '%s' is not valid. Please check supported timezones at http://www.php.net/manual/en/timezones.php", constant('TIMEZONE')));
+            }
+            else if(!ini_get('date.timezone')) {
+                date_default_timezone_set('Europe/Amsterdam');
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Verifies Timezone, StateMachine and Backend configuration
+     *
+     * @access public
+     * @return boolean
+     * @trows FatalMisconfigurationException
+     */
+    static public function CheckAdvancedConfig() {
+        global $specialLogUsers, $additionalFolders;
 
         if (!is_array($specialLogUsers))
             throw new FatalMisconfigurationException("The WBXML log users is not an array.");
@@ -203,30 +225,8 @@ class ZPush {
             }
 
         }
-        return true;
-    }
 
-    /**
-     * Verifies Timezone, StateMachine and Backend configuration
-     *
-     * @access public
-     * @return boolean
-     * @trows FatalMisconfigurationException
-     */
-    static public function CheckAdvancedConfig() {
-        // set time zone
-        // code contributed by Robert Scheck (rsc) - more information: https://developer.berlios.de/mantis/view.php?id=479
-        if(function_exists("date_default_timezone_set")) {
-            if(defined('TIMEZONE') ? constant('TIMEZONE') : false) {
-                if (! @date_default_timezone_set(TIMEZONE))
-                    throw new FatalMisconfigurationException("The configured TIMEZONE is not valid. Please check supported timezones at http://www.php.net/manual/en/timezones.php");
-
-            }
-            else if(!ini_get('date.timezone')) {
-                date_default_timezone_set('Europe/Amsterdam');
-            }
-            ZLog::Write(LOGLEVEL_DEBUG, sprintf("Used timezone '%s'", date_default_timezone_get()));
-        }
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("Used timezone '%s'", date_default_timezone_get()));
 
         // get the statemachine, which will also try to load the backend.. This could throw errors
         self::GetStateMachine();
