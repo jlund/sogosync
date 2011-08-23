@@ -55,7 +55,8 @@
      * any error occurs in mapi calls. this exception will only be thrown when severity bit is set in
      * error code that means it will be thrown only for mapi errors not for mapi warnings.
      */
-    class MAPIException extends BaseException
+    // FatalException will trigger a HTTP return code 500 to the mobile
+    class MAPIException extends FatalException
     {
         /**
          * Function will return display message of exception if its set by the calle.
