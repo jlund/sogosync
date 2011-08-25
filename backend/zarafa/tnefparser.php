@@ -1,6 +1,6 @@
 <?php
 /***********************************************
-* File      :   z_tnef.php
+* File      :   tnefparser.php
 * Project   :   Z-Push
 * Descr     :   This is tnef implementation for z-push.
 *               It is based on Zarafa's tnef implementation.
@@ -312,7 +312,7 @@ class TNEFParser {
             $hresult = $this->readSingleMapiProp($buffer, $size, $read, $mapiprops);
             if ($hresult !== NOERROR) {
                     ZLog::Write(LOGLEVEL_WARN, "TNEF: There was an error reading a mapi property.");
-                    ZLog::Write(LOGLEVEL_WARN, "TNEF: result: " . sprintf("%x", $hresult));
+                    ZLog::Write(LOGLEVEL_WARN, "TNEF: result: " . sprintf("0x%X", $hresult));
 
                     return $hresult;
             }
