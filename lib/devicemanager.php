@@ -1,8 +1,8 @@
 <?php
 /***********************************************
-* File      :   device.php
+* File      :   devicemanager.php
 * Project   :   Z-Push
-* Descr     :   Manages device relevant data, provisiong
+* Descr     :   Manages device relevant data, provisioning
 *               and manages sync states.
 *               The DeviceManager uses a IStateMachine
 *               implementation to save data.
