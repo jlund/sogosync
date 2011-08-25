@@ -1,14 +1,12 @@
 <?php
 /***********************************************
-* File      :   ics.php
+* File      :   zarafa.php
 * Project   :   Z-Push
-* Descr     :   This is a generic class that is
-*               used by both the proxy importer
-*               (for outgoing messages) and our
-*               local importer (for incoming
-*               messages). Basically all shared
-*               conversion data for converting
-*               to and from MAPI objects is in here.
+* Descr     :   This is backend for the
+*               Zarafa Collaboration Platform (ZCP).
+*               It is an implementation of IBackend
+*               and also implements the ISearchProvider
+*               to search in the Zarafa system.
 *
 * Created   :   01.10.2011
 *
