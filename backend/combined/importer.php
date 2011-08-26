@@ -322,13 +322,8 @@ class ImportHierarchyChangesCombinedWrap {
             $folder->parentid = $this->backendid.$this->backend->config['delimiter'].$folder->parentid;
         }
         if(isset($this->backend->config['folderbackend'][$folder->type]) && $this->backend->config['folderbackend'][$folder->type] != $this->backendid){
-            if(in_array($folder->type, array(SYNC_FOLDER_TYPE_INBOX, SYNC_FOLDER_TYPE_DRAFTS, SYNC_FOLDER_TYPE_WASTEBASKET, SYNC_FOLDER_TYPE_SENTMAIL, SYNC_FOLDER_TYPE_OUTBOX))){
-                ZLog::Write(LOGLEVEL_DEBUG, sprintf("converting folder type to other: '%s' ('%s')", $folder->displayname, $folder->serverid));
-                $folder->type = SYNC_FOLDER_TYPE_OTHER;
-            }else{
-                ZLog::Write(LOGLEVEL_DEBUG, sprintf("not ussing folder: '%s' ('%s')", $folder->displayname, $folder->serverid));
-                return true;
-            }
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("not ussing folder: '%s' ('%s')", $folder->displayname, $folder->serverid));
+            return true;
         }
         ZLog::Write(LOGLEVEL_DEBUG, "ImportHierarchyChangesCombinedWrap->ImportFolderChange() success");
         return $this->ihc->ImportFolderChange($folder);

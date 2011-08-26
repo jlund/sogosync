@@ -548,7 +548,7 @@ define("SYNC_AIRSYNCBASE_DISPLAYNAME", "AirSyncBase:DisplayName");
 define("SYNC_AIRSYNCBASE_FILEREFERENCE", "AirSyncBase:FileReference");
 define("SYNC_AIRSYNCBASE_METHOD", "AirSyncBase:Method");
 define("SYNC_AIRSYNCBASE_CONTENTID", "AirSyncBase:ContentId");
-define("SYNC_AIRSYNCBASE_CONTENTLOCATION", "AirSyncBase:ContentLocation");
+define("SYNC_AIRSYNCBASE_CONTENTLOCATION", "AirSyncBase:ContentLocation"); //not used
 define("SYNC_AIRSYNCBASE_ISINLINE", "AirSyncBase:IsInline");
 define("SYNC_AIRSYNCBASE_NATIVEBODYTYPE", "AirSyncBase:NativeBodyType");
 define("SYNC_AIRSYNCBASE_CONTENTTYPE", "AirSyncBase:ContentType");
@@ -731,6 +731,7 @@ define("SYNC_FILTERTYPE_INCOMPLETETASKS", 8);
 define("SYNC_TRUNCATION_HEADERS", 0);
 define("SYNC_TRUNCATION_512B", 1);
 define("SYNC_TRUNCATION_1K", 2);
+define("SYNC_TRUNCATION_2K", 3);
 define("SYNC_TRUNCATION_5K", 4);
 define("SYNC_TRUNCATION_SEVEN", 7);
 define("SYNC_TRUNCATION_ALL", 9);

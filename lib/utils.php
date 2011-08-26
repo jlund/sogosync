@@ -286,6 +286,8 @@ class Utils {
                 return 512;
             case SYNC_TRUNCATION_1K:
                 return 1024;
+            case SYNC_TRUNCATION_2K:
+                return 2*1024;
             case SYNC_TRUNCATION_5K:
                 return 5*1024;
             case SYNC_TRUNCATION_SEVEN:
@@ -331,6 +333,114 @@ class Utils {
                 $foldertype == SYNC_FOLDER_TYPE_OUTBOX || $foldertype == SYNC_FOLDER_TYPE_TASK || $foldertype == SYNC_FOLDER_TYPE_APPOINTMENT || $foldertype == SYNC_FOLDER_TYPE_CONTACT ||
                 $foldertype == SYNC_FOLDER_TYPE_NOTE || $foldertype == SYNC_FOLDER_TYPE_JOURNAL) ? true:false;
     }
+
+    /**
+     * Our own utf7_decode function because imap_utf7_decode converts a string
+     * into ISO-8859-1 encoding which doesn't have euro sign (it will be converted
+     * into two chars: [space](ascii 32) and "¬" ("not sign", ascii 172)). Also
+     * php iconv function expects '+' as delimiter instead of '&' like in IMAP.
+     *
+     * @param string $string IMAP folder name
+     *
+     * @access public
+     * @return string
+    */
+    static public function Utf7_iconv_decode($string) {
+        //do not alter string if there aren't any '&' or '+' chars because
+        //it won't have any utf7-encoded chars and nothing has to be escaped.
+        if (strpos($string, '&') === false && strpos($string, '+') === false ) return $string;
+
+        //Get the string length and go back through it making the replacements
+        //necessary
+        $len = strlen($string) - 1;
+        while ($len > 0) {
+            //look for '&-' sequence and replace it with '&'
+            if ($len > 0 && $string{($len-1)} == '&' && $string{$len} == '-') {
+                $string = substr_replace($string, '&', $len - 1, 2);
+                $len--; //decrease $len as this char has alreasy been processed
+            }
+            //search for '&' which weren't found in if clause above and
+            //replace them with '+' as they mark an utf7-encoded char
+            if ($len > 0 && $string{($len-1)} == '&') {
+                $string = substr_replace($string, '+', $len - 1, 1);
+                $len--; //decrease $len as this char has alreasy been processed
+            }
+            //finally "escape" all remaining '+' chars
+            if ($len > 0 && $string{($len-1)} == '+') {
+                $string = substr_replace($string, '+-', $len - 1, 1);
+            }
+            $len--;
+        }
+        return $string;
+    }
+
+    /**
+     * Our own utf7_encode function because the string has to be converted from
+     * standard UTF7 into modified UTF7 (aka UTF7-IMAP).
+     *
+     * @param string $str IMAP folder name
+     *
+     * @access public
+     * @return string
+    */
+    static public function Utf7_iconv_encode($string) {
+        //do not alter string if there aren't any '&' or '+' chars because
+        //it won't have any utf7-encoded chars and nothing has to be escaped.
+        if (strpos($string, '&') === false && strpos($string, '+') === false ) return $string;
+
+        //Get the string length and go back through it making the replacements
+        //necessary
+        $len = strlen($string) - 1;
+        while ($len > 0) {
+            //look for '&-' sequence and replace it with '&'
+            if ($len > 0 && $string{($len-1)} == '+' && $string{$len} == '-') {
+                $string = substr_replace($string, '+', $len - 1, 2);
+                $len--; //decrease $len as this char has alreasy been processed
+            }
+            //search for '&' which weren't found in if clause above and
+            //replace them with '+' as they mark an utf7-encoded char
+            if ($len > 0 && $string{($len-1)} == '+') {
+                $string = substr_replace($string, '&', $len - 1, 1);
+                $len--; //decrease $len as this char has alreasy been processed
+            }
+            //finally "escape" all remaining '+' chars
+            if ($len > 0 && $string{($len-1)} == '&') {
+                $string = substr_replace($string, '&-', $len - 1, 1);
+            }
+            $len--;
+        }
+        return $string;
+    }
+
+    /**
+     * Converts an UTF-7 encoded string into an UTF-8 string.
+     *
+     * @param string $string to convert
+     *
+     * @access public
+     * @return string
+     */
+    static public function Utf7_to_utf8($string) {
+        if (function_exists("iconv")){
+            return @iconv("UTF7", "UTF-8", $string);
+        }
+        return $string;
+    }
+
+    /**
+     * Converts an UTF-8 encoded string into an UTF-7 string.
+     *
+     * @param string $string to convert
+     *
+     * @access public
+     * @return string
+     */
+    static public function Utf8_to_utf7($string) {
+        if (function_exists("iconv")){
+            return @iconv("UTF-8", "UTF7", $string);
+        }
+        return $string;
+    }
 }
 
 
@@ -348,10 +458,12 @@ function hex2bin($data) {
 
 
 // TODO Win1252/UTF8 functions are deprecated and will be removed sometime
-
-function utf8_to_windows1252($string, $option = "") {
+//if the ICS backend is loaded in CombinedBackend and Zarafa > 7
+//STORE_SUPPORTS_UNICODE is true and the convertion will not be done
+//for other backends.
+function utf8_to_windows1252($string, $option = "", $force_convert = false) {
     //if the store supports unicode return the string without converting it
-    if (defined('STORE_SUPPORTS_UNICODE') && STORE_SUPPORTS_UNICODE == true) return $string;
+    if (!$force_convert && defined('STORE_SUPPORTS_UNICODE') && STORE_SUPPORTS_UNICODE == true) return $string;
 
     if (function_exists("iconv")){
         return @iconv("UTF-8", "Windows-1252" . $option, $string);
@@ -360,9 +472,9 @@ function utf8_to_windows1252($string, $option = "") {
     }
 }
 
-function windows1252_to_utf8($string, $option = "") {
+function windows1252_to_utf8($string, $option = "", $force_convert = false) {
     //if the store supports unicode return the string without converting it
-    if (defined('STORE_SUPPORTS_UNICODE') && STORE_SUPPORTS_UNICODE == true) return $string;
+    if (!$force_convert && defined('STORE_SUPPORTS_UNICODE') && STORE_SUPPORTS_UNICODE == true) return $string;
 
     if (function_exists("iconv")){
         return @iconv("Windows-1252", "UTF-8" . $option, $string);

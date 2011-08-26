@@ -531,8 +531,11 @@ class BackendZarafa implements IBackend, ISearchProvider {
                     MAPIUtils::StoreAttachment($mapimessage, $part);
             }
         }
+        else if($message->ctype_primary == "text" && $message->ctype_secondary == "html") {
+            $body_html .= u2wi($message->body);
+        }
         else {
-            $body = u2wi($message->body);
+             $body = u2wi($message->body);
         }
 
         // some devices only transmit a html body
@@ -821,14 +824,10 @@ class BackendZarafa implements IBackend, ISearchProvider {
             $props = MAPIMapping::GetMeetingRequestProperties();
             $props = getPropIdsFromStrings($this->store, $props);
 
-            $messageprops = mapi_getprops($mapimessage, Array($props["goidtag"], PR_OWNER_APPT_ID));
+            $messageprops = mapi_getprops($mapimessage, Array($props["goidtag"]));
             $goid = $messageprops[$props["goidtag"]];
-            if(isset($messageprops[PR_OWNER_APPT_ID]))
-                $apptid = $messageprops[PR_OWNER_APPT_ID];
-            else
-                $apptid = false;
 
-            $items = $meetingrequest->findCalendarItems($goid, $apptid);
+            $items = $meetingrequest->findCalendarItems($goid);
 
             if (is_array($items)) {
                $newitem = mapi_msgstore_openentry($this->store, $items[0]);
@@ -941,7 +940,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         $items['searchtotal'] = $querycnt;
 
         if ($querycnt > 0)
-            $abentries = mapi_table_queryrows($table, array(PR_ACCOUNT, PR_DISPLAY_NAME, PR_SMTP_ADDRESS, PR_BUSINESS_TELEPHONE_NUMBER, PR_GIVEN_NAME, PR_SURNAME, PR_MOBILE_TELEPHONE_NUMBER, PR_HOME_TELEPHONE_NUMBER), $rangestart, $querylimit);
+            $abentries = mapi_table_queryrows($table, array(PR_ACCOUNT, PR_DISPLAY_NAME, PR_SMTP_ADDRESS, PR_BUSINESS_TELEPHONE_NUMBER, PR_GIVEN_NAME, PR_SURNAME, PR_MOBILE_TELEPHONE_NUMBER, PR_HOME_TELEPHONE_NUMBER, PR_TITLE, PR_COMPANY_NAME, PR_OFFICE_LOCATION), $rangestart, $querylimit);
 
         for ($i = 0; $i < $querylimit; $i++) {
             $items[$i][SYNC_GAL_DISPLAYNAME] = w2u($abentries[$i][PR_DISPLAY_NAME]);
@@ -949,7 +948,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
             if (strlen(trim($items[$i][SYNC_GAL_DISPLAYNAME])) == 0)
                 $items[$i][SYNC_GAL_DISPLAYNAME] = w2u($abentries[$i][PR_ACCOUNT]);
 
-            $items[$i][SYNC_GAL_ALIAS] = $items[$i][SYNC_GAL_DISPLAYNAME];
+            $items[$i][SYNC_GAL_ALIAS] = w2u($abentries[$i][PR_ACCOUNT]);
             //it's not possible not get first and last name of an user
             //from the gab and user functions, so we just set lastname
             //to displayname and leave firstname unset
@@ -965,7 +964,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
             $items[$i][SYNC_GAL_EMAILADDRESS] = w2u($abentries[$i][PR_SMTP_ADDRESS]);
             //check if an user has an office number or it might produce warnings in the log
             if (isset($abentries[$i][PR_BUSINESS_TELEPHONE_NUMBER]))
-                $items[$i][SYNC_GAL_OFFICE] = w2u($abentries[$i][PR_BUSINESS_TELEPHONE_NUMBER]);
+                $items[$i][SYNC_GAL_PHONE] = w2u($abentries[$i][PR_BUSINESS_TELEPHONE_NUMBER]);
             //check if an user has a mobile number or it might produce warnings in the log
             if (isset($abentries[$i][PR_MOBILE_TELEPHONE_NUMBER]))
                 $items[$i][SYNC_GAL_MOBILEPHONE] = w2u($abentries[$i][PR_MOBILE_TELEPHONE_NUMBER]);
@@ -973,8 +972,14 @@ class BackendZarafa implements IBackend, ISearchProvider {
             if (isset($abentries[$i][PR_HOME_TELEPHONE_NUMBER]))
                 $items[$i][SYNC_GAL_HOMEPHONE] = w2u($abentries[$i][PR_HOME_TELEPHONE_NUMBER]);
 
-            if (isset($abentries[$i][PR_ACCOUNT]))
-                $items[$i][SYNC_GAL_COMPANY] = w2u($abentries[$i][PR_ACCOUNT]);
+            if (isset($abentries[$i][PR_COMPANY_NAME]))
+                $items[$i][SYNC_GAL_COMPANY] = w2u($abentries[$i][PR_COMPANY_NAME]);
+
+            if (isset($abentries[$i][PR_TITLE]))
+                $items[$i][SYNC_GAL_TITLE] = w2u($abentries[$i][PR_TITLE]);
+
+            if (isset($abentries[$i][PR_OFFICE_LOCATION]))
+                $items[$i][SYNC_GAL_OFFICE] = w2u($abentries[$i][PR_OFFICE_LOCATION]);
         }
         return $items;
     }

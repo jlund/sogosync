@@ -890,7 +890,8 @@ class RequestProcessor {
                 foreach($collections as $collection) {
                     // initialize exporter to get changecount
                     $changecount = 0;
-                    if($status == SYNC_STATUS_SUCCESS && isset($collection["getchanges"])) {
+                    //TODO observe if it works correct after merge of rev 716
+                    if($status == SYNC_STATUS_SUCCESS && (isset($collection["getchanges"]) || $collection["synckey"] == "0")) {
                         try {
                             // Use the state from the importer, as changes may have already happened
                             $exporter = self::$backend->GetExporter($collection["collectionid"]);
@@ -1059,7 +1060,7 @@ class RequestProcessor {
                         if (isset($exporter) && $exporter)
                             $state = $exporter->GetState();
 
-                        // nothing exported, but possible imported
+                        // nothing exported, but possibly imported
                         else if (isset($importer) && $importer)
                             $state = $importer->GetState();
 
@@ -2039,12 +2040,6 @@ class RequestProcessor {
                                         self::$encoder->endTag();
                                     }
 
-                                    if (isset($u[SYNC_GAL_ALIAS])) {
-                                        self::$encoder->startTag(SYNC_GAL_ALIAS);
-                                        self::$encoder->content($u[SYNC_GAL_ALIAS]);
-                                        self::$encoder->endTag();
-                                    }
-
                                     if (isset($u[SYNC_GAL_OFFICE])) {
                                         self::$encoder->startTag(SYNC_GAL_OFFICE);
                                         self::$encoder->content($u[SYNC_GAL_OFFICE]);
@@ -2063,15 +2058,9 @@ class RequestProcessor {
                                         self::$encoder->endTag();
                                     }
 
-                                    if (isset($u[SYNC_GAL_HOMEPHONE])) {
-                                        self::$encoder->startTag(SYNC_GAL_HOMEPHONE);
-                                        self::$encoder->content($u[SYNC_GAL_HOMEPHONE]);
-                                        self::$encoder->endTag();
-                                    }
-
-                                    if (isset($u[SYNC_GAL_MOBILEPHONE])) {
-                                        self::$encoder->startTag(SYNC_GAL_MOBILEPHONE);
-                                        self::$encoder->content($u[SYNC_GAL_MOBILEPHONE]);
+                                    if (isset($u[SYNC_GAL_ALIAS])) {
+                                        self::$encoder->startTag(SYNC_GAL_ALIAS);
+                                        self::$encoder->content($u[SYNC_GAL_ALIAS]);
                                         self::$encoder->endTag();
                                     }
 
@@ -2083,6 +2072,18 @@ class RequestProcessor {
                                     self::$encoder->startTag(SYNC_GAL_LASTNAME);
                                     self::$encoder->content((isset($u[SYNC_GAL_LASTNAME]))?$u[SYNC_GAL_LASTNAME]:"No name");
                                     self::$encoder->endTag();
+
+                                    if (isset($u[SYNC_GAL_HOMEPHONE])) {
+                                        self::$encoder->startTag(SYNC_GAL_HOMEPHONE);
+                                        self::$encoder->content($u[SYNC_GAL_HOMEPHONE]);
+                                        self::$encoder->endTag();
+                                    }
+
+                                    if (isset($u[SYNC_GAL_MOBILEPHONE])) {
+                                        self::$encoder->startTag(SYNC_GAL_MOBILEPHONE);
+                                        self::$encoder->content($u[SYNC_GAL_MOBILEPHONE]);
+                                        self::$encoder->endTag();
+                                    }
 
                                     self::$encoder->startTag(SYNC_GAL_EMAILADDRESS);
                                     self::$encoder->content((isset($u[SYNC_GAL_EMAILADDRESS]))?$u[SYNC_GAL_EMAILADDRESS]:"");

@@ -44,6 +44,7 @@
 class MAPIProvider {
     private $session;
     private $store;
+    private $zRFC822;
 
     /**
      * Constructor of the MAPI Provider
@@ -255,7 +256,7 @@ class MAPIProvider {
             // don't send one of those fields, the phone will give an error ... so
             // we don't send it in that case.
             // also ignore the "attendee" if the email is equal to the organizers' email
-            if(isset($attendee->name) && isset($attendee->email) && (!isset($message->organizeremail) || (isset($message->organizeremail) && $attendee->email != $message->organizeremail)))
+            if(isset($attendee->name) && isset($attendee->email) && $attendee->email != "" && (!isset($message->organizeremail) || (isset($message->organizeremail) && $attendee->email != $message->organizeremail)))
                 array_push($message->attendees, $attendee);
         }
         // Force the 'alldayevent' in the object at all times. (non-existent == 0)
@@ -448,11 +449,13 @@ class MAPIProvider {
         // Override 'body' for truncation
         $truncsize = Utils::GetTruncSize($contentparameters->GetTruncation());
         $body = mapi_openproperty($mapimessage, PR_BODY);
-        if(strlen($body) > $truncsize) {
+        $message->bodysize = strlen($body);
+
+        if($message->bodysize > $truncsize) {
             $body = Utils::Utf8_truncate($body, $truncsize);
             $message->bodytruncated = 1;
-            $message->bodysize = strlen($body);
-        } else {
+        }
+        else {
             $message->bodytruncated = 0;
         }
 
@@ -652,6 +655,10 @@ class MAPIProvider {
                 unset($message->body, $message->bodytruncated);
             }
         }
+
+        // without importance some mobiles assume "0" (low) - Mantis #439
+        if (!isset($message->importance))
+            $message->importance = IMPORTANCE_NORMAL;
 
         return $message;
     }
@@ -990,6 +997,16 @@ class MAPIProvider {
      */
     private function setContact($mapimessage, $contact) {
         mapi_setprops($mapimessage, array(PR_MESSAGE_CLASS => "IPM.Contact"));
+
+        // normalize email addresses
+        if (isset($contact->email1address) && (($contact->email1address = $this->extractEmailAddress($contact->email1address)) === false))
+            unset($contact->email1address);
+
+        if (isset($contact->email2address) && (($contact->email2address = $this->extractEmailAddress($contact->email2address)) === false))
+            unset($contact->email2address);
+
+        if (isset($contact->email3address) && (($contact->email3address = $this->extractEmailAddress($contact->email3address)) === false))
+            unset($contact->email3address);
 
         $contactmapping = MAPIMapping::GetContactMapping();
         $contactprops = MAPIMapping::GetContactProperties();
@@ -1635,7 +1652,7 @@ class MAPIProvider {
      * @return
      */
     private function setEmailAddress($emailAddress, $displayName, $cnt, &$props, &$properties, &$nremails, &$abprovidertype){
-        if (isset($emailAddress)){
+        if (isset($emailAddress)) {
             $name = (isset($displayName)) ? $displayName : $emailAddress;
 
             $props[$properties["emailaddress$cnt"]] = $emailAddress;
@@ -1790,6 +1807,25 @@ class MAPIProvider {
         }
         if(isset($message->recurrence->dayofmonth))
             $recur["monthday"] = $message->recurrence->dayofmonth;
+    }
+
+    /**
+     * Extracts the email address (mailbox@host) from an email address because
+     * some devices send email address as "Firstname Lastname" <email@me.com>
+     *
+     *  @link http://developer.berlios.de/mantis/view.php?id=486
+     *
+     *  @param string           $email
+     *
+     *  @access private
+     *  @return string or false on error
+     */
+    private function extractEmailAddress($email) {
+        if (!isset($this->zRFC822)) $this->zRFC822 = new Mail_RFC822();
+        $parsedAddress = $this->zRFC822->parseAddressList($email);
+        if (!isset($parsedAddress[0]->mailbox) || !isset($parsedAddress[0]->host)) return false;
+
+        return $parsedAddress[0]->mailbox.'@'.$parsedAddress[0]->host;
     }
 }
 

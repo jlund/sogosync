@@ -657,7 +657,7 @@ class TNEFParser {
                     //Re-align
                     $buffer = substr($buffer, ($len & 3 ? 4 - ($len & 3) : 0));
                     $size -= $len & 3 ? 4 - ($len & 3) : 0;
-                    ZLog::Write(LOGLEVEL_DEBUG, "TNEF: propvalue:".$mapiprops[$propTag]);
+                    if (isset($mapiprops[$propTag])) ZLog::Write(LOGLEVEL_DEBUG, "TNEF: propvalue:".$mapiprops[$propTag]);
                     break;
 
                 case PT_OBJECT:        // PST sends PT_OBJECT data. Treat as PT_BINARY

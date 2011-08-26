@@ -222,7 +222,7 @@ class ImportChangesICS implements IImportChanges {
      */
     private function lazyLoadConflicts() {
         if (!isset($this->session) || !isset($this->store) || !isset($this->folderid) ||
-            !isset($this->conflictsContentParameters)) {
+            !isset($this->conflictsContentParameters) || $this->conflictsState === false) {
             ZLog::Write(LOGLEVEL_WARN, "ImportChangesICS->lazyLoadConflicts(): can not load potential conflicting changes in lazymode for conflict detection. Missing information");
             return false;
         }

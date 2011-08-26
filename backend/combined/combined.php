@@ -51,6 +51,7 @@ require_once("backend/combined/exporter.php");
 class BackendCombined extends Backend {
     public $config;
     public $backends;
+    private $activeBackend;
 
     /**
      * Constructor of the combined backend
@@ -303,19 +304,9 @@ class BackendCombined extends Backend {
      */
     function GetWasteBasket(){
         ZLog::Write(LOGLEVEL_DEBUG, "Combined->GetWasteBasket()");
-        if(isset($this->config['folderbackend'][SYNC_FOLDER_TYPE_WASTEBASKET])){
-            $wb = $this->backends[$this->config['folderbackend'][SYNC_FOLDER_TYPE_WASTEBASKET]]->GetWasteBasket();
-            if($wb){
-                return $this->config['folderbackend'][SYNC_FOLDER_TYPE_WASTEBASKET].$this->config['delimiter'].$wb;
-            }
-            return false;
-        }
-        foreach($this->backends as $i => $b){
-            $w = $this->backends[$i]->GetWasteBasket();
-            if($w){
-                return $i.$this->config['delimiter'].$w;
-            }
-        }
+        if (isset($this->activeBackend))
+            return $this->activeBackend->GetWasteBasket();
+
         return false;
     }
 
@@ -371,6 +362,8 @@ class BackendCombined extends Backend {
         $id = substr($folderid, 0, $pos);
         if(!isset($this->backends[$id]))
             return false;
+
+        $this->activeBackend = $this->backends[$id];
         return $this->backends[$id];
     }
 

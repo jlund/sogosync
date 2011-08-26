@@ -64,6 +64,7 @@ include_once('lib/requestprocessor.php');
 include_once('lib/hierarchycache.php');
 include_once('lib/changesmemorywrapper.php');
 include_once('lib/contentparameters.php');
+include_once('lib/compat.php');
 
 include_once('config.php');
 include_once('version.php');
