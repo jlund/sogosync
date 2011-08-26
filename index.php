@@ -142,7 +142,8 @@ include_once('version.php');
         // data send as a 'normal' packet. If the output packet exceeds 1MB (see ob_start)
         // then it will be sent as a chunked packet anyway because PHP will have to flush
         // the buffer.
-        header("Content-Length: $len");
+        if(!headers_sent())
+            header("Content-Length: $len");
         print $data;
 
         // destruct backend after all data is on the stream
