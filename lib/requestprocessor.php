@@ -236,6 +236,7 @@ class RequestProcessor {
             self::$encoder->endTag();
 
             $status = SYNC_MOVEITEMSSTATUS_SUCCESS;
+            $result = false;
             try {
                 $importer = self::$backend->GetImporter($move["srcfldid"]);
                 if ($importer === false)
@@ -256,7 +257,7 @@ class RequestProcessor {
             self::$encoder->endTag();
 
             self::$encoder->startTag(SYNC_MOVE_DSTMSGID);
-            self::$encoder->content(is_string($result)?$result:$move["srcmsgid"]);
+            self::$encoder->content( (($result !== false ) ? $result : $move["srcmsgid"]));
             self::$encoder->endTag();
             self::$encoder->endTag();
         }
@@ -990,7 +991,7 @@ class RequestProcessor {
                                         self::$encoder->content($serverid);
                                     self::$encoder->endTag();
                                     self::$encoder->startTag(SYNC_STATUS);
-                                        self::$encoder->content($collection["statusids"][$clientid]);
+                                        self::$encoder->content($collection["statusids"][$serverid]);
                                     self::$encoder->endTag();
                                 self::$encoder->endTag();
                             }
