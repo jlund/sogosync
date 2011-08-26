@@ -309,7 +309,11 @@ class ImportChangesICS implements IImportChanges {
         // check for conflicts
         $this->lazyLoadConflicts();
         if($this->memChanges->IsChanged($id)) {
-            ZLog::Write(LOGLEVEL_INFO, sprintf("ImportChangesICS->ImportMessageDeletion('%s'): detected. Data from Server will be dropped! PIM deleted object.", $id));
+            ZLog::Write(LOGLEVEL_INFO, sprintf("ImportChangesICS->ImportMessageDeletion('%s'): Conflict detected. Data from Server will be dropped! PIM deleted object.", $id));
+        }
+        elseif($this->memChanges->IsDeleted($id)) {
+            ZLog::Write(LOGLEVEL_INFO, sprintf("ImportChangesICS->ImportMessageDeletion('%s'): Conflict detected. Data is already deleted. Request will be ignored.", $id));
+            return true;
         }
 
         // do a 'soft' delete so people can un-delete if necessary
@@ -331,6 +335,13 @@ class ImportChangesICS implements IImportChanges {
      * @throws StatusException
      */
     public function ImportMessageReadFlag($id, $flags) {
+        // check for conflicts
+        $this->lazyLoadConflicts();
+        if($this->memChanges->IsDeleted($id)) {
+            ZLog::Write(LOGLEVEL_INFO, sprintf("ImportChangesICS->ImportMessageReadFlag('%s'): Conflict detected. Data is already deleted. Request will be ignored.", $id));
+            return true;
+        }
+
         $readstate = array ( "sourcekey" => hex2bin($id), "flags" => $flags);
 
         if(!mapi_importcontentschanges_importperuserreadstatechange($this->importer, array($readstate) ))
