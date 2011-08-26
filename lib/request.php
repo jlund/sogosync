@@ -110,15 +110,7 @@ class Request {
      * @return
      */
     static public function ProcessHeaders() {
-        if (function_exists("apache_request_headers"))
-            self::$headers = array_change_key_case(apache_request_headers(), CASE_LOWER);
-        else {
-            self::$headers = array();
-            foreach ($_SERVER as $key => $value)
-                if (substr($key, 0, 5) == 'HTTP_')
-                    self::$headers[strtolower(strtr(substr($key, 5), '_', '-'))] = $value;
-        }
-
+        self::$headers = array_change_key_case(apache_request_headers(), CASE_LOWER);
         self::$asProtocolVersion = (isset(self::$headers["ms-asprotocolversion"]))? self::filterEvilInput(self::$headers["ms-asprotocolversion"], self::NUMBERSDOT_ONLY) : "1.0";
         self::$useragent = (isset(self::$headers["user-agent"]))? self::$headers["user-agent"] : "unknown";
 
