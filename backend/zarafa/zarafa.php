@@ -531,11 +531,13 @@ class BackendZarafa implements IBackend, ISearchProvider {
                     MAPIUtils::StoreAttachment($mapimessage, $part);
             }
         }
+        // html main body
         else if($message->ctype_primary == "text" && $message->ctype_secondary == "html") {
             $body_html .= u2wi($message->body);
         }
+        // standard body
         else {
-             $body = u2wi($message->body);
+            $body = u2wi($message->body);
         }
 
         // some devices only transmit a html body
