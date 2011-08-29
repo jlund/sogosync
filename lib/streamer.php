@@ -88,9 +88,9 @@ class Streamer {
             if($entity[EN_TYPE] == EN_TYPE_STARTTAG) {
                 if(! ($entity[EN_FLAGS] & EN_FLAGS_CONTENT)) {
                     $map = $this->mapping[$entity[EN_TAG]];
-                    if (isset($map[STREAMER_ARRAY])) {
-                        $this->$map[STREAMER_VAR] = array();
-                    } else if(!isset($map[STREAMER_TYPE])) {
+                    if (isset($map[self::STREAMER_ARRAY])) {
+                        $this->$map[self::STREAMER_VAR] = array();
+                    } else if(!isset($map[self::STREAMER_TYPE])) {
                         $this->$map[self::STREAMER_VAR] = "";
                     }
                     else if ($map[self::STREAMER_TYPE] == self::STREAMER_TYPE_DATE || $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_DATE_DASHES ) {
