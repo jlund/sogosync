@@ -543,7 +543,7 @@ class ASDevice {
      * @return boolean
      */
     public function SetSupportedFields($folderid, $fieldlist) {
-        if (!is_array($this->contentData[$folderid]))
+        if (!isset($this->contentData[$folderid]) || !is_array($this->contentData[$folderid]))
             $this->contentData[$folderid] = array();
 
         $this->contentData[$folderid][self::FOLDERSUPPORTEDFIELDS] = $fieldlist;
