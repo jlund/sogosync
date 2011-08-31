@@ -1277,16 +1277,22 @@ class RequestProcessor {
                     while(self::$decoder->getElementStartTag(SYNC_PING_FOLDER)) {
                         $collection = array();
 
-                        if(self::$decoder->getElementStartTag(SYNC_PING_SERVERENTRYID)) {
-                            $collection["serverid"] = self::$decoder->getElementContent();
-                            self::$decoder->getElementEndTag();
-                        }
-                        if(self::$decoder->getElementStartTag(SYNC_PING_FOLDERTYPE)) {
-                            $collection["class"] = self::$decoder->getElementContent();
-                            self::$decoder->getElementEndTag();
-                        }
+                        while(1) {
+                            if(self::$decoder->getElementStartTag(SYNC_PING_SERVERENTRYID)) {
+                                $collection["serverid"] = self::$decoder->getElementContent();
+                                self::$decoder->getElementEndTag();
+                            }
+                            if(self::$decoder->getElementStartTag(SYNC_PING_FOLDERTYPE)) {
+                                $collection["class"] = self::$decoder->getElementContent();
+                                self::$decoder->getElementEndTag();
+                            }
 
-                        self::$decoder->getElementEndTag();
+                            $e = self::$decoder->peek();
+                            if($e[EN_TYPE] == EN_TYPE_ENDTAG) {
+                                self::$decoder->getElementEndTag();
+                                break;
+                            }
+                        }
 
                         // initialize empty state
                         $collection["state"] = "";
