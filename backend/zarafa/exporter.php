@@ -79,30 +79,32 @@ class ExportChangesICS implements IExportChanges{
         $this->folderid = $folderid;
         $this->store = $store;
 
-        if($folderid) {
-            $entryid = mapi_msgstore_entryidfromsourcekey($store, $folderid);
-        } else {
-            $storeprops = mapi_getprops($this->store, array(PR_IPM_SUBTREE_ENTRYID));
-            $entryid = $storeprops[PR_IPM_SUBTREE_ENTRYID];
+        try {
+            if($folderid) {
+                $entryid = mapi_msgstore_entryidfromsourcekey($store, $folderid);
+            }
+            else {
+                $storeprops = mapi_getprops($this->store, array(PR_IPM_SUBTREE_ENTRYID));
+                $entryid = $storeprops[PR_IPM_SUBTREE_ENTRYID];
+            }
+
+            $folder = false;
+            if ($entryid)
+                $folder = mapi_msgstore_openentry($this->store, $entryid);
+
+            // Get the actual ICS exporter
+            if($folderid) {
+                $this->exporter = mapi_openproperty($folder, PR_CONTENTS_SYNCHRONIZER, IID_IExchangeExportChanges, 0 , 0);
+            }
+            else {
+                $this->exporter = mapi_openproperty($folder, PR_HIERARCHY_SYNCHRONIZER, IID_IExchangeExportChanges, 0 , 0);
+            }
         }
-
-        $folder = false;
-        if ($entryid)
-            $folder = mapi_msgstore_openentry($this->store, $entryid);
-
-        if(!$folder) {
+        catch (MAPIException $me) {
             $this->exporter = false;
-            // We throw an general error SYNC_FSSTATUS_CODEUNKNOWN (12) which is also SYNC_STATUS_FOLDERHIERARCHYCHANGED (12)
+            // We return the general error SYNC_FSSTATUS_CODEUNKNOWN (12) which is also SYNC_STATUS_FOLDERHIERARCHYCHANGED (12)
             // if this happened while doing content sync, the mobile will try to resync the folderhierarchy
             throw new StatusException(sprintf("ExportChangesICS('%s','%s','%s'): Error, unable to open folder: 0x%X", $session, $store, Utils::PrintAsString($folderid), mapi_last_hresult()), SYNC_FSSTATUS_CODEUNKNOWN);
-            return;
-        }
-
-        // Get the actual ICS exporter
-        if($folderid) {
-            $this->exporter = mapi_openproperty($folder, PR_CONTENTS_SYNCHRONIZER, IID_IExchangeExportChanges, 0 , 0);
-        } else {
-            $this->exporter = mapi_openproperty($folder, PR_HIERARCHY_SYNCHRONIZER, IID_IExchangeExportChanges, 0 , 0);
         }
     }
 
