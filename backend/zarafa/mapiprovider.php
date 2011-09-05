@@ -252,6 +252,7 @@ class MAPIProvider {
                         $attendee->email = w2u($userinfo["emailaddress"]);
                 }
             }
+
             // Some attendees have no email or name (eg resources), and if you
             // don't send one of those fields, the phone will give an error ... so
             // we don't send it in that case.
@@ -259,9 +260,6 @@ class MAPIProvider {
             if(isset($attendee->name) && isset($attendee->email) && $attendee->email != "" && (!isset($message->organizeremail) || (isset($message->organizeremail) && $attendee->email != $message->organizeremail)))
                 array_push($message->attendees, $attendee);
         }
-        // Force the 'alldayevent' in the object at all times. (non-existent == 0)
-        if(!isset($message->alldayevent) || $message->alldayevent == "")
-            $message->alldayevent = 0;
 
         return $message;
     }
@@ -369,7 +367,7 @@ class MAPIProvider {
 
         // All changed exceptions are appointments within the 'exceptions' array. They contain the same items as a normal appointment
         foreach($recurrence->recur["changed_occurences"] as $change) {
-            $exception = new SyncAppointment();
+            $exception = new SyncAppointmentException();
 
             // start, end, basedate, subject, remind_before, reminderset, location, busystatus, alldayevent, label
             if(isset($change["start"]))
@@ -413,7 +411,7 @@ class MAPIProvider {
 
         // Deleted appointments contain only the original date (basedate) and a 'deleted' tag
         foreach($recurrence->recur["deleted_occurences"] as $deleted) {
-            $exception = new SyncAppointment();
+            $exception = new SyncAppointmentException();
 
             $exception->exceptionstarttime = $this->getGMTTimeByTZ($this->getDayStartOfTimestamp($deleted) + $recurrence->recur["startocc"] * 60, $tz);
             $exception->deleted = "1";
