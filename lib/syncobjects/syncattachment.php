@@ -62,10 +62,10 @@ class SyncAttachment extends SyncObject {
                                                                                                                         self::STREAMER_CHECK_CMPHIGHER  => -1 )),
 
                     SYNC_POOMMAIL_DISPLAYNAME                           => array (  self::STREAMER_VAR      => "displayname",
-                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED   => STREAMER_CHECK_SETEMPTY)),
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED   => self::STREAMER_CHECK_SETEMPTY)),
 
                     SYNC_POOMMAIL_ATTNAME                               => array (  self::STREAMER_VAR      => "attname",
-                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED   => STREAMER_CHECK_SETEMPTY)),
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED   => self::STREAMER_CHECK_SETEMPTY)),
 
                     SYNC_POOMMAIL_ATTOID                                => array (  self::STREAMER_VAR      => "attoid"),
                     SYNC_POOMMAIL_ATTREMOVED                            => array (  self::STREAMER_VAR      => "attremoved"),
