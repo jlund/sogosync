@@ -444,6 +444,11 @@ class MAPIProvider {
         $emailproperties = MAPIMapping::GetEmailProperties();
         $messageprops = $this->getProps($mapimessage, $emailproperties);
 
+        if(isset($messageprops[PR_SOURCE_KEY]))
+            $sourcekey = $messageprops[PR_SOURCE_KEY];
+        else
+            return false;
+
         // Override 'body' for truncation
         $truncsize = Utils::GetTruncSize($contentparameters->GetTruncation());
         $body = mapi_openproperty($mapimessage, PR_BODY);
@@ -458,11 +463,6 @@ class MAPIProvider {
         }
 
         $message->body = str_replace("\n","\r\n", w2u(str_replace("\r","",$body)));
-
-        if(isset($messageprops[PR_SOURCE_KEY]))
-            $sourcekey = $messageprops[PR_SOURCE_KEY];
-        else
-            return false;
 
         $fromname = $fromaddr = "";
 
