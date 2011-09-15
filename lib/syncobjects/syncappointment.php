@@ -166,10 +166,10 @@ class SyncAppointment extends SyncObject {
      * This overloads the general check() with special checks to be executed
      * Checks if SYNC_POOMCAL_ORGANIZERNAME and SYNC_POOMCAL_ORGANIZEREMAIL are correctly set
      *
-     * @access protected
+     * @access public
      * @return boolean
      */
-    protected function check() {
+    public function Check() {
         $ret = parent::check();
         if (!$ret)
             return false;
