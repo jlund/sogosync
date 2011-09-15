@@ -56,7 +56,7 @@ class SyncAttendee extends SyncObject {
                                                                                     self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED => self::STREAMER_CHECK_SETEMPTY)),
 
                     SYNC_POOMCAL_NAME                                   => array (  self::STREAMER_VAR      => "name",
-                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED => STREAMER_CHECK_SETEMPTY) )
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED => self::STREAMER_CHECK_SETEMPTY) )
                 );
 
         parent::SyncObject($mapping);
