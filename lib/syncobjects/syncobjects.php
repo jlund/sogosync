@@ -219,10 +219,16 @@ abstract class SyncObject extends Streamer {
         foreach ($this->mapping as $k=>$v) {
 
             // check sub-objects recursively
-            if (isset($v[self::STREAMER_TYPE]) && isset($this->$v[self::STREAMER_VAR]) && is_array($this->$v[self::STREAMER_VAR])) {
-                foreach ($this->$v[self::STREAMER_VAR] as $subobj)
-                    if ($subobj instanceof SyncObject && !$subobj->check())
+            if (isset($v[self::STREAMER_TYPE]) && isset($this->$v[self::STREAMER_VAR])) {
+                if ($this->$v[self::STREAMER_VAR] instanceof SyncObject) {
+                    if (! $this->$v[self::STREAMER_VAR]->check())
                         return false;
+                }
+                else if (is_array($this->$v[self::STREAMER_VAR])) {
+                    foreach ($this->$v[self::STREAMER_VAR] as $subobj)
+                        if ($subobj instanceof SyncObject && !$subobj->check())
+                            return false;
+                }
             }
 
             if (isset($v[self::STREAMER_CHECKS])) {
@@ -233,29 +239,29 @@ abstract class SyncObject extends Streamer {
                         // requested to set to 0
                         if ($condition === self::STREAMER_CHECK_SETZERO) {
                             $this->$v[self::STREAMER_VAR] = 0;
-                            ZLog::Write(LOGLEVEL_DEBUG, sprintf("SyncObject->check(): Fixed object from type %s: parameter '%s' is set to 0", $objClass, $v[self::STREAMER_VAR]));
+                            ZLog::Write(LOGLEVEL_WARN, sprintf("SyncObject->check(): Fixed object from type %s: parameter '%s' is set to 0", $objClass, $v[self::STREAMER_VAR]));
                         }
                         // requested to be set to 1
                         else if ($condition === self::STREAMER_CHECK_SETONE) {
                             $this->$v[self::STREAMER_VAR] = 1;
-                            ZLog::Write(LOGLEVEL_DEBUG, sprintf("SyncObject->check(): Fixed object from type %s: parameter '%s' is set to 1", $objClass, $v[self::STREAMER_VAR]));
+                            ZLog::Write(LOGLEVEL_WARN, sprintf("SyncObject->check(): Fixed object from type %s: parameter '%s' is set to 1", $objClass, $v[self::STREAMER_VAR]));
                         }
                         // requested to be set to 2
                         else if ($condition === self::STREAMER_CHECK_SETTWO) {
                             $this->$v[self::STREAMER_VAR] = 2;
-                            ZLog::Write(LOGLEVEL_DEBUG, sprintf("SyncObject->check(): Fixed object from type %s: parameter '%s' is set to 2", $objClass, $v[self::STREAMER_VAR]));
+                            ZLog::Write(LOGLEVEL_WARN, sprintf("SyncObject->check(): Fixed object from type %s: parameter '%s' is set to 2", $objClass, $v[self::STREAMER_VAR]));
                         }
                         // requested to be set to ''
                         else if ($condition === self::STREAMER_CHECK_SETEMPTY) {
                             if (!isset($this->$v[self::STREAMER_VAR])) {
                                 $this->$v[self::STREAMER_VAR] = '';
-                                ZLog::Write(LOGLEVEL_DEBUG, sprintf("SyncObject->check(): Fixed object from type %s: parameter '%s' is set to ''", $objClass, $v[self::STREAMER_VAR]));
+                                ZLog::Write(LOGLEVEL_WARN, sprintf("SyncObject->check(): Fixed object from type %s: parameter '%s' is set to ''", $objClass, $v[self::STREAMER_VAR]));
                             }
                         }
                         // there is another value !== false
                         else if ($condition !== false) {
                             $this->$v[self::STREAMER_VAR] = $condition;
-                            ZLog::Write(LOGLEVEL_DEBUG, sprintf("SyncObject->check(): Fixed object from type %s: parameter '%s' is set to '%s'", $objClass, $v[self::STREAMER_VAR], $condition));
+                            ZLog::Write(LOGLEVEL_WARN, sprintf("SyncObject->check(): Fixed object from type %s: parameter '%s' is set to '%s'", $objClass, $v[self::STREAMER_VAR], $condition));
 
                         }
                         // no fix available!
