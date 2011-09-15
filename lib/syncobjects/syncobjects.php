@@ -176,7 +176,7 @@ abstract class SyncObject extends Streamer {
                 $str .= "\t". $strV . $k ."(Array) size: " . count($v) ."\n";
                 foreach ($v as $value) $str .= "\t\t". Utils::PrintAsString($value) ."\n";
             }
-            else if ($v instanceof Streamer) {
+            else if ($v instanceof SyncObject) {
                 $str .= "\t". $strV .$k ." => ". str_replace("\n", "\n\t\t\t", $v->__toString()) . "\n";
             }
             else
@@ -211,15 +211,22 @@ abstract class SyncObject extends Streamer {
      *     STREAMER_CHECK_CMPLOWER      compares if the current parameter is lower as a literal or another parameter of the same object
      *     STREAMER_CHECK_CMPHIGHER     compares if the current parameter is higher as a literal or another parameter of the same object
      *
-     * @access protected
+     * @access public
      * @return boolean
      */
-    protected function check() {
+    public function Check() {
         $objClass = get_class($this);
         foreach ($this->mapping as $k=>$v) {
+
+            // check sub-objects recursively
+            if (isset($v[self::STREAMER_TYPE]) && isset($this->$v[self::STREAMER_VAR]) && is_array($this->$v[self::STREAMER_VAR])) {
+                foreach ($this->$v[self::STREAMER_VAR] as $subobj)
+                    if ($subobj instanceof SyncObject && !$subobj->check())
+                        return false;
+            }
+
             if (isset($v[self::STREAMER_CHECKS])) {
                 foreach ($v[self::STREAMER_CHECKS] as $rule => $condition) {
-
                     // check REQUIRED settings
                     if ($rule === self::STREAMER_CHECK_REQUIRED && (!isset($this->$v[self::STREAMER_VAR]) || $this->$v[self::STREAMER_VAR] === '' ) ) {
                         // parameter is not set but ..

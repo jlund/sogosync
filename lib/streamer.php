@@ -196,13 +196,6 @@ class Streamer {
      * @access public
      */
     public function Encode(&$encoder) {
-
-        // do the semantic checks on the object
-        if (! $this->check()) {
-            ZLog::Write(LOGLEVEL_ERROR, sprintf("Object of type '%s' can not be streamed to the mobile as it doesn't match required options.", get_class($this)));
-            return;
-        }
-
         foreach($this->mapping as $tag => $map) {
             if(isset($this->$map[self::STREAMER_VAR])) {
                 // Variable is available
@@ -316,17 +309,6 @@ class Streamer {
             return gmmktime($matches[5], $matches[6], $matches[7], $matches[2], $matches[3], $matches[1]);
         }
         return 0;
-    }
-
-    /**
-     * Method checks if the object has the minimum of required parameters
-     * and fullfills semantic dependencies
-     *
-     * @access protected
-     * @return boolean
-     */
-    protected function check() {
-        return true;
     }
 }
 
