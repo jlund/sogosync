@@ -1338,6 +1338,9 @@ class WBXMLEncoder extends WBXMLDefs {
     private $_stack;
 
     public function WBXMLEncoder($output) {
+        // make sure WBXML_DEBUG is defined. It should be at this point
+        if (!defined('WBXML_DEBUG')) define('WBXML_DEBUG', false);
+
         $this->_out = $output;
 
         $this->_tagcp = 0;
@@ -1693,3 +1696,4 @@ class WBXMLEncoder extends WBXMLDefs {
         ZLog::Write(LOGLEVEL_WBXML,"O " . $spaces . $content);
     }
 }
+?>
