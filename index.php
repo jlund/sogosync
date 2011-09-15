@@ -58,7 +58,7 @@ include_once('lib/wbxmldecoder.php');
 include_once('lib/wbxmlencoder.php');
 include_once('lib/streamer.php');
 include_once('lib/streamimporter.php');
-include_once('lib/syncobjects/syncobjects.php');
+include_once('lib/syncobjects/syncobject.php');
 include_once('lib/syncobjects/syncrecurrence.php');
 include_once('lib/syncobjects/syncappointment.php');
 include_once('lib/syncobjects/syncappointmentexception.php');
