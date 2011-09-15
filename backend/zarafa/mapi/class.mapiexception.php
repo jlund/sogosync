@@ -102,6 +102,6 @@
 
     // Tell the PHP extension which exception class to instantiate
     if (function_exists('mapi_enable_exceptions')) {
-        mapi_enable_exceptions("mapiexception");
+       //mapi_enable_exceptions("mapiexception");
     }
 ?>
