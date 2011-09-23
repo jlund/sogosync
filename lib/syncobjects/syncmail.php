@@ -71,6 +71,22 @@ class SyncMail extends SyncObject {
     // AS 2.5 prop
     public $internetcpid;
 
+    // AS 12.0 props
+    public $asbody;
+    public $asattachments;
+    public $contentclass;
+    public $nativebodytype;
+
+    // AS 14.0 props
+    public $umcallerid;
+    public $umusernotes;
+    public $conversationid;
+    public $conversationindex;
+    public $lastverbexecuted; //possible values unknown, reply to sender, reply to all, forward
+    public $lastverbexectime;
+    public $receivedasbcc;
+    public $sender;
+
     function SyncMail() {
         $mapping = array (
                     SYNC_POOMMAIL_TO                                    => array (  self::STREAMER_VAR      => "to"),
@@ -79,14 +95,14 @@ class SyncMail extends SyncObject {
                     SYNC_POOMMAIL_SUBJECT                               => array (  self::STREAMER_VAR      => "subject"),
                     SYNC_POOMMAIL_THREADTOPIC                           => array (  self::STREAMER_VAR      => "threadtopic"),
                     SYNC_POOMMAIL_DATERECEIVED                          => array (  self::STREAMER_VAR      => "datereceived",
-                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE_DASHES ),
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE_DASHES),
 
                     SYNC_POOMMAIL_DISPLAYTO                             => array (  self::STREAMER_VAR      => "displayto"),
                     SYNC_POOMMAIL_IMPORTANCE                            => array (  self::STREAMER_VAR      => "importance"),
                     SYNC_POOMMAIL_READ                                  => array (  self::STREAMER_VAR      => "read"),
                     SYNC_POOMMAIL_ATTACHMENTS                           => array (  self::STREAMER_VAR      => "attachments",
                                                                                     self::STREAMER_TYPE     => "SyncAttachment",
-                                                                                    self::STREAMER_ARRAY    => SYNC_POOMMAIL_ATTACHMENT ),
+                                                                                    self::STREAMER_ARRAY    => SYNC_POOMMAIL_ATTACHMENT),
 
                     SYNC_POOMMAIL_MIMETRUNCATED                         => array (  self::STREAMER_VAR      => "mimetruncated" ),//
                     SYNC_POOMMAIL_MIMEDATA                              => array (  self::STREAMER_VAR      => "mimedata",
@@ -103,10 +119,37 @@ class SyncMail extends SyncObject {
                     SYNC_POOMMAIL_REPLY_TO                              => array (  self::STREAMER_VAR      => "reply_to"),
                 );
 
-        if(Request::GetProtocolVersion() >= 2.5) {
-            $mapping += array(
-                        SYNC_POOMMAIL_INTERNETCPID                      => array (  self::STREAMER_VAR      => "internetcpid"),
-                    );
+        if (Request::GetProtocolVersion() >= 2.5) {
+            $mapping[SYNC_POOMMAIL_INTERNETCPID]                        = array (   self::STREAMER_VAR      => "internetcpid");
+        }
+
+        if (Request::GetProtocolVersion() >= 12.0) {
+            $mapping[SYNC_AIRSYNCBASE_BODY]                             = array (   self::STREAMER_VAR      => "asbody",
+                                                                                    self::STREAMER_TYPE     => "SyncBaseBody");
+
+            $mapping[SYNC_AIRSYNCBASE_ATTACHMENTS]                      = array (   self::STREAMER_VAR      => "asattachments",
+                                                                                    self::STREAMER_TYPE     => "SyncBaseAttachment",
+                                                                                    self::STREAMER_ARRAY    => SYNC_AIRSYNCBASE_ATTACHMENTS);
+
+            $mapping[SYNC_POOMMAIL_CONTENTCLASS]                        = array (   self::STREAMER_VAR      => "contentclass");
+            $mapping[SYNC_AIRSYNCBASE_NATIVEBODYTYPE]                   = array (   self::STREAMER_VAR      => "nativebodytype");
+
+            //unset these properties because airsyncbase body and attachments will be used instead
+            unset($mapping[SYNC_POOMMAIL_BODY], $mapping[SYNC_POOMMAIL_BODYTRUNCATED], $mapping[SYNC_POOMMAIL_ATTACHMENTS]);
+        }
+
+        if (Request::GetProtocolVersion() >= 14.0) {
+            $mapping[SYNC_POOMMAIL2_UMCALLERID]                         = array (   self::STREAMER_VAR      => "umcallerid");
+            $mapping[SYNC_POOMMAIL2_UMUSERNOTES]                        = array (   self::STREAMER_VAR      => "umusernotes");
+            $mapping[SYNC_POOMMAIL2_CONVERSATIONID]                     = array (   self::STREAMER_VAR      => "conversationid");
+            $mapping[SYNC_POOMMAIL2_CONVERSATIONINDEX]                  = array (   self::STREAMER_VAR      => "conversationindex");
+            $mapping[SYNC_POOMMAIL2_LASTVERBEXECUTED]                   = array (   self::STREAMER_VAR      => "lastverbexecuted");
+            $mapping[SYNC_POOMMAIL2_LASTVERBEXECUTIONTIME]              = array (   self::STREAMER_VAR      => "lastverbexectime");
+            $mapping[SYNC_POOMMAIL2_RECEIVEDASBCC]                      = array (   self::STREAMER_VAR      => "receivedasbcc");
+            $mapping[SYNC_POOMMAIL2_SENDER]                             = array (   self::STREAMER_VAR      => "sender");
+            $mapping[SYNC_POOMMAIL_CATEGORIES]                          = array (   self::STREAMER_VAR      => "categories",
+                                                                                    self::STREAMER_ARRAY    => SYNC_POOMMAIL_CATEGORY);
+            //TODO bodypart, accountid, rightsmanagementlicense
         }
 
         parent::SyncObject($mapping);
