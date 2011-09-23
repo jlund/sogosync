@@ -565,7 +565,7 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
             if(!isset($this->syncstate) || !$this->syncstate)
                 $this->syncstate = array();
 
-            ZLog::Write(LOGLEVEL_DEBUG,sprintf("ImportChangesDiff->InitializeExporter(): Initializing message diff engine. '%d' messages in state", count($this->syncstate)));
+            ZLog::Write(LOGLEVEL_DEBUG,sprintf("ExportChangesDiff->InitializeExporter(): Initializing message diff engine. '%d' messages in state", count($this->syncstate)));
 
             //do nothing if it is a dummy folder
             if ($this->folderid != SYNC_FOLDER_TYPE_DUMMY) {
@@ -590,7 +590,7 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
         else {
             ZLog::Write(LOGLEVEL_DEBUG, "Initializing folder diff engine");
 
-            ZLog::Write(LOGLEVEL_DEBUG, "ImportChangesDiff->InitializeExporter(): Initializing folder diff engine");
+            ZLog::Write(LOGLEVEL_DEBUG, "ExportChangesDiff->InitializeExporter(): Initializing folder diff engine");
 
             $folderlist = $this->backend->GetFolderList();
             if($folderlist === false)
@@ -602,7 +602,7 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
             $this->changes = $this->getDiffTo($folderlist);
         }
 
-        ZLog::Write(LOGLEVEL_INFO, sprintf("ImportChangesDiff->InitializeExporter(): Found '%d' changes", count($this->changes) ));
+        ZLog::Write(LOGLEVEL_INFO, sprintf("ExportChangesDiff->InitializeExporter(): Found '%d' changes", count($this->changes) ));
     }
 
     /**
