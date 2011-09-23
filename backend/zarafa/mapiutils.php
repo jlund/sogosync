@@ -271,6 +271,7 @@ class MAPIUtils {
             define('STORE_SUPPORTS_UNICODE', true);
             //setlocale to UTF-8 in order to support properties containing Unicode characters
             setlocale(LC_CTYPE, "en_US.UTF-8");
+            define('STORE_INTERNET_CPID', INTERNET_CPID_UTF8);
         }
     }
 
