@@ -204,6 +204,20 @@ class ContentParameters {
             return $asb;
         }
     }
+
+    /**
+     * Returns available body preference objects
+     *
+     *  @access public
+     *  @return array/boolean       returns false if the client's body preference is not available
+     */
+    public function GetBodyPreference() {
+        if (!isset($this->bodypref) || !(is_array($this->bodypref) || empty($this->bodypref))) {
+            ZLog::Write(LOGLEVEL_INFO, print("ContentParameters::GetBodyPreference() bodypref is empty or not set"));
+            return false;
+        }
+        return array_keys($this->bodypref);
+    }
 }
 
 
