@@ -102,6 +102,14 @@ class SyncTask extends SyncObject {
                                                                                     self::STREAMER_ARRAY    => SYNC_POOMTASKS_CATEGORY),
                 );
 
+            if (Request::GetProtocolVersion() >= 12.0) {
+            $mapping[SYNC_AIRSYNCBASE_BODY]                             = array (   self::STREAMER_VAR      => "asbody",
+                                                                                    self::STREAMER_TYPE     => "SyncBaseBody");
+
+            //unset these properties because airsyncbase body and attachments will be used instead
+            unset($mapping[SYNC_POOMTASKS_BODY]);
+        }
+
         parent::SyncObject($mapping);
     }
 }
