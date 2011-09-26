@@ -47,7 +47,7 @@
 
 class SyncBaseAttachment extends SyncObject {
     public $displayname;
-    public $filreference;
+    public $filereference;
     public $method;
     public $estimatedDataSize;
     public $contentid;
@@ -61,7 +61,7 @@ class SyncBaseAttachment extends SyncObject {
                     SYNC_AIRSYNCBASE_METHOD                             => array (self::STREAMER_VAR        => "method"),
                     SYNC_AIRSYNCBASE_ESTIMATEDDATASIZE                  => array (self::STREAMER_VAR        => "estimatedDataSize"),
                     SYNC_AIRSYNCBASE_CONTENTID                          => array (self::STREAMER_VAR        => "contentid"),
-                    SYNC_AIRSYNCBASE_CONTENTLOCATION                    => array (self::STREAMER_VAR        => "contenlocation"),
+                    SYNC_AIRSYNCBASE_CONTENTLOCATION                    => array (self::STREAMER_VAR        => "contentlocation"),
                     SYNC_AIRSYNCBASE_ISINLINE                           => array (self::STREAMER_VAR        => "isinline"),
         );
 
