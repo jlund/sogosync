@@ -604,6 +604,7 @@ define('PR_ATTACHMENT_X400_PARAMETERS'                ,mapi_prop_tag(PT_BINARY, 
 define('PR_ATTACH_DATA_OBJ'                           ,mapi_prop_tag(PT_OBJECT,      0x3701));
 define('PR_ATTACH_DATA_BIN'                           ,mapi_prop_tag(PT_BINARY,      0x3701));
 define('PR_ATTACH_CONTENT_ID'                         ,mapi_prop_tag(PT_STRING8,     0x3712));
+define('PR_ATTACH_CONTENT_ID_W'                       ,mapi_prop_tag(PT_UNICODE,     0x3712));
 define('PR_ATTACH_CONTENT_LOCATION'                   ,mapi_prop_tag(PT_STRING8,     0x3713));
 define('PR_ATTACH_ENCODING'                           ,mapi_prop_tag(PT_BINARY,      0x3702));
 define('PR_ATTACH_EXTENSION'                          ,mapi_prop_tag(PT_TSTRING,     0x3703));
