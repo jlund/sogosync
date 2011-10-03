@@ -1324,8 +1324,8 @@ class MAPIProvider {
         foreach ($mapping as $asprop => $mapiprop) {
              // Get long strings via openproperty
             if (isset($messageprops[mapi_prop_tag(PT_ERROR, mapi_prop_id($mapiprop))])) {
-                if ($messageprops[mapi_prop_tag(PT_ERROR, mapi_prop_id($mapiprop))] == -2147024882 || // 32 bit
-                $messageprops[mapi_prop_tag(PT_ERROR, mapi_prop_id($mapiprop))] == 2147942414) {  // 64 bit
+                if ($messageprops[mapi_prop_tag(PT_ERROR, mapi_prop_id($mapiprop))] == MAPI_E_NOT_ENOUGH_MEMORY_32BIT ||
+                    $messageprops[mapi_prop_tag(PT_ERROR, mapi_prop_id($mapiprop))] == MAPI_E_NOT_ENOUGH_MEMORY_64BIT) {
                     $messageprops[$mapiprop] = MAPIUtils::readPropStream($mapimessage, $mapiprop);
                 }
             }
