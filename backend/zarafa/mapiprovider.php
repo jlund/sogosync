@@ -113,6 +113,9 @@ class MAPIProvider {
         $contactproperties = MAPIMapping::GetContactProperties();
         $messageprops = $this->getProps($mapimessage, $contactproperties);
 
+        //set the body according to contentparameters and supported AS version
+        $this->setMessageBody($mapimessage, $contentparameters, $message);
+
         //check the picture
         if (isset($messageprops[$contactproperties["haspic"]]) && $messageprops[$contactproperties["haspic"]]) {
             // Add attachments
@@ -152,6 +155,9 @@ class MAPIProvider {
         $taskproperties = MAPIMapping::GetTaskProperties();
         $messageprops = $this->getProps($mapimessage, $taskproperties);
 
+        //set the body according to contentparameters and supported AS version
+        $this->setMessageBody($mapimessage, $contentparameters, $message);
+
         //task with deadoccur is an occurrence of a recurring task and does not need to be handled as recurring
         //webaccess does not set deadoccur for the initial recurring task
         if(isset($messageprops[$taskproperties["isrecurringtag"]]) &&
@@ -189,6 +195,9 @@ class MAPIProvider {
         // Appointment specific props
         $appointmentprops = MAPIMapping::GetAppointmentProperties();
         $messageprops = $this->getProps($mapimessage, $appointmentprops);
+
+        //set the body according to contentparameters and supported AS version
+        $this->setMessageBody($mapimessage, $contentparameters, $message);
 
         // Disable reminder if it is off
         if(!isset($messageprops[$appointmentprops["reminderset"]]) || $messageprops[$appointmentprops["reminderset"]] == false)
@@ -449,20 +458,8 @@ class MAPIProvider {
         else
             return false;
 
-        // Override 'body' for truncation
-        $truncsize = Utils::GetTruncSize($contentparameters->GetTruncation());
-        $body = mapi_openproperty($mapimessage, PR_BODY);
-        $message->bodysize = strlen($body);
-
-        if($message->bodysize > $truncsize) {
-            $body = Utils::Utf8_truncate($body, $truncsize);
-            $message->bodytruncated = 1;
-        }
-        else {
-            $message->bodytruncated = 0;
-        }
-
-        $message->body = str_replace("\n","\r\n", w2u(str_replace("\r","",$body)));
+        //set the body according to contentparameters and supported AS version
+        $this->setMessageBody($mapimessage, $contentparameters, $message);
 
         $fromname = $fromaddr = "";
 
@@ -575,22 +572,42 @@ class MAPIProvider {
             if(isset($row[PR_ATTACH_NUM])) {
                 $mapiattach = mapi_message_openattach($mapimessage, $row[PR_ATTACH_NUM]);
 
-                $attachprops = mapi_getprops($mapiattach, array(PR_ATTACH_LONG_FILENAME, PR_ATTACH_FILENAME));
-
-                $attach = new SyncAttachment();
+                $attachprops = mapi_getprops($mapiattach, array(PR_ATTACH_LONG_FILENAME, PR_ATTACH_FILENAME, PR_ATTACHMENT_HIDDEN, PR_ATTACH_CONTENT_ID, PR_ATTACH_CONTENT_ID_W));
 
                 $stream = mapi_openpropertytostream($mapiattach, PR_ATTACH_DATA_BIN);
                 if($stream) {
                     $stat = mapi_stream_stat($stream);
 
-                    $attach->attsize = $stat["cb"];
-                    $attach->displayname = w2u((isset($attachprops[PR_ATTACH_LONG_FILENAME]))?$attachprops[PR_ATTACH_LONG_FILENAME]:((isset($attachprops[PR_ATTACH_FILENAME]))?$attachprops[PR_ATTACH_FILENAME]:"attachment.bin"));
-                    $attach->attname = $entryid.":".$row[PR_ATTACH_NUM];
+                    if (Request::GetProtocolVersion() >= 12.0) {
+                        $attach = new SyncBaseAttachment();
+                        $attach->displayname = w2u((isset($attachprops[PR_ATTACH_LONG_FILENAME])) ? $attachprops[PR_ATTACH_LONG_FILENAME] : ((isset($attachprops[PR_ATTACH_FILENAME])) ? $attachprops[PR_ATTACH_FILENAME] : "attachment.bin"));
+                        $attach->filereference = $entryid.":".$row[PR_ATTACH_NUM];
+                        $attach->method = 1;
+                        $attach->estimatedDataSize = $stat["cb"];
 
-                    if(!isset($message->attachments))
-                        $message->attachments = array();
+                        if (isset($attachprops[PR_ATTACH_CONTENT_ID]) && $attachprops[PR_ATTACH_CONTENT_ID])
+                            $attach->contentid = $attachprops[PR_ATTACH_CONTENT_ID];
 
-                    array_push($message->attachments, $attach);
+                        if (!isset($attach->contentid) && isset($attachprops[PR_ATTACH_CONTENT_ID_W]) && $attachprops[PR_ATTACH_CONTENT_ID_W])
+                            $attach->contentid = $attachprops[PR_ATTACH_CONTENT_ID_W];
+
+                        if (isset($attachprops[PR_ATTACHMENT_HIDDEN]) && $attachprops[PR_ATTACHMENT_HIDDEN]) $attach->isinline = 1;
+
+                        if(!isset($message->asattachments))
+                            $message->asattachments = array();
+
+                        array_push($message->asattachments, $attach);
+                    }
+                    else {
+                        $attach = new SyncAttachment();
+                        $attach->attsize = $stat["cb"];
+                        $attach->displayname = w2u((isset($attachprops[PR_ATTACH_LONG_FILENAME])) ? $attachprops[PR_ATTACH_LONG_FILENAME] : ((isset($attachprops[PR_ATTACH_FILENAME])) ? $attachprops[PR_ATTACH_FILENAME] : "attachment.bin"));
+                        $attach->attname = $entryid.":".$row[PR_ATTACH_NUM];
+                        if(!isset($message->attachments))
+                            $message->attachments = array();
+
+                        array_push($message->attachments, $attach);
+                    }
                 }
             }
         }
@@ -637,26 +654,14 @@ class MAPIProvider {
         $message->to = implode(", ", $to);
         $message->cc = implode(", ", $cc);
 
-        if (!isset($message->body) || strlen($message->body) == 0)
-            $message->body = " ";
-
-        if ($contentparameters->GetMimeSupport() == 2 && function_exists("mapi_inetmapi_imtoinet")) {
-            $addrBook = mapi_openaddressbook($this->session);
-            $mstream = mapi_inetmapi_imtoinet($this->session, $addrBook, $mapimessage, array());
-
-            $mstreamstat = mapi_stream_stat($mstream);
-            if ($mstreamstat['cb'] < MAX_EMBEDDED_SIZE) {
-                $message->mimetruncated = 0;
-                $mstreamcontent = mapi_stream_read($mstream, MAX_EMBEDDED_SIZE);
-                $message->mimedata = $mstreamcontent;
-                $message->mimesize = $mstreamstat["cb"];
-                unset($message->body, $message->bodytruncated);
-            }
-        }
-
         // without importance some mobiles assume "0" (low) - Mantis #439
         if (!isset($message->importance))
             $message->importance = IMPORTANCE_NORMAL;
+
+        //TODO contentclass and nativebodytype and internetcpid
+        $message->internetcpid = (defined('STORE_INTERNET_CPID')) ? constant('STORE_INTERNET_CPID') : INTERNET_CPID_WINDOWS1252;
+        $message->contentclass = DEFAULT_EMAIL_CONTENTCLASS;
+        $message->nativebodytype = SYNC_BODYPREFERENCE_HTML;
 
         return $message;
     }
@@ -1824,6 +1829,148 @@ class MAPIProvider {
         if (!isset($parsedAddress[0]->mailbox) || !isset($parsedAddress[0]->host)) return false;
 
         return $parsedAddress[0]->mailbox.'@'.$parsedAddress[0]->host;
+    }
+
+    /**
+     * Returns the best match of preferred body preference types.
+     *
+     * @param array             $bpTypes
+     *
+     * @access private
+     * @return int
+     */
+    private function getBodyPreferenceBestMatch($bpTypes) {
+        // The best choice is RTF, then HTML and then MIME in order to save bandwidth
+        // because MIME is a complete message including the headers and attachments
+        if (in_array(SYNC_BODYPREFERENCE_RTF, $bpTypes))  return SYNC_BODYPREFERENCE_RTF;
+        if (in_array(SYNC_BODYPREFERENCE_HTML, $bpTypes)) return SYNC_BODYPREFERENCE_HTML;
+        if (in_array(SYNC_BODYPREFERENCE_MIME, $bpTypes)) return SYNC_BODYPREFERENCE_MIME;
+        return SYNC_BODYPREFERENCE_PLAIN;
+    }
+
+    /**
+     * Returns the message body for a required format
+     *
+     * @param MAPIMessage       $mapimessage
+     * @param int               $bpReturnType
+     * @param SyncObject        $message
+     *
+     * @access private
+     * @return string
+     */
+    private function setMessageBodyForType($mapimessage, $bpReturnType, &$message) {
+        //default value is PR_BODY
+        $property = PR_BODY;
+        switch ($bpReturnType) {
+            case SYNC_BODYPREFERENCE_HTML:
+                $property = PR_HTML;
+                break;
+            case SYNC_BODYPREFERENCE_RTF:
+                $property = PR_RTF_COMPRESSED;
+                break;
+            case SYNC_BODYPREFERENCE_MIME:
+                return $this->imtoinet($mapimessage, $message);
+        }
+
+        $body = mapi_message_openproperty($mapimessage, $property);
+        //set the properties according to supported AS version
+        if (Request::GetProtocolVersion() >= 12.0) {
+            $message->asbody->data = ($bpReturnType == SYNC_BODYPREFERENCE_RTF) ? base64_encode($body) : w2u($body);
+            $message->asbody->estimatedDataSize = strlen($message->asbody->data);
+            $message->asbody->truncated = 0;
+        }
+        else {
+            $message->body = str_replace("\n","\r\n", w2u(str_replace("\r", "", $body)));
+            $message->bodysize = strlen($message->body);
+            $message->bodytruncated = 0;
+        }
+
+        return true;
+    }
+
+    /**
+     * A wrapper for mapi_inetmapi_imtoinet function
+     *
+     * @param MAPIMessage       $mapimessage
+     * @param SyncObject        $message
+     *
+     * @access private
+     * @return string or false on error
+     */
+    private function imtoinet($mapimessage, &$message) {
+        if (function_exists("mapi_inetmapi_imtoinet")) {
+            $addrBook = mapi_openaddressbook($this->session);
+            $mstream = mapi_inetmapi_imtoinet($this->session, $addrBook, $mapimessage, array());
+
+            $mstreamstat = mapi_stream_stat($mstream);
+            if ($mstreamstat['cb'] < MAX_EMBEDDED_SIZE) {
+                if (Request::GetProtocolVersion() >= 12.0) {
+                    $message->asbody->data = mapi_stream_read($mstream, MAX_EMBEDDED_SIZE);
+                    $message->asbody->estimatedDataSize = $mstreamstat["cb"];
+                    $message->asbody->truncated = 0;
+                }
+                else {
+                    $message->mimetruncated = 0;
+                    $message->mimedata = mapi_stream_read($mstream, MAX_EMBEDDED_SIZE);;
+                    $message->mimesize = $mstreamstat["cb"];
+                }
+                unset($message->body, $message->bodytruncated);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Sets the message body
+     *
+     * @param MAPIMessage       $mapimessage
+     * @param ContentParameters $contentparameters
+     * @param SyncObject        $message
+     */
+    private function setMessageBody($mapimessage, $contentparameters, &$message) {
+        //get the available body preference types
+        $bpTypes = $contentparameters->GetBodyPreference();
+        if ($bpTypes !== false) {
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("BodyPreference types: %s", implode(', ', $bpTypes)));
+            //do not send mime data if the client requests it
+            if (($contentparameters->GetMimeSupport() == SYNC_MIMESUPPORT_NEVER) && ($key = array_search(SYNC_BODYPREFERENCE_MIME, $bpTypes)!== false)) {
+                unset($bpTypes[$key]);
+                ZLog::Write(LOGLEVEL_DEBUG, sprintf("Remove mime body preference type because the device required no mime support. BodyPreference types: %s", implode(', ', $bpTypes)));
+            }
+            //get the best fitting preference type
+            $bpReturnType = $this->getBodyPreferenceBestMatch($bpTypes);
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("getBodyPreferenceBestMatch: %d", $bpReturnType));
+            $bpo = $contentparameters->BodyPreference($bpReturnType);
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("bpo: truncation size:'%d', allornone:'%d', preview:'%d'", $bpo->GetTruncationSize(), $bpo->GetAllOrNone(), $bpo->GetPreview()));
+            $message->asbody = new SyncBaseBody();
+            $message->asbody->type = $bpReturnType;
+            $this->setMessageBodyForType($mapimessage, $bpReturnType, $message);
+
+            //only set the truncation size data
+            if ($message->asbody->estimatedDataSize > $bpo->GetTruncationSize()) {
+                $message->asbody->data = substr($message->asbody->data, 0, $bpo->GetTruncationSize());
+                $message->asbody->truncated = 1;
+            }
+        }
+        else {
+            // Override 'body' for truncation
+            $truncsize = Utils::GetTruncSize($contentparameters->GetTruncation());
+            $this->setMessageBodyForType($mapimessage, SYNC_BODYPREFERENCE_PLAIN, $message);
+
+            if($message->bodysize > $truncsize) {
+                $message->body = Utils::Utf8_truncate($message->body, $truncsize);
+                $message->bodytruncated = 1;
+            }
+
+            if (!isset($message->body) || strlen($message->body) == 0)
+                $message->body = " ";
+
+            if ($contentparameters->GetMimeSupport() == SYNC_MIMESUPPORT_ALWAYS) {
+                //set the html body for iphone in AS 2.5 version
+                $this->imtoinet($mapimessage, $message);
+            }
+        }
     }
 }
 
