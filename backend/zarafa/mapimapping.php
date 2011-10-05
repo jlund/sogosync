@@ -183,6 +183,7 @@ class MAPIMapping {
             // "cc"
             // "threadtopic"        => PR_CONVERSATION_TOPIC,
             "internetcpid"          => PR_INTERNET_CPID,
+            "nativebodytype"        => PR_NATIVE_BODY_INFO,
             );
     }
 
@@ -202,6 +203,10 @@ class MAPIMapping {
             "representingentryid"   => PR_SENT_REPRESENTING_ENTRYID,
             "sourcekey"             => PR_SOURCE_KEY,
             "entryid"               => PR_ENTRYID,
+            "body"                  => PR_BODY,
+            "rtfcompressed"         => PR_RTF_COMPRESSED,
+            "html"                  => PR_HTML,
+            "rtfinsync"             => PR_RTF_IN_SYNC,
         );
     }
 
