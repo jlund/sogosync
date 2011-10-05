@@ -306,6 +306,7 @@ define('PR_RTF_COMPRESSED'                            ,mapi_prop_tag(PT_BINARY, 
 define('PR_RTF_SYNC_PREFIX_COUNT'                     ,mapi_prop_tag(PT_LONG,        0x1010));
 define('PR_RTF_SYNC_TRAILING_COUNT'                   ,mapi_prop_tag(PT_LONG,        0x1011));
 define('PR_ORIGINALLY_INTENDED_RECIP_ENTRYID'         ,mapi_prop_tag(PT_BINARY,      0x1012));
+define('PR_NATIVE_BODY_INFO'                          ,mapi_prop_tag(PT_LONG,        0x1016));
 
 define('PR_CONFLICT_ITEMS'                            ,mapi_prop_tag(PT_MV_BINARY,   0x1098));
 
