@@ -661,7 +661,7 @@ class MAPIProvider {
         //TODO contentclass and nativebodytype and internetcpid
         $message->internetcpid = (defined('STORE_INTERNET_CPID')) ? constant('STORE_INTERNET_CPID') : INTERNET_CPID_WINDOWS1252;
         $message->contentclass = DEFAULT_EMAIL_CONTENTCLASS;
-        $message->nativebodytype = SYNC_BODYPREFERENCE_HTML;
+        if (!isset($message->nativebodytype)) $message->nativebodytype = $this->getNativeBodyType($messageprops);
 
         return $message;
     }
