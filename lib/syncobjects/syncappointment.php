@@ -71,6 +71,10 @@ class SyncAppointment extends SyncObject {
     public $exceptionstarttime;
     public $categories;
 
+    // AS 12.0 props
+    public $asbody;
+    public $nativebodytype;
+
 
 
     function SyncAppointment() {
@@ -159,6 +163,8 @@ class SyncAppointment extends SyncObject {
         if (Request::GetProtocolVersion() >= 12.0) {
             $mapping[SYNC_AIRSYNCBASE_BODY]                             = array (   self::STREAMER_VAR      => "asbody",
                                                                                     self::STREAMER_TYPE     => "SyncBaseBody");
+
+            $mapping[SYNC_AIRSYNCBASE_NATIVEBODYTYPE]                   = array (   self::STREAMER_VAR      => "nativebodytype");
 
             //unset these properties because airsyncbase body and attachments will be used instead
             unset($mapping[SYNC_POOMCAL_BODY], $mapping[SYNC_POOMCAL_BODYTRUNCATED]);

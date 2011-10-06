@@ -270,6 +270,8 @@ class MAPIProvider {
                 array_push($message->attendees, $attendee);
         }
 
+        if (!isset($message->nativebodytype)) $message->nativebodytype = $this->getNativeBodyType($messageprops);
+
         return $message;
     }
 

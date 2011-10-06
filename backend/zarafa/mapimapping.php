@@ -303,6 +303,7 @@ class MAPIMapping {
             "subject"               => PR_SUBJECT,
             "starttime"             => "PT_SYSTIME:PSETID_Appointment:0x820d",
             "uid"                   => "PT_BINARY:PSETID_Meeting:0x3",
+            "nativebodytype"        => PR_NATIVE_BODY_INFO,
             );
     }
 
@@ -341,7 +342,11 @@ class MAPIMapping {
             "endtime"               => "PT_SYSTIME:PSETID_Appointment:0x820e",//this is here for calendar restriction, tnef and ical
             "starttime"             => "PT_SYSTIME:PSETID_Appointment:0x820d",//this is here for calendar restriction, tnef and ical
             "clipstart"             => "PT_SYSTIME:PSETID_Appointment:0x8235", //ical only
-            "recurrencetype"        => "PT_LONG:PSETID_Appointment:0x8231"
+            "recurrencetype"        => "PT_LONG:PSETID_Appointment:0x8231",
+            "body"                  => PR_BODY,
+            "rtfcompressed"         => PR_RTF_COMPRESSED,
+            "html"                  => PR_HTML,
+            "rtfinsync"             => PR_RTF_IN_SYNC,
         );
     }
 
