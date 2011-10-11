@@ -213,7 +213,7 @@ class ContentParameters {
      */
     public function GetBodyPreference() {
         if (!isset($this->bodypref) || !(is_array($this->bodypref) || empty($this->bodypref))) {
-            ZLog::Write(LOGLEVEL_INFO, print("ContentParameters::GetBodyPreference() bodypref is empty or not set"));
+            ZLog::Write(LOGLEVEL_INFO, sprintf("ContentParameters::GetBodyPreference() bodypref is empty or not set"));
             return false;
         }
         return array_keys($this->bodypref);
