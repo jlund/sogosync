@@ -616,7 +616,7 @@ class BackendIMAP extends BackendDiff {
             foreach ($list as $val) {
                 $box = array();
                 // cut off serverstring
-                $box["id"] = substr($val->name, strlen($this->_server));
+                $box["id"] = substr($val->name, strlen($this->server));
 
                 $fhir = explode($val->delimiter, $box["id"]);
                 if (count($fhir) > 1) {
@@ -916,6 +916,10 @@ class BackendIMAP extends BackendDiff {
                     //add part as attachment if it's disposition indicates so or if it is not a text part
                     if ((isset($part->disposition) && ($part->disposition == "attachment" || $part->disposition == "inline")) ||
                         (isset($part->ctype_primary) && $part->ctype_primary != "text")) {
+
+                        if (!isset($output->attachments) || !is_array($output->attachments))
+                            $output->attachments = array();
+
                         $attachment = new SyncAttachment();
 
                         if (isset($part->body))
