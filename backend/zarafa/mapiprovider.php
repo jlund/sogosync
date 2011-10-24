@@ -349,7 +349,7 @@ class MAPIProvider {
         }
 
         // Correct 'alldayevent' because outlook fails to set it on recurring items of 24 hours or longer
-        if($recurrence->recur["endocc"] - $recurrence->recur["startocc"] >= 1440)
+        if(isset($recurrence->recur["endocc"], $recurrence->recur["startocc"]) && ($recurrence->recur["endocc"] - $recurrence->recur["startocc"] >= 1440))
             $syncMessage->alldayevent = true;
 
         // Interval is different according to the type/subtype
