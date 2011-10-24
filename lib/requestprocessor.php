@@ -167,6 +167,10 @@ class RequestProcessor {
             case 'Search':
                 $status = self::HandleSearch();
                 break;
+            case 'ItemOperations':
+                $status = self::HandleItemOperations();
+                break;
+
 
             // TODO implement ResolveRecipients and ValidateCert
             case 'ResolveRecipients':
@@ -2115,6 +2119,167 @@ class RequestProcessor {
                 self::$encoder->endTag();//response
             }
         self::$encoder->endTag();//search
+
+        return true;
+    }
+
+    /**
+     * Provides batched online handling for Fetch, EmptyFolderContents and Move
+     *
+     * @access private
+     * @return boolean
+     */
+    static private function HandleItemOperations() {
+        // Parse input
+        if(!self::$decoder->getElementStartTag(SYNC_ITEMOPERATIONS_ITEMOPERATIONS))
+            return false;
+
+        //TODO check if multiple item operations are possible in one request
+        $el = self::$decoder->getElement();
+
+        if($el[EN_TYPE] != EN_TYPE_STARTTAG)
+            return false;
+        //ItemOperations can either be Fetch, EmptyFolderContents or Move
+        $fetch = $efc = $move = false;
+        if($el[EN_TAG] == SYNC_ITEMOPERATIONS_FETCH)
+            $fetch = true;
+        else if($el[EN_TAG] == SYNC_ITEMOPERATIONS_EMPTYFOLDERCONTENTS)
+            $efc = true;
+        else if($el[EN_TAG] == SYNC_ITEMOPERATIONS_MOVE)
+            $move = true;
+
+        if(!$fetch && !$efc && !$move) {
+            ZLog::Write(LOGLEVEL_DEBUG, "Unknown item operation:".print_r($el, 1));
+            return false;
+        }
+
+        if ($fetch) {
+            if(!self::$decoder->getElementStartTag(SYNC_ITEMOPERATIONS_STORE))
+                return false;
+            $store = self::$decoder->getElementContent();
+            if(!self::$decoder->getElementEndTag())
+                return false;//SYNC_ITEMOPERATIONS_STORE
+
+            if(self::$decoder->getElementStartTag(SYNC_FOLDERID)) {
+                $folderid = self::$decoder->getElementContent();
+                if(!self::$decoder->getElementEndTag())
+                    return false;//SYNC_FOLDERID
+            }
+
+            if(self::$decoder->getElementStartTag(SYNC_SERVERENTRYID)) {
+                $serverid = self::$decoder->getElementContent();
+                if(!self::$decoder->getElementEndTag())
+                    return false;//SYNC_SERVERENTRYID
+            }
+
+            if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_FILEREFERENCE)) {
+                $filereference = self::$decoder->getElementContent();
+                if(!self::$decoder->getElementEndTag())
+                    return false;//SYNC_AIRSYNCBASE_FILEREFERENCE
+            }
+
+            if(self::$decoder->getElementStartTag(SYNC_ITEMOPERATIONS_OPTIONS)) {
+                //TODO other options
+                //schema
+                //range
+                //username
+                //password
+                //airsync:mimesupport
+                //bodypartpreference
+                //rm:RightsManagementSupport
+
+                // Save all OPTIONS into a ContentParameters object
+                $collection["cpo"] = new ContentParameters();
+                while(1) {
+                    while (self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_BODYPREFERENCE)) {
+                        if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_TYPE)) {
+                            $bptype = self::$decoder->getElementContent();
+                            $collection["cpo"]->BodyPreference($bptype);
+                            if(!self::$decoder->getElementEndTag()) {
+                                return false;
+                            }
+                        }
+
+                        if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_TRUNCATIONSIZE)) {
+                            $collection["cpo"]->BodyPreference($bptype)->SetTruncationSize(self::$decoder->getElementContent());
+                            if(!self::$decoder->getElementEndTag())
+                                return false;
+                        }
+
+                        if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_ALLORNONE)) {
+                            $collection["cpo"]->BodyPreference($bptype)->SetAllOrNone(self::$decoder->getElementContent());
+                            if(!self::$decoder->getElementEndTag())
+                                return false;
+                        }
+
+                        if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_PREVIEW)) {
+                            $collection["cpo"]->BodyPreference($bptype)->SetPreview(self::$decoder->getElementContent());
+                            if(!self::$decoder->getElementEndTag())
+                                return false;
+                        }
+
+                        if(!self::$decoder->getElementEndTag())
+                            return false;//SYNC_AIRSYNCBASE_BODYPREFERENCE
+                    }
+                    //break if it reached the endtag
+                    $e = self::$decoder->peek();
+                    if($e[EN_TYPE] == EN_TYPE_ENDTAG) {
+                        self::$decoder->getElementEndTag();
+                        break;
+                    }
+                }
+            }
+        }
+
+        //TODO EmptyFolderContents
+        //TODO move
+
+        if(!self::$decoder->getElementEndTag())
+            return false;//SYNC_ITEMOPERATIONS_ITEMOPERATIONS
+
+        $status = SYNC_ITEMOPERATIONSSTATUS_SUCCESS;
+        //TODO status handling
+
+        self::$encoder->startWBXML();
+
+        self::$encoder->startTag(SYNC_ITEMOPERATIONS_ITEMOPERATIONS);
+
+        self::$encoder->startTag(SYNC_ITEMOPERATIONS_STATUS);
+        self::$encoder->content($status);
+        self::$encoder->endTag();//SYNC_ITEMOPERATIONS_STATUS
+
+        self::$encoder->startTag(SYNC_ITEMOPERATIONS_RESPONSE);
+        self::$encoder->startTag(SYNC_ITEMOPERATIONS_FETCH);
+
+        self::$encoder->startTag(SYNC_ITEMOPERATIONS_STATUS);
+        self::$encoder->content($status);
+        self::$encoder->endTag();//SYNC_ITEMOPERATIONS_STATUS
+
+        if (isset($folderid)) {
+            self::$encoder->startTag(SYNC_FOLDERID);
+            self::$encoder->content($folderid);
+            self::$encoder->endTag(); // end SYNC_FOLDERID
+        }
+        if (isset($serverid)) {
+            self::$encoder->startTag(SYNC_SERVERENTRYID);
+            self::$encoder->content($serverid);
+            self::$encoder->endTag(); // end SYNC_SERVERENTRYID
+        }
+        self::$encoder->startTag(SYNC_FOLDERTYPE);
+        self::$encoder->content("Email");
+        self::$encoder->endTag();
+
+        //TODO put it in try catch block
+        $data = self::$backend->Fetch($folderid, $serverid, $collection["cpo"]);
+
+        self::$encoder->startTag(SYNC_ITEMOPERATIONS_PROPERTIES);
+        $data->Encode(self::$encoder);
+        self::$encoder->endTag(); //SYNC_ITEMOPERATIONS_PROPERTIES
+
+        self::$encoder->endTag();//SYNC_ITEMOPERATIONS_FETCH
+        self::$encoder->endTag();//SYNC_ITEMOPERATIONS_RESPONSE
+
+        self::$encoder->endTag();//SYNC_ITEMOPERATIONS_ITEMOPERATIONS
 
         return true;
     }
