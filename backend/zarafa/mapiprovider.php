@@ -1145,7 +1145,9 @@ class MAPIProvider {
         }
         if (isset($task->recurrence) && class_exists('TaskRecurrence')) {
             $deadoccur = false;
-            if (isset($task->recurrence->occurrences) && $task->recurrence->occurrences == 1) $deadoccur = true;
+            if ((isset($task->recurrence->occurrences) && $task->recurrence->occurrences == 1) ||
+                (isset($task->recurrence->deadoccur) && $task->recurrence->deadoccur == 1)) //ios5 sends deadoccur inside the recurrence
+                $deadoccur = true;
 
             // Set PR_ICON_INDEX to 1281 to show correct icon in category view
             $props[$taskprops["icon"]] = 1281;
