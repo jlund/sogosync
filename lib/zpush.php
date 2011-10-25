@@ -129,7 +129,7 @@ class ZPush {
      *
      * @access public
      * @return boolean
-     * @trows FatalMisconfigurationException
+     * @throws FatalMisconfigurationException
      */
     static public function CheckConfig() {
         // check the php version
