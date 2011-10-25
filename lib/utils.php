@@ -51,7 +51,8 @@ class Utils {
      * @return string
      */
     static public function PrintAsString($var) {
-        return ($var)?(($var===true)?'true':$var):'false';
+      return ($var)?(($var===true)?'true':$var):(($var===false)?'false':(($var==='')?'empty':$var));
+//return ($var)?(($var===true)?'true':$var):'false';
     }
 
     /**
