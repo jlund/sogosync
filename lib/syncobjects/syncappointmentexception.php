@@ -59,7 +59,7 @@ class SyncAppointmentException extends SyncAppointment {
 
                     SYNC_POOMCAL_EXCEPTIONSTARTTIME                     => array (  self::STREAMER_VAR      => "exceptionstarttime",
                                                                                     self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE,
-                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED       => self::STREAMER_CHECK_SETZERO)),
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED       => self::STREAMER_CHECK_SETONE)),
                 );
 
         // some parameters are not required in an exception, others are not allowed to be set in SyncAppointmentExceptions
