@@ -48,6 +48,10 @@ ob_start(false, 1048576);
 include_once('lib/zpushdefs.php');
 include_once('lib/exceptions.php');
 include_once('lib/utils.php');
+include_once('lib/interprocessdata.php');
+include_once('lib/pingtracking.php');
+include_once('lib/topcollector.php');
+include_once('lib/loopdetection.php');
 include_once('lib/device.php');
 include_once('lib/devicemanager.php');
 include_once('lib/zpush.php');
@@ -219,6 +223,9 @@ include_once('version.php');
             $trace = (!empty($extrace))? "\n\nTrace:\n". print_r($extrace,1):"";
             ZPush::PrintZPushLegal($exclass . $cmdinfo, sprintf('<pre>%s</pre>',$ex->getMessage() . $trace));
         }
+
+        // Announce exception if the TopCollector if available
+         ZPush::GetTopCollector()->AnnounceInformation(get_class($ex), true);
     }
 
     // save device data if the DeviceManager is available

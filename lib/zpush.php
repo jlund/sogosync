@@ -120,6 +120,7 @@ class ZPush {
     static private $stateMachine;
     static private $searchProvider;
     static private $deviceManager;
+    static private $topCollector;
     static private $backend;
     static private $addSyncFolders;
 
@@ -275,6 +276,19 @@ class ZPush {
             ZPush::$deviceManager = new DeviceManager();
 
         return ZPush::$deviceManager;
+    }
+
+    /**
+     * Returns the Top data collector object
+     *
+     * @access public
+     * @return object TopCollector
+     */
+    static public function GetTopCollector() {
+        if (!isset(ZPush::$topCollector))
+            ZPush::$topCollector = new TopCollector();
+
+        return ZPush::$topCollector;
     }
 
     /**
