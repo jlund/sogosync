@@ -84,11 +84,17 @@ class ImportChangesStream implements IImportChanges {
 
         // prevent sending the same object twice in one request
         if (in_array($id, $this->seenObjects)) {
-            ZLog::Write(LOGLEVEL_DEBUG, "Object $id discarded! Object already sent in this request.");
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("Object '%s' discarded! Object already sent in this request.", $id));
             return true;
         }
 
         $this->seenObjects[] = $id;
+
+        // checks if the next message may cause a loop or is broken
+        if (ZPush::GetDeviceManager(false) && ZPush::GetDeviceManager()->DoNotStreamMessage($id, $message)) {
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("ImportChangesStream->ImportMessageChange('%s'): message ignored as requested by DeviceManager.", $id));
+            return true;
+        }
 
         if ($message->flags === false || $message->flags === SYNC_NEWMESSAGE)
             $this->encoder->startTag(SYNC_ADD);
@@ -174,6 +180,12 @@ class ImportChangesStream implements IImportChanges {
      * @return string       id of the folder
      */
     public function ImportFolderChange($folder) {
+        // checks if the next message may cause a loop or is broken
+        if (ZPush::GetDeviceManager(false) && ZPush::GetDeviceManager()->DoNotStreamMessage($folder->serverid, $folder)) {
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("ImportChangesStream->ImportFolderChange('%s'): folder ignored as requested by DeviceManager.", $folder->serverid));
+            return true;
+        }
+
         // send a modify flag if the folder is already known on the device
         if (isset($folder->flags) && $folder->flags === SYNC_NEWMESSAGE)
             $this->encoder->startTag(SYNC_FOLDERHIERARCHY_ADD);

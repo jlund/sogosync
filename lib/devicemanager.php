@@ -58,9 +58,12 @@
 * Consult LICENSE file for details
 ************************************************/
 
-
 class DeviceManager {
     const FIXEDHIERARCHYCOUNTER = 99999;
+    const DEFAULTWINDOWSIZE = 100;  // stream up to 100 messages to the client by default
+    const MSG_BROKEN_UNKNOWN = 1;
+    const MSG_BROKEN_CAUSINGLOOP = 2;
+    const MSG_BROKEN_SEMANTICERR = 4;
 
     private $device;
     private $deviceHash;
@@ -74,6 +77,10 @@ class DeviceManager {
     private $uuid;
     private $oldStateCounter;
     private $newStateCounter;
+    private $windowSize;
+    private $latestFolder;
+
+    private $loopdetection;
 
     /**
      * Constructor
@@ -84,6 +91,8 @@ class DeviceManager {
         $this->statemachine = ZPush::GetStateMachine();
         $this->deviceHash = false;
         $this->devid = Request::GetDeviceID();
+        $this->windowSize = array();
+        $this->latestFolder = false;
 
         // only continue if deviceid is set
         if ($this->devid) {
@@ -94,6 +103,7 @@ class DeviceManager {
             throw new FatalNotImplementedException("Can not proceed without a device id.");
 
         $this->hierarchyOperation = ZPush::HierarchyCommand(Request::GetCommand());
+        $this->loopdetection = new LoopDetection();
     }
 
 
@@ -149,6 +159,7 @@ class DeviceManager {
                 ZLog::Write(LOGLEVEL_ERROR, "DeviceManager->Save(): Exception: ". $snfex->getMessage());
             }
         }
+
         return true;
     }
 
@@ -373,6 +384,39 @@ class DeviceManager {
     }
 
     /**
+     * Gets the failsave sync state for the current synckey
+     *
+     * @access public
+     * @return array/boolean    false if not available
+     */
+    public function GetSyncFailState() {
+        if (!$this->uuid)
+            return false;
+        // TODO normally this state is not found - this results in an exception message in the log and should be prevented.
+        try {
+            return unserialize($this->statemachine->GetState($this->devid, $this->uuid . "-fs", $this->oldStateCounter));
+        }
+        catch (StateNotFoundException $snfex) {
+            return false;
+        }
+    }
+
+    /**
+     * Writes the failsave sync state for the current (old) synckey
+     *
+     * @param mixed     $syncstate
+     *
+     * @access public
+     * @return boolean
+     */
+    public function SetSyncFailState($syncstate) {
+        if ($this->oldStateCounter == 0)
+            return false;
+
+        return $this->statemachine->SetState(serialize($syncstate), $this->devid, $this->uuid . "-fs", $this->oldStateCounter);
+    }
+
+    /**
      * Returns a wrapped Importer & Exporter to use the
      * HierarchyChache
      *
@@ -470,18 +514,80 @@ class DeviceManager {
     }
 
     /**
-     * Amount of items to me synchronized
-     * Currently called when the device does not announce this value.
+     * Checks if the message should be streamed to a mobile
+     * Should always be called before a message is sent to the mobile
+     * Returns true if there is something wrong and the content could break the
+     * synchronization
+     *
+     * @param string        $id         message id
+     * @param SyncObject    $message
      *
      * @access public
-     * @return int
+     * @return boolean          returns true if the message should NOT be send!
      */
-    public function GetWindowSize() {
-        // TODO implement volatile device state for loop detection
-        return 100;
+    public function DoNotStreamMessage($id, $message) {
+        $folderid = $this->latestFolder;
+
+        if (isset($message->parentid))
+            $folder = $message->parentid;
+
+        // message was identified to be causing a loop
+        if ($this->loopdetection->IgnoreNextMessage()) {
+            $this->announceIgnoredMessage($folderid, $id, $message, self::MSG_BROKEN_CAUSINGLOOP);
+            return true;
+        }
+
+        // message is semantically incorrect
+        if (!$message->Check()) {
+            $this->announceIgnoredMessage($folderid, $id, $message, self::MSG_BROKEN_SEMANTICERR);
+            return true;
+        }
+
+        return false;
     }
 
     /**
+     * Amount of items to me synchronized
+     *
+     * @param string    $folderid
+     * @param string    $type
+     * @param int       $queuedmessages;
+     * @access public
+     * @return int
+     */
+    public function GetWindowSize($folderid, $type, $queuedmessages) {
+        if (isset($this->windowSize[$folderid]))
+            $items = $this->windowSize[$folderid];
+        else
+            $items = self::DEFAULTWINDOWSIZE;
+
+        $this->latestFolder = $folderid;
+
+        // detect if this is a loop condition
+        if ($this->loopdetection->Detect($folderid, $type, $this->uuid, $this->oldStateCounter, $items, $queuedmessages))
+            $items = ($items == 0) ? 0: 1+($this->loopdetection->IgnoreNextMessage(false)?1:0) ;
+
+        if ($items >= 0 && $items <= 2)
+            ZLog::Write(LOGLEVEL_WARN, sprintf("Mobile loop detected! Messages sent to the mobile will be restricted to %d items in order to identify the conflict", $items));
+
+        return $items;
+    }
+
+    /**
+     * Sets the amount of items the device is requesting
+     *
+     * @param int       $maxItems
+     *
+     * @access public
+     * @return boolean
+     */
+    public function SetWindowSize($folderid, $maxItems) {
+        $this->windowSize[$folderid] = $maxItems;
+
+        return true;
+    }
+
+     /**
      * Sets the supported fields transmitted by the device for a certain folder
      *
      * @param string    $folderid
@@ -697,6 +803,24 @@ class DeviceManager {
             throw new StateInvalidException(sprintf("SyncKey '%s' is invalid", $key));
 
         return "{". $key ."}". ((is_int($counter))?$counter:"");
+    }
+
+    /**
+     * Called when a SyncObject is not being streamed to the mobile.
+     * The user can be informed so he knows about this issue
+     *
+     * @param string        $parentid   id of the parent folder
+     * @param string        $id         message id
+     * @param SyncObject    $message    the broken message
+     * @param string        $reason     (self::MSG_BROKEN_UNKNOWN, self::MSG_BROKEN_CAUSINGLOOP, self::MSG_BROKEN_SEMANTICERR)
+     *
+     * @access public
+     * @return boolean          returns true if the message should NOT be send
+     */
+    private function announceIgnoredMessage($folderid, $id, SyncObject $message, $reason = self::MSG_BROKEN_UNKNOWN) {
+        $class = get_class($message);
+        // TODO message info should be saved for the users later attention
+        ZLog::Write(LOGLEVEL_ERROR, sprintf("Ignored broken message (%s). Reason: '%s' Folderid: '%s' message id '%s'", $class, $reason, $folderid, $id));
     }
 }
 

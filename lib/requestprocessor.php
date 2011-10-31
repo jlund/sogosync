@@ -51,6 +51,7 @@
 class RequestProcessor {
     static private $backend;
     static private $deviceManager;
+    static private $topCollector;
     static private $decoder;
     static private $encoder;
     static private $userIsAuthenticated;
@@ -105,6 +106,7 @@ class RequestProcessor {
     static public function Initialize() {
         self::$backend = ZPush::GetBackend();
         self::$deviceManager = ZPush::GetDeviceManager();
+        self::$topCollector = ZPush::GetTopCollector();
 
         if (!ZPush::CommandNeedsPlainInput(Request::GetCommand()))
             self::$decoder = new WBXMLDecoder(Request::GetInputStream());
@@ -256,6 +258,8 @@ class RequestProcessor {
                     $status = $stex->getCode();
             }
 
+            self::$topCollector->AnnounceInformation(sprintf("Operation status: %s", $status), true);
+
             self::$encoder->startTag(SYNC_MOVE_STATUS);
             self::$encoder->content($status);
             self::$encoder->endTag();
@@ -318,6 +322,9 @@ class RequestProcessor {
             $folders = self::$backend->GetHierarchy();
             if (!$folders || empty($folders))
                 throw new StatusException("GetHierarchy() did not return any data.");
+
+            // TODO execute $data->Check() to see if SyncObject is valid
+
         }
         catch (StatusException $ex) {
             return false;
@@ -424,8 +431,10 @@ class RequestProcessor {
                         if($serverid)
                             $map[$serverid] = $folder->clientid;
                     }
-                    else
+                    else {
                         ZLog::Write(LOGLEVEL_WARN, sprintf("Request->HandleFolderSync(): ignoring incoming folderchange for folder '%s' as status indicates problem.", $folder->displayname));
+                        self::$topCollector->AnnounceInformation("Incoming change ignored", true);
+                    }
                 }
                 catch (StatusException $stex) {
                    $status = $stex->getCode();
@@ -494,6 +503,7 @@ class RequestProcessor {
                     while($changesMem->Synchronize());
                 }
                 self::$encoder->endTag();
+                self::$topCollector->AnnounceInformation(sprintf("Outgoing %d folders",$changeCount), true);
 
                 // everything fine, save the sync state for the next time
                 if ($synckey == $newsynckey)
@@ -575,6 +585,7 @@ class RequestProcessor {
                     self::$deviceManager->ForceFullResync();
                 }
             }
+            self::$topCollector->AnnounceInformation(sprintf("%s",$collection["class"]), true);
 
             // SUPPORTED properties
             if(self::$decoder->getElementStartTag(SYNC_SUPPORTED)) {
@@ -609,7 +620,7 @@ class RequestProcessor {
             // dw2412 contribution end
 
             if(self::$decoder->getElementStartTag(SYNC_WINDOWSIZE)) {
-                $collection["windowsize"] = self::$decoder->getElementContent();
+                self::$deviceManager->SetWindowSize($collection["collectionid"], self::$decoder->getElementContent());
                 if(!self::$decoder->getElementEndTag())
                     return false;
             }
@@ -710,15 +721,13 @@ class RequestProcessor {
                 $collection["conflict"] = SYNC_CONFLICT_DEFAULT;
             }
 
-            // compatibility mode - set windowsize if the client doesn't send it
-            if (!isset($collection["windowsize"])) {
-                $collection["windowsize"] = self::$deviceManager->GetWindowSize();
-            }
-
             // Get our sync state for this collection
             if ($status == SYNC_STATUS_SUCCESS) {
                 try {
                     $collection["syncstate"] = self::$deviceManager->GetSyncState($collection["synckey"]);
+
+                    // if this request was made before, there will be a failstate available
+                    $collection["failstate"] = self::$deviceManager->GetSyncFailState();
 
                     // if this is an additional folder the backend has to be setup correctly
                     if (!self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore($collection["collectionid"])))
@@ -732,6 +741,9 @@ class RequestProcessor {
                 }
             }
 
+            if ($status != SYNC_STATUS_SUCCESS)
+                self::$topCollector->AnnounceInformation(sprintf("StateNotFoundException with status code: %d", $status), true);
+
             if(self::$decoder->getElementStartTag(SYNC_PERFORM)) {
                 if ($status == SYNC_STATUS_SUCCESS) {
                     try {
@@ -742,7 +754,12 @@ class RequestProcessor {
                         if ($importer === false)
                             throw new StatusException(sprintf("HandleSync() could not get an importer for folder id '%s'", $collection["collectionid"]), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
 
-                        $importer->Config($collection["syncstate"], $collection["conflict"]);
+                        // if there is a valid state obtained after importing changes in a previous loop, we use that state
+                        if ($collection["failstate"] && isset($collection["failstate"]["failedsyncstate"])) {
+                            $importer->Config($collection["failstate"]["failedsyncstate"], $collection["conflict"]);
+                        }
+                        else
+                            $importer->Config($collection["syncstate"], $collection["conflict"]);
                     }
                     catch (StatusException $stex) {
                        $status = $stex->getCode();
@@ -761,6 +778,8 @@ class RequestProcessor {
 
                     // before importing the first change, load potential conflicts
                     // for the current state
+
+                    // TODO check if the failsyncstate applies for conflict detection as well
                     if ($status == SYNC_STATUS_SUCCESS && $nchanges == 0)
                         $importer->LoadConflicts($collection["cpo"], $collection["syncstate"]);
 
@@ -800,59 +819,94 @@ class RequestProcessor {
                         continue;
                     }
 
-                    switch($element[EN_TAG]) {
-                        case SYNC_MODIFY:
-                            try {
-                                $collection["modifyids"][] = $serverid;
+                    // Detect incoming loop
+                    // messages which were created/removed before will not have the same action executed again
+                    // if a message is edited we perform this action "again", as the message could have been changed on the mobile in the meantime
+                    $ignoreMessage = false;
+                    if ($collection["failstate"]) {
+                        // message was ADDED before, do NOT add it again
+                        if ($element[EN_TAG] == SYNC_ADD && $collection["failstate"]["clientids"][$clientid]) {
+                            $ignoreMessage = true;
 
-                                if(isset($message->read)) // Currently, 'read' is only sent by the PDA when it is ONLY setting the read flag.
-                                    $importer->ImportMessageReadFlag($serverid, $message->read);
-                                else
-                                    $importer->ImportMessageChange($serverid, $message);
+                            // make sure no messages are sent back
+                            self::$deviceManager->SetWindowSize($collection["collectionid"], 0);
 
-                                $collection["statusids"][$serverid] = SYNC_STATUS_SUCCESS;
-                            }
-                            catch (StatusException $stex) {
-                                $collection["statusids"][$serverid] = $stex->getCode();
-                            }
+                            $collection["clientids"][$clientid] = $collection["failstate"]["clientids"][$clientid];
+                            $collection["statusids"][$clientid] = $collection["failstate"]["statusids"][$clientid];
 
-                            break;
-                        case SYNC_ADD:
-                            try {
-                                $collection["clientids"][$clientid] = false;
-                                $collection["clientids"][$clientid] = $importer->ImportMessageChange(false, $message);
-                                $collection["statusids"][$clientid] = SYNC_STATUS_SUCCESS;
-                            }
-                            catch (StatusException $stex) {
-                               $collection["statusids"][$clientid] = $stex->getCode();
-                            }
-                            break;
-                        case SYNC_REMOVE:
-                            try {
-                                $collection["removeids"][] = $serverid;
-                                // if message deletions are to be moved, move them
-                                if(isset($collection["deletesasmoves"])) {
-                                    $folderid = self::$backend->GetWasteBasket();
+                            ZLog::Write(LOGLEVEL_WARN, sprintf("Mobile loop detected! Incoming new message '%s' was created on the server before. Replying with known new server id: %s", $clientid, $collection["clientids"][$clientid]));
+                        }
 
-                                    if($folderid) {
-                                        $importer->ImportMessageMove($serverid, $folderid);
-                                        $collection["statusids"][$serverid] = SYNC_STATUS_SUCCESS;
-                                        break;
-                                    }
+                        // message was REMOVED before, do NOT attemp to remove it again
+                        if ($element[EN_TAG] == SYNC_REMOVE && $collection["failstate"]["removeids"][$serverid]) {
+                            $ignoreMessage = true;
+
+                            // make sure no messages are sent back
+                            self::$deviceManager->SetWindowSize($collection["collectionid"], 0);
+
+                            $collection["removeids"][$serverid] = $collection["failstate"]["removeids"][$serverid];
+                            $collection["statusids"][$serverid] = $collection["failstate"]["statusids"][$serverid];
+
+                            ZLog::Write(LOGLEVEL_WARN, sprintf("Mobile loop detected! Message '%s' was deleted by the mobile before. Replying with known status: %s", $clientid, $collection["statusids"][$serverid]));
+                        }
+                    }
+
+                    if (!$ignoreMessage) {
+                        switch($element[EN_TAG]) {
+                            case SYNC_MODIFY:
+                                try {
+                                    $collection["modifyids"][] = $serverid;
+
+                                    if(isset($message->read)) // Currently, 'read' is only sent by the PDA when it is ONLY setting the read flag.
+                                        $importer->ImportMessageReadFlag($serverid, $message->read);
                                     else
-                                        ZLog::Write(LOGLEVEL_WARN, "Message should be moved to WasteBasket, but the Backend did not return a destination ID. Message is hard deleted now!");
+                                        $importer->ImportMessageChange($serverid, $message);
+
+                                    $collection["statusids"][$serverid] = SYNC_STATUS_SUCCESS;
+                                }
+                                catch (StatusException $stex) {
+                                    $collection["statusids"][$serverid] = $stex->getCode();
                                 }
 
-                                $importer->ImportMessageDeletion($serverid);
-                                $collection["statusids"][$serverid] = SYNC_STATUS_SUCCESS;
-                            }
-                            catch (StatusException $stex) {
-                               $collection["statusids"][$serverid] = $stex->getCode();
-                            }
-                            break;
-                        case SYNC_FETCH:
-                            array_push($collection["fetchids"], $serverid);
-                            break;
+                                break;
+                            case SYNC_ADD:
+                                try {
+                                    $collection["clientids"][$clientid] = false;
+                                    $collection["clientids"][$clientid] = $importer->ImportMessageChange(false, $message);
+                                    $collection["statusids"][$clientid] = SYNC_STATUS_SUCCESS;
+                                }
+                                catch (StatusException $stex) {
+                                   $collection["statusids"][$clientid] = $stex->getCode();
+                                }
+                                break;
+                            case SYNC_REMOVE:
+                                try {
+                                    $collection["removeids"][] = $serverid;
+                                    // if message deletions are to be moved, move them
+                                    if(isset($collection["deletesasmoves"])) {
+                                        $folderid = self::$backend->GetWasteBasket();
+
+                                        if($folderid) {
+                                            $importer->ImportMessageMove($serverid, $folderid);
+                                            $collection["statusids"][$serverid] = SYNC_STATUS_SUCCESS;
+                                            break;
+                                        }
+                                        else
+                                            ZLog::Write(LOGLEVEL_WARN, "Message should be moved to WasteBasket, but the Backend did not return a destination ID. Message is hard deleted now!");
+                                    }
+
+                                    $importer->ImportMessageDeletion($serverid);
+                                    $collection["statusids"][$serverid] = SYNC_STATUS_SUCCESS;
+                                }
+                                catch (StatusException $stex) {
+                                   $collection["statusids"][$serverid] = $stex->getCode();
+                                }
+                                break;
+                            case SYNC_FETCH:
+                                array_push($collection["fetchids"], $serverid);
+                                break;
+                        }
+                        self::$topCollector->AnnounceInformation(sprintf("Incoming %d", $nchanges),($nchanges>0)?true:false);
                     }
 
                     if(!self::$decoder->getElementEndTag()) // end add/change/delete/move
@@ -872,6 +926,12 @@ class RequestProcessor {
 
                 if(!self::$decoder->getElementEndTag()) // end commands
                     return false;
+            }
+
+            // save the failsave state
+            if (!empty($collection["statusids"])) {
+                unset($collection["failstate"]);
+                self::$deviceManager->SetSyncFailState($collection);
             }
 
             if(!self::$decoder->getElementEndTag()) // end collections
@@ -916,6 +976,10 @@ class RequestProcessor {
                         catch (StatusException $stex) {
                            $status = $stex->getCode();
                         }
+                        if ($collection["synckey"] == "0")
+                            self::$topCollector->AnnounceInformation(sprintf("Exporter registered. %d objects queued.", $changecount), true);
+                        else if ($status != SYNC_STATUS_SUCCESS)
+                            self::$topCollector->AnnounceInformation(sprintf("StatusException code: %d", $status), true);
                     }
 
                     // Get a new sync key to output to the client if any changes have been send or will are available
@@ -1001,9 +1065,13 @@ class RequestProcessor {
                             }
                         }
 
+                        if (!empty($collection["fetchids"]))
+                            self::$topCollector->AnnounceInformation(sprintf("Fetching %d objects ", count($collection["fetchids"])), true);
+
                         foreach($collection["fetchids"] as $id) {
                             try {
                                 $data = self::$backend->Fetch($collection["collectionid"], $id, $collection["cpo"]);
+                                // TODO execute $data->Check() to see if SyncObject is valid
                                 $fetchstatus = SYNC_STATUS_SUCCESS;
                             }
                             catch (StatusException $stex) {
@@ -1032,12 +1100,17 @@ class RequestProcessor {
                         self::$encoder->endTag();
                     }
 
-                    if($status == SYNC_STATUS_SUCCESS && isset($collection["getchanges"])) {
-                        // exporter already intialized
+                    if(isset($collection["getchanges"])) {
+                        $windowSize = self::$deviceManager->GetWindowSize($collection["collectionid"], $collection["class"], $changecount);
 
-                        if($changecount > $collection["windowsize"]) {
+                        if($changecount > $windowSize) {
                             self::$encoder->startTag(SYNC_MOREAVAILABLE, false, true);
                         }
+                    }
+
+                    // Stream outgoing changes
+                    if($status == SYNC_STATUS_SUCCESS && isset($collection["getchanges"]) && $windowSize > 0) {
+                        self::$topCollector->AnnounceInformation(sprintf("Streaming data of %d objects", (($changecount > $windowSize)?$windowSize:$changecount)));
 
                         // Output message changes per folder
                         self::$encoder->startTag(SYNC_PERFORM);
@@ -1049,19 +1122,22 @@ class RequestProcessor {
                                 break;
                             $n++;
 
-                            if($n >= $collection["windowsize"]) {
-                                ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandleSync():Exported maxItems of messages: %d / %d", $collection["windowsize"], $changecount));
+                            if($n >= $windowSize) {
+                                ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandleSync(): Exported maxItems of messages: %d / %d", $n, $changecount));
                                 break;
                             }
 
                         }
                         self::$encoder->endTag();
+                        self::$topCollector->AnnounceInformation(sprintf("Outgoing %d objects%s", $n, ($n >= $windowSize)?" of ".$changecount:""), true);
                     }
 
                     self::$encoder->endTag();
 
                     // Save the sync state for the next time
                     if(isset($collection["newsynckey"])) {
+                        self::$topCollector->AnnounceInformation("Saving state");
+
                         if (isset($exporter) && $exporter)
                             $state = $exporter->GetState();
 
@@ -1215,6 +1291,8 @@ class RequestProcessor {
                         self::$encoder->endTag();
                     }
                     self::$encoder->endTag();
+                    if ($changecount > 0)
+                        self::$topCollector->AnnounceInformation(sprintf("%s %d changes", $collection["class"], $changecount), true);
                 }
                 self::$encoder->endTag();
             }
@@ -1257,7 +1335,7 @@ class RequestProcessor {
         $lifetime = 0;
         $policykey = 0;
 
-        // TODO all active PING requests should be logged and terminate themselfs (e.g. volatile devicedata!!)
+        $pingTracking = new PingTracking();
 
         // Get previous pingdata, if available
         list($collections, $lifetime, $policykey) = self::$deviceManager->GetPingState();
@@ -1265,6 +1343,8 @@ class RequestProcessor {
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandlePing(): reference PolicyKey for PING: %s", $policykey));
 
         if(self::$decoder->getElementStartTag(SYNC_PING_PING)) {
+            self::$topCollector->AnnounceInformation("Processing PING data");
+
             ZLog::Write(LOGLEVEL_DEBUG, "HandlePing(): initialization data received");
             if(self::$decoder->getElementStartTag(SYNC_PING_LIFETIME)) {
                 $lifetime = self::$decoder->getElementContent();
@@ -1324,7 +1404,9 @@ class RequestProcessor {
                         $exporter->Config($collection["state"], BACKEND_DISCARD_DATA);
                         $cpo = new ContentParameters();
                         $cpo->SetContentClass($collection["class"]);
-                        $cpo->SetFilterType(SYNC_FILTERTYPE_1DAY);
+
+                        // TODO PING must use the same filtertype as the device requested!
+                        $cpo->SetFilterType(SYNC_FILTERTYPE_ALL);
                         $exporter->ConfigContentParameters($cpo);
                         $exporter->InitializeExporter($importer);
                         while(is_array($exporter->Synchronize()));
@@ -1350,14 +1432,28 @@ class RequestProcessor {
 
         // enter the waiting loop
         if (!$pingstatus) {
+            $t = array();
+            foreach ($collections as $c) $t[] = $c["class"];
+            $pingtypes = implode("/", $t);
+            self::$topCollector->AnnounceInformation(sprintf("lifetime %ds", $lifetime), true);
+
             ZLog::Write(LOGLEVEL_INFO, sprintf("HandlePing(): Waiting for changes... (lifetime %d seconds)", $lifetime));
             // Wait for something to happen
             for($n=0;$n<$lifetime / $timeout; $n++ ) {
+                self::$topCollector->AnnounceInformation(sprintf("On %s (lifetime %ds)", $pingtypes, $lifetime));
+
                 // Check if provisioning is necessary
                 // if a PolicyKey was sent use it. If not, compare with the PolicyKey from the last PING request
                 if (PROVISIONING === true && self::$deviceManager->ProvisioningRequired((Request::WasPolicyKeySent() ? Request::GetPolicyKey(): $policykey), true)) {
                     // the hierarchysync forces provisioning
                     $pingstatus = SYNC_PINGSTATUS_FOLDERHIERSYNCREQUIRED;
+                    break;
+                }
+
+                // Check if there are newer ping requests and this process should be terminated
+                if ($pingTracking->DoForcePingTimeout()) {
+                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandlePing(): Timeout forced after %ss from %ss due to other Ping process", ($n * $timeout), $lifetime));
+                    self::$topCollector->AnnounceInformation(sprintf("Forced timeout after %ds", ($n * $timeout)), true);
                     break;
                 }
 
@@ -1387,7 +1483,9 @@ class RequestProcessor {
                         $exporter->Config($collection["state"], BACKEND_DISCARD_DATA);
                         $cpo = new ContentParameters();
                         $cpo->SetContentClass($collection["class"]);
-                        $cpo->SetFilterType(SYNC_FILTERTYPE_1DAY);
+                        // TODO PING must use the same filtertype as the device requested!
+                        // TODO check behaviour if e.g. zarafa-server is going down during ping
+                        $cpo->SetFilterType(SYNC_FILTERTYPE_ALL);
                         $exporter->ConfigContentParameters($cpo);
                         $ret = $exporter->InitializeExporter($importer);
 
@@ -1442,6 +1540,8 @@ class RequestProcessor {
                     self::$encoder->startTag(SYNC_PING_FOLDER);
                     self::$encoder->content($collection["serverid"]);
                     self::$encoder->endTag();
+
+                    self::$topCollector->AnnounceInformation(sprintf("Found change in %s", $collection["class"]), true);
                 }
             }
             self::$encoder->endTag();
@@ -1471,6 +1571,7 @@ class RequestProcessor {
         while($data = fread(Request::GetInputStream(), 4096))
             $rfc822 .= $data;
 
+        self::$topCollector->AnnounceInformation(sprintf("Sending email with %d bytes", strlen($rfc822)), true);
         // no wbxml output is provided, only a http OK
         return self::$backend->SendMail($rfc822, $forward, $reply, $parent, Request::GetGETSaveInSent());
     }
@@ -1686,6 +1787,8 @@ class RequestProcessor {
 
         self::$encoder->endTag();
 
+        self::$topCollector->AnnounceInformation(sprintf("Operation status %d", $status), true);
+
         // Save the sync state for the next time
         self::$deviceManager->SetSyncState($newsynckey, $importer->GetState());
 
@@ -1766,6 +1869,7 @@ class RequestProcessor {
                     self::$encoder->endTag();
                 }
             self::$encoder->endTag();
+            self::$topCollector->AnnounceInformation(sprintf("Operation status %d", $status), true);
         }
         self::$encoder->endTag();
 
@@ -1879,6 +1983,7 @@ class RequestProcessor {
         if (!$phase2) {
             $policykey = self::$deviceManager->GenerateProvisioningPolicyKey();
             self::$deviceManager->SetProvisioningPolicyKey($policykey);
+            self::$topCollector->AnnounceInformation("Policies deployed", true);
         }
         else {
             // just create a temporary key (i.e. iPhone OS4 Beta does not like policykey 0 in response)
@@ -1916,13 +2021,18 @@ class RequestProcessor {
                     }
                     elseif ($policytype == 'MS-EAS-Provisioning-WBXML') {
                         self::$encoder->startTag(SYNC_PROVISION_EASPROVISIONDOC);
+                            // TODO execute $data->Check() to see if SyncObject is valid
+                            // if not, this should throw a FatalException
+
                             self::$deviceManager->GetProvisioningObject()->Encode(self::$encoder);
                         self::$encoder->endTag();
                     }
                     else {
                         ZLog::Write(LOGLEVEL_WARN, "Wrong policy type");
+                        self::$topCollector->AnnounceInformation("Policytype not supported", true);
                         return false;
                     }
+                    self::$topCollector->AnnounceInformation("Updated provisiong", true);
 
                     self::$encoder->endTag();//data
                 }
@@ -1934,6 +2044,7 @@ class RequestProcessor {
         if ($rwstatus > SYNC_PROVISION_RWSTATUS_OK) {
             self::$encoder->startTag(SYNC_PROVISION_REMOTEWIPE, false, true);
             self::$deviceManager->SetProvisioningWipeStatus(($rwstatusWiped)?SYNC_PROVISION_RWSTATUS_WIPED:SYNC_PROVISION_RWSTATUS_REQUESTED);
+            self::$topCollector->AnnounceInformation(sprintf("Remote wipe %s", ($rwstatusWiped)?"executed":"requested"), true);
         }
 
         self::$encoder->endTag();//provision
@@ -2011,13 +2122,13 @@ class RequestProcessor {
             $rows = array();
             $status = SYNC_SEARCHSTATUS_SERVERERROR;
             ZLog::Write(LOGLEVEL_WARN, sprintf("Searchtype '%s' is not supported.", $searchname));
+            self::$topCollector->AnnounceInformation(sprintf("Unsupported type '%s''", $searchname), true);
         }
-
-
         $searchprovider->Disconnect();
 
-        self::$encoder->startWBXML();
+        self::$topCollector->AnnounceInformation(sprintf("'%s' search found %d results", $searchname, $rows['searchtotal']), true);
 
+        self::$encoder->startWBXML();
         self::$encoder->startTag(SYNC_SEARCH_SEARCH);
 
             self::$encoder->startTag(SYNC_SEARCH_STATUS);
