@@ -88,10 +88,11 @@ class SyncRecurrence extends SyncObject {
                     //   8 = Wednesday
                     //  16 = Thursday
                     //  32 = Friday
+                    //  62 = Weekdays  // TODO check: value set by WA with daily weekday recurrence
                     //  64 = Saturday
                     // 127 = The last day of the month. Value valid only in monthly or yearly recurrences.
                     SYNC_POOMCAL_DAYOFWEEK                              => array (  self::STREAMER_VAR      => "dayofweek",
-                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_ONEVALUEOF => array(1,2,4,8,16,32,64,127) )),
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_ONEVALUEOF => array(1,2,4,8,16,32,62,64,127) )),
 
                     // DayOfMonth values
                     // 1-31 representing the day
