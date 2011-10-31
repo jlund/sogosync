@@ -283,7 +283,7 @@ abstract class SyncObject extends Streamer {
                     // check STREAMER_CHECK_ONEVALUEOF
                     if ($rule === self::STREAMER_CHECK_ONEVALUEOF && isset($this->$v[self::STREAMER_VAR])) {
                         if (!in_array($this->$v[self::STREAMER_VAR], $condition)) {
-                            ZLog::Write(LOGLEVEL_WARN, sprintf("SyncObject->check(): object from type %s: parameter '%s' is not in the range of allowed values.", $objClass, $v[self::STREAMER_VAR]));
+                            ZLog::Write(LOGLEVEL_WARN, sprintf("SyncObject->check(): object from type %s: parameter '%s'->'%s' is not in the range of allowed values.", $objClass, $v[self::STREAMER_VAR], $this->$v[self::STREAMER_VAR]));
                             return false;
                         }
                     }// end STREAMER_CHECK_ONEVALUEOF
