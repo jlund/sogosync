@@ -102,7 +102,9 @@ abstract class InterProcessData {
             $this->mutexid = false;
             return false;
         }
-        $this->setInitialCleanTime();
+
+        // TODO mem cleanup has to be implemented
+        //$this->setInitialCleanTime();
 
         return true;
     }
@@ -211,9 +213,14 @@ abstract class InterProcessData {
      * @return boolean
      */
     protected function hasData($id = 2) {
-        if ((isset($this->mutexid) && $this->mutexid !== false) && (isset($this->memid) && $this->memid !== false))
-            return @shm_has_var($this->memid, $id);
-
+        if ((isset($this->mutexid) && $this->mutexid !== false) && (isset($this->memid) && $this->memid !== false)) {
+            if (function_exists("shm_has_var"))
+                return @shm_has_var($this->memid, $id);
+            else {
+                $some = $this->getData($id);
+                return isset($some);
+            }
+        }
         return false;
     }
 
