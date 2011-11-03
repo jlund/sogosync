@@ -79,7 +79,7 @@ class DiffState implements IChanges {
      * @throws StatusException
      */
     public function GetState() {
-        if (!$this->syncstate)
+        if (!isset($this->syncstate) || !is_array($this->syncstate))
             throw new StatusException("DiffState->GetState(): Error, state not available", SYNC_FSSTATUS_CODEUNKNOWN, null, LOGLEVEL_WARN);
 
         return serialize($this->syncstate);
