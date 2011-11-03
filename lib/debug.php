@@ -218,6 +218,9 @@ function zarafa_error_handler($errno, $errstr, $errfile, $errline, $errcontext) 
 
         case E_NOTICE:
         case E_WARNING:
+            // TODO check if there is a better way to avoid these messages
+            if (stripos($errfile,'interprocessdata') !== false && stripos($errstr,'shm_get_var()') !== false)
+                break;
             ZLog::Write(LOGLEVEL_WARN, "$errfile:$errline $errstr ($errno)");
             break;
 
