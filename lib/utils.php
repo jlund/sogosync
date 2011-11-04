@@ -446,7 +446,7 @@ class Utils {
 
 
 /**
- * Complementary function to bin2hey() which converts a hex entryid to a binary entryid.
+ * Complementary function to bin2hex() which converts a hex entryid to a binary entryid.
  * hex2bin() is not part of the Utils class
  *
  * @param string    $data   the hexadecimal string
