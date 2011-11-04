@@ -442,6 +442,12 @@ class Utils {
         }
         return $string;
     }
+
+    static public function CheckEmail($email) {
+        // this regex actually only checks if a valid email address is part of the submitted string
+        // it also returns true for the mailbox format, but which is not checked explicitly
+        return (bool) preg_match('#([a-zA-Z0-9_\-])+(\.([a-zA-Z0-9_\-])+)*@((\[(((([0-1])?([0-9])?[0-9])|(2[0-4][0-9])|(2[0-5][0-5])))\.(((([0-1])?([0-9])?[0-9])|(2[0-4][0-9])|(2[0-5][0-5])))\.(((([0-1])?([0-9])?[0-9])|(2[0-4][0-9])|(2[0-5][0-5])))\.(((([0-1])?([0-9])?[0-9])|(2[0-4][0-9])|(2[0-5][0-5]))\]))|((([a-zA-Z0-9])+(([\-])+([a-zA-Z0-9])+)*\.)+([a-zA-Z])+(([\-])+([a-zA-Z0-9])+)*))#', $email);
+    }
 }
 
 
