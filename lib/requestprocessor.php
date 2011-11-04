@@ -1013,11 +1013,11 @@ class RequestProcessor {
                     self::$encoder->endTag();
 
                     // Output IDs and status for incoming items & requests
-                    if($status == SYNC_STATUS_SUCCESS &&
+                    if($status == SYNC_STATUS_SUCCESS && (
                         !empty($collection["clientids"]) ||
                         !empty($collection["modifyids"]) ||
                         !empty($collection["removeids"]) ||
-                        !empty($collection["fetchids"]) ) {
+                        !empty($collection["fetchids"]) )) {
 
                         self::$encoder->startTag(SYNC_REPLIES);
                         // output result of all new incoming items
@@ -1138,16 +1138,22 @@ class RequestProcessor {
                     if(isset($collection["newsynckey"])) {
                         self::$topCollector->AnnounceInformation("Saving state");
 
-                        if (isset($exporter) && $exporter)
-                            $state = $exporter->GetState();
+                        try {
+                            if (isset($exporter) && $exporter)
+                                $state = $exporter->GetState();
 
-                        // nothing exported, but possibly imported
-                        else if (isset($importer) && $importer)
-                            $state = $importer->GetState();
+                            // nothing exported, but possibly imported
+                            else if (isset($importer) && $importer)
+                                $state = $importer->GetState();
 
-                        // if a new request without state information (hierarchy) save an empty state
-                        else if ($collection["synckey"] == "0")
-                            $state = "";
+                            // if a new request without state information (hierarchy) save an empty state
+                            else if ($collection["synckey"] == "0")
+                                $state = "";
+                        }
+                        catch (StatusException $stex) {
+                           $status = $stex->getCode();
+                        }
+
 
                         if (isset($state) && $status == SYNC_STATUS_SUCCESS)
                             self::$deviceManager->SetSyncState($collection["newsynckey"], $state, $collection["collectionid"]);
