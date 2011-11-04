@@ -808,6 +808,7 @@ class RequestProcessor {
                     if(self::$decoder->getElementStartTag(SYNC_DATA)) {
                         $message = ZPush::getSyncObjectFromFolderClass($collection["class"]);
                         $message->Decode(self::$decoder);
+
                         // set Ghosted fields
                         $message->emptySupported(self::$deviceManager->GetSupportedFields($collection["collectionid"]));
                         if(!self::$decoder->getElementEndTag()) // end applicationdata
@@ -857,12 +858,17 @@ class RequestProcessor {
                                 try {
                                     $collection["modifyids"][] = $serverid;
 
-                                    if(isset($message->read)) // Currently, 'read' is only sent by the PDA when it is ONLY setting the read flag.
-                                        $importer->ImportMessageReadFlag($serverid, $message->read);
-                                    else
-                                        $importer->ImportMessageChange($serverid, $message);
+                                    if (!$message->Check()) {
+                                        $collection["statusids"][$serverid] = SYNC_STATUS_CLIENTSERVERCONVERSATIONERROR;
+                                    }
+                                    else {
+                                        if(isset($message->read)) // Currently, 'read' is only sent by the PDA when it is ONLY setting the read flag.
+                                            $importer->ImportMessageReadFlag($serverid, $message->read);
+                                        else
+                                            $importer->ImportMessageChange($serverid, $message);
 
-                                    $collection["statusids"][$serverid] = SYNC_STATUS_SUCCESS;
+                                        $collection["statusids"][$serverid] = SYNC_STATUS_SUCCESS;
+                                    }
                                 }
                                 catch (StatusException $stex) {
                                     $collection["statusids"][$serverid] = $stex->getCode();
@@ -871,9 +877,14 @@ class RequestProcessor {
                                 break;
                             case SYNC_ADD:
                                 try {
-                                    $collection["clientids"][$clientid] = false;
-                                    $collection["clientids"][$clientid] = $importer->ImportMessageChange(false, $message);
-                                    $collection["statusids"][$clientid] = SYNC_STATUS_SUCCESS;
+                                    if (!$message->Check()) {
+                                        $collection["statusids"][$clientid] = SYNC_STATUS_CLIENTSERVERCONVERSATIONERROR;
+                                    }
+                                    else {
+                                        $collection["clientids"][$clientid] = false;
+                                        $collection["clientids"][$clientid] = $importer->ImportMessageChange(false, $message);
+                                        $collection["statusids"][$clientid] = SYNC_STATUS_SUCCESS;
+                                    }
                                 }
                                 catch (StatusException $stex) {
                                    $collection["statusids"][$clientid] = $stex->getCode();
@@ -1070,9 +1081,14 @@ class RequestProcessor {
 
                         foreach($collection["fetchids"] as $id) {
                             try {
-                                $data = self::$backend->Fetch($collection["collectionid"], $id, $collection["cpo"]);
-                                // TODO execute $data->Check() to see if SyncObject is valid
                                 $fetchstatus = SYNC_STATUS_SUCCESS;
+                                $data = self::$backend->Fetch($collection["collectionid"], $id, $collection["cpo"]);
+
+                                // check if the message is broken
+                                if (ZPush::GetDeviceManager(false) && ZPush::GetDeviceManager()->DoNotStreamMessage($id, $data)) {
+                                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandleSync(): message not to be streamed as requested by DeviceManager.", $id));
+                                    $fetchstatus = SYNC_STATUS_CLIENTSERVERCONVERSATIONERROR;
+                                }
                             }
                             catch (StatusException $stex) {
                                $fetchstatus = $stex->getCode();
