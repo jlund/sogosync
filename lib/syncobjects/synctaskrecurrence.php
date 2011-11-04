@@ -61,8 +61,7 @@ class SyncTaskRecurrence extends SyncObject {
     function SyncTaskRecurrence() {
         $mapping = array (
                     SYNC_POOMTASKS_START                                => array (  self::STREAMER_VAR      => "start",
-                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE,
-                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_CMPLOWER       => SYNC_POOMTASKS_UNTIL ) ),
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE),
 
                     // Recurrence type
                     // 0 = Recurs daily
@@ -76,7 +75,8 @@ class SyncTaskRecurrence extends SyncObject {
                                                                                                                         self::STREAMER_CHECK_ONEVALUEOF => array(0,1,2,3,5,6) )),
 
                     SYNC_POOMTASKS_UNTIL                                => array (  self::STREAMER_VAR      => "until",
-                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE),
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE,
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_CMPLOWER       => SYNC_POOMTASKS_UNTIL ) ),
 
                     SYNC_POOMTASKS_OCCURRENCES                          => array (  self::STREAMER_VAR      => "occurrences",
                                                                                     self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_CMPHIGHER  => 0,
