@@ -46,7 +46,6 @@
 ************************************************/
 
 
-// TODO define checks for SyncTask
 class SyncTask extends SyncObject {
     public $body;
     public $complete;
@@ -69,7 +68,10 @@ class SyncTask extends SyncObject {
     function SyncTask() {
         $mapping = array (
                     SYNC_POOMTASKS_BODY                                 => array (  self::STREAMER_VAR      => "body"),
-                    SYNC_POOMTASKS_COMPLETE                             => array (  self::STREAMER_VAR      => "complete"),
+                    SYNC_POOMTASKS_COMPLETE                             => array (  self::STREAMER_VAR      => "complete",
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED       => self::STREAMER_CHECK_SETZERO,
+                                                                                                                        self::STREAMER_CHECK_ZEROORONE      => self::STREAMER_CHECK_SETZERO )),
+
                     SYNC_POOMTASKS_DATECOMPLETED                        => array (  self::STREAMER_VAR      => "datecompleted",
                                                                                     self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE_DASHES),
 
@@ -79,17 +81,35 @@ class SyncTask extends SyncObject {
                     SYNC_POOMTASKS_UTCDUEDATE                           => array (  self::STREAMER_VAR      => "utcduedate",
                                                                                     self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE_DASHES),
 
-                    SYNC_POOMTASKS_IMPORTANCE                           => array (  self::STREAMER_VAR      => "importance"),
+                    // Importance values
+                    // 0 = Low
+                    // 1 = Normal
+                    // 2 = High
+                    // even the default value 1 is optional, the native android client 2.2 interprets a non-existing value as 0 (low)
+                    SYNC_POOMTASKS_IMPORTANCE                           => array (  self::STREAMER_VAR      => "importance",
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED       => self::STREAMER_CHECK_SETONE,
+                                                                                                                        self::STREAMER_CHECK_ONEVALUEOF     => array(0,1,2) )),
+
                     SYNC_POOMTASKS_RECURRENCE                           => array (  self::STREAMER_VAR      => "recurrence",
                                                                                     self::STREAMER_TYPE     => "SyncTaskRecurrence"),
 
                     SYNC_POOMTASKS_REGENERATE                           => array (  self::STREAMER_VAR      => "regenerate"),
                     SYNC_POOMTASKS_DEADOCCUR                            => array (  self::STREAMER_VAR      => "deadoccur"),
-                    SYNC_POOMTASKS_REMINDERSET                          => array (  self::STREAMER_VAR      => "reminderset"),
+                    SYNC_POOMTASKS_REMINDERSET                          => array (  self::STREAMER_VAR      => "reminderset",
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED       => self::STREAMER_CHECK_SETZERO,
+                                                                                                                        self::STREAMER_CHECK_ZEROORONE      => self::STREAMER_CHECK_SETZERO )),
+
                     SYNC_POOMTASKS_REMINDERTIME                         => array (  self::STREAMER_VAR      => "remindertime",
                                                                                     self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE_DASHES),
 
-                    SYNC_POOMTASKS_SENSITIVITY                          => array (  self::STREAMER_VAR      => "sensitivity"),
+                    // Sensitivity values
+                    // 0 = Normal
+                    // 1 = Personal
+                    // 2 = Private
+                    // 3 = Confident
+                    SYNC_POOMTASKS_SENSITIVITY                          => array (  self::STREAMER_VAR      => "sensitivity",
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_ONEVALUEOF => array(0,1,2,3) )),
+
                     SYNC_POOMTASKS_STARTDATE                            => array (  self::STREAMER_VAR      => "startdate",
                                                                                     self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE_DASHES),
 

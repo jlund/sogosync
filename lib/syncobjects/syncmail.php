@@ -46,7 +46,6 @@
 ************************************************/
 
 
-// TODO define checks for SyncMail
 class SyncMail extends SyncObject {
     public $to;
     public $cc;
