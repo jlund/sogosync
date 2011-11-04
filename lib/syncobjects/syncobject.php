@@ -59,6 +59,9 @@ abstract class SyncObject extends Streamer {
     const STREAMER_CHECK_SETEMPTY = "setToValueEmpty";
     const STREAMER_CHECK_CMPLOWER = 13;
     const STREAMER_CHECK_CMPHIGHER = 14;
+    const STREAMER_CHECK_LENGTHMAX = 15;
+    const STREAMER_CHECK_CSEMAIL   = 16;                // comma separated email addresses
+    const STREAMER_CHECK_SSEMAIL   = 17;                // semicolon separated email addresses
 
     protected $unsetVars;
 
@@ -271,6 +274,7 @@ abstract class SyncObject extends Streamer {
                         }
                     } // end STREAMER_CHECK_REQUIRED
 
+
                     // check STREAMER_CHECK_ZEROORONE
                     if ($rule === self::STREAMER_CHECK_ZEROORONE && isset($this->$v[self::STREAMER_VAR])) {
                         if ($this->$v[self::STREAMER_VAR] != 0 && $this->$v[self::STREAMER_VAR] != 1) {
@@ -280,6 +284,7 @@ abstract class SyncObject extends Streamer {
                         }
                     }// end STREAMER_CHECK_ZEROORONE
 
+
                     // check STREAMER_CHECK_ONEVALUEOF
                     if ($rule === self::STREAMER_CHECK_ONEVALUEOF && isset($this->$v[self::STREAMER_VAR])) {
                         if (!in_array($this->$v[self::STREAMER_VAR], $condition)) {
@@ -287,6 +292,7 @@ abstract class SyncObject extends Streamer {
                             return false;
                         }
                     }// end STREAMER_CHECK_ONEVALUEOF
+
 
                     // Check value compared to other value or literal
                     if ($rule === self::STREAMER_CHECK_CMPHIGHER || $rule === self::STREAMER_CHECK_CMPLOWER) {
@@ -323,6 +329,47 @@ abstract class SyncObject extends Streamer {
                             }
                         }
                     } // STREAMER_CHECK_CMP*
+
+
+                    // check STREAMER_CHECK_LENGTHMAX
+                    if ($rule === self::STREAMER_CHECK_LENGTHMAX && isset($this->$v[self::STREAMER_VAR])) {
+                        if (strlen($this->$v[self::STREAMER_VAR]) > $condition) {
+                            ZLog::Write(LOGLEVEL_WARN, sprintf("SyncObject->check(): object from type %s: parameter '%s' is longer than %d. Check failed", $objClass, $v[self::STREAMER_VAR], $condition));
+                            return false;
+                        }
+                    }// end STREAMER_CHECK_LENGTHMAX
+
+
+                    // check STREAMER_CHECK_*SEMAIL
+                    // if $condition is false then the check really fails. Otherwise invalid emails are removed.
+                    // if nothing is left (all emails were false), the parameter is set to condition
+                    if (($rule === self::STREAMER_CHECK_CSEMAIL || $rule === self::STREAMER_CHECK_SSEMAIL) && isset($this->$v[self::STREAMER_VAR])) {
+                        if (strlen($this->$v[self::STREAMER_VAR]) == 0)
+                            continue;
+
+                        $mails = explode((($rule === self::STREAMER_CHECK_CSEMAIL)?",":";"), $this->$v[self::STREAMER_VAR]);
+
+                        $output = array();
+                        foreach ($mails as $mail) {
+                            if (! Utils::CheckEmail($mail)) {
+                                ZLog::Write(LOGLEVEL_WARN, sprintf("SyncObject->check(): object from type %s: parameter '%s' contains an invalid email address '%s'. Address is removed.", $objClass, $v[self::STREAMER_VAR], $mail));
+                            }
+                            else
+                                $output[] = $mail;
+                        }
+                        if (count($mails) != count($output)) {
+                            if ($condition === false)
+                                return false;
+
+                            // if we are allowed to rewrite the attribute, we do that
+                            $this->$v[self::STREAMER_VAR] = implode((($rule === self::STREAMER_CHECK_CSEMAIL)?",":";"), $output);
+
+                            // if there is "nothing left"..
+                            if (strlen($this->$v[self::STREAMER_VAR]) == 0)
+                                $this->$v[self::STREAMER_VAR] = $condition;
+                        }
+                    }// end STREAMER_CHECK_*SEMAIL
+
 
                 } // foreach CHECKS
             } // isset CHECKS

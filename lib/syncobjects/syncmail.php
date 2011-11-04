@@ -89,34 +89,64 @@ class SyncMail extends SyncObject {
 
     function SyncMail() {
         $mapping = array (
-                    SYNC_POOMMAIL_TO                                    => array (  self::STREAMER_VAR      => "to"),
-                    SYNC_POOMMAIL_CC                                    => array (  self::STREAMER_VAR      => "cc"),
-                    SYNC_POOMMAIL_FROM                                  => array (  self::STREAMER_VAR      => "from"),
+                    SYNC_POOMMAIL_TO                                    => array (  self::STREAMER_VAR      => "to",
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_LENGTHMAX      => 32768,
+                                                                                                                        self::STREAMER_CHECK_CSEMAIL        => "" )),
+
+                    SYNC_POOMMAIL_CC                                    => array (  self::STREAMER_VAR      => "cc",
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_LENGTHMAX      => 32768,
+                                                                                                                        self::STREAMER_CHECK_CSEMAIL        => "" )),
+
+                    SYNC_POOMMAIL_FROM                                  => array (  self::STREAMER_VAR      => "from",
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_LENGTHMAX      => 32768,
+                                                                                                                        self::STREAMER_CHECK_CSEMAIL        => "" )),
+
                     SYNC_POOMMAIL_SUBJECT                               => array (  self::STREAMER_VAR      => "subject"),
                     SYNC_POOMMAIL_THREADTOPIC                           => array (  self::STREAMER_VAR      => "threadtopic"),
                     SYNC_POOMMAIL_DATERECEIVED                          => array (  self::STREAMER_VAR      => "datereceived",
                                                                                     self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE_DASHES),
 
                     SYNC_POOMMAIL_DISPLAYTO                             => array (  self::STREAMER_VAR      => "displayto"),
-                    SYNC_POOMMAIL_IMPORTANCE                            => array (  self::STREAMER_VAR      => "importance"),
-                    SYNC_POOMMAIL_READ                                  => array (  self::STREAMER_VAR      => "read"),
+
+                    // Importance values
+                    // 0 = Low
+                    // 1 = Normal
+                    // 2 = High
+                    // even the default value 1 is optional, the native android client 2.2 interprets a non-existing value as 0 (low)
+                    SYNC_POOMMAIL_IMPORTANCE                            => array (  self::STREAMER_VAR      => "importance",
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED       => self::STREAMER_CHECK_SETONE,
+                                                                                                                        self::STREAMER_CHECK_ONEVALUEOF     => array(0,1,2) )),
+
+                    SYNC_POOMMAIL_READ                                  => array (  self::STREAMER_VAR      => "read",
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_ONEVALUEOF     => array(0,1) )),
+
                     SYNC_POOMMAIL_ATTACHMENTS                           => array (  self::STREAMER_VAR      => "attachments",
                                                                                     self::STREAMER_TYPE     => "SyncAttachment",
                                                                                     self::STREAMER_ARRAY    => SYNC_POOMMAIL_ATTACHMENT),
 
-                    SYNC_POOMMAIL_MIMETRUNCATED                         => array (  self::STREAMER_VAR      => "mimetruncated" ),//
+                    SYNC_POOMMAIL_MIMETRUNCATED                         => array (  self::STREAMER_VAR      => "mimetruncated",
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_ZEROORONE      => self::STREAMER_CHECK_SETZERO)),
+
                     SYNC_POOMMAIL_MIMEDATA                              => array (  self::STREAMER_VAR      => "mimedata",
                                                                                     self::STREAMER_TYPE     => self::STREAMER_TYPE_MAPI_STREAM),
 
-                    SYNC_POOMMAIL_MIMESIZE                              => array (  self::STREAMER_VAR      => "mimesize" ),//
-                    SYNC_POOMMAIL_BODYTRUNCATED                         => array (  self::STREAMER_VAR      => "bodytruncated"),
-                    SYNC_POOMMAIL_BODYSIZE                              => array (  self::STREAMER_VAR      => "bodysize"),
+                    SYNC_POOMMAIL_MIMESIZE                              => array (  self::STREAMER_VAR      => "mimesize",
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_CMPHIGHER      => -1)),
+
+                    SYNC_POOMMAIL_BODYTRUNCATED                         => array (  self::STREAMER_VAR      => "bodytruncated",
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_ZEROORONE      => self::STREAMER_CHECK_SETZERO)),
+
+                    SYNC_POOMMAIL_BODYSIZE                              => array (  self::STREAMER_VAR      => "bodysize",
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_CMPHIGHER      => -1)),
+
                     SYNC_POOMMAIL_BODY                                  => array (  self::STREAMER_VAR      => "body"),
                     SYNC_POOMMAIL_MESSAGECLASS                          => array (  self::STREAMER_VAR      => "messageclass"),
                     SYNC_POOMMAIL_MEETINGREQUEST                        => array (  self::STREAMER_VAR      => "meetingrequest",
                                                                                     self::STREAMER_TYPE     => "SyncMeetingRequest"),
 
-                    SYNC_POOMMAIL_REPLY_TO                              => array (  self::STREAMER_VAR      => "reply_to"),
+                    SYNC_POOMMAIL_REPLY_TO                              => array (  self::STREAMER_VAR      => "reply_to",
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_SSEMAIL        => "" )),
+
                 );
 
         if (Request::GetProtocolVersion() >= 2.5) {
@@ -131,7 +161,9 @@ class SyncMail extends SyncObject {
                                                                                     self::STREAMER_TYPE     => "SyncBaseAttachment",
                                                                                     self::STREAMER_ARRAY    => SYNC_AIRSYNCBASE_ATTACHMENTS);
 
-            $mapping[SYNC_POOMMAIL_CONTENTCLASS]                        = array (   self::STREAMER_VAR      => "contentclass");
+            $mapping[SYNC_POOMMAIL_CONTENTCLASS]                        = array (   self::STREAMER_VAR      => "contentclass",
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_ONEVALUEOF     => array('urn:content-classes:message') ));
+
             $mapping[SYNC_AIRSYNCBASE_NATIVEBODYTYPE]                   = array (   self::STREAMER_VAR      => "nativebodytype");
 
             //unset these properties because airsyncbase body and attachments will be used instead
