@@ -65,10 +65,11 @@
  */
 
 interface IStateMachine {
+    const DEFTYPE = "";
     const DEVICEDATA = "devicedata";
     const PINGDATA = "ping";
-
-    // TODO IStateMachine could offer a mechanisms to realize interprocess mutexes
+    const FAILSAVE = "fs";
+    const HIERARCHY = "hc";
 
     /**
      * Gets a hash value indicating the latest dataset of the named
@@ -77,14 +78,15 @@ interface IStateMachine {
      * the returned hash should be different
      *
      * @param string    $devid              the device id
-     * @param string    $key
+     * @param string    $type               the state type
+     * @param string    $key                (opt)
      * @param string    $counter            (opt)
      *
      * @access public
      * @return string
      * @throws StateNotFoundException, StateInvalidException
      */
-    public function GetStateHash($devid, $key, $counter = false);
+    public function GetStateHash($devid, $type, $key, $counter = false);
 
     /**
      * Gets a state for a specified key and counter.
@@ -92,28 +94,30 @@ interface IStateMachine {
      * to remove older states (same key, previous counters)
      *
      * @param string    $devid              the device id
-     * @param string    $key
+     * @param string    $type               the state type
+     * @param string    $key                (opt)
      * @param string    $counter            (opt)
      *
      * @access public
      * @return mixed
      * @throws StateNotFoundException, StateInvalidException
      */
-    public function GetState($devid, $key, $counter = false);
+    public function GetState($devid, $type, $key = false, $counter = false);
 
     /**
      * Writes ta state to for a key and counter
      *
      * @param mixed     $state
      * @param string    $devid              the device id
-     * @param string    $key
-     * @param int       $counter    (opt)
+     * @param string    $type               the state type
+     * @param string    $key                (opt)
+     * @param int       $counter            (opt)
      *
      * @access public
      * @return boolean
      * @throws StateInvalidException
      */
-    public function SetState($state, $devid, $key, $counter = false);
+    public function SetState($state, $devid, $type, $key = false, $counter = false);
 
     /**
      * Cleans up all older states
@@ -121,6 +125,7 @@ interface IStateMachine {
      * If called without $counter, all keys (independently from the counter) can be removed
      *
      * @param string    $devid              the device id
+     * @param string    $type               the state type
      * @param string    $key
      * @param string    $counter            (opt)
      *
@@ -128,7 +133,7 @@ interface IStateMachine {
      * @return
      * @throws StateInvalidException
      */
-    public function CleanStates($devid, $key, $counter = false);
+    public function CleanStates($devid, $type, $key, $counter = false);
 
     /**
      * Links a user to a device

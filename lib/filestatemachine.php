@@ -80,15 +80,16 @@ class FileStateMachine implements IStateMachine {
      * the returned hash should be different
      *
      * @param string    $devid              the device id
-     * @param string    $key
+     * @param string    $type               the state type
+     * @param string    $key                (opt)
      * @param string    $counter            (opt)
      *
      * @access public
      * @return string
      * @throws StateNotFoundException, StateInvalidException
      */
-    public function GetStateHash($devid, $key, $counter = false) {
-        $filename = $this->getFullFilePath($devid, $key, $counter);
+    public function GetStateHash($devid, $type, $key = false, $counter = false) {
+        $filename = $this->getFullFilePath($devid, $type, $key, $counter);
 
         // the filemodification time is enough to track changes
         if(file_exists($filename))
@@ -103,29 +104,31 @@ class FileStateMachine implements IStateMachine {
      * to remove older states (same key, previous counters)
      *
      * @param string    $devid              the device id
-     * @param string    $key
+     * @param string    $type               the state type
+     * @param string    $key                (opt)
      * @param string    $counter            (opt)
      *
      * @access public
      * @return mixed
      * @throws StateNotFoundException, StateInvalidException
      */
-    public function GetState($devid, $key, $counter = false) {
+    public function GetState($devid, $type, $key = false, $counter = false) {
         if ($counter)
-            $this->CleanStates($devid, $key, $counter);
+            $this->CleanStates($devid, $type, $key, $counter);
 
         // Read current sync state
-        $filename = $this->getFullFilePath($devid, $key, $counter);
+        $filename = $this->getFullFilePath($devid, $type, $key, $counter);
 
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("FileStateMachine->GetState() on file: '%s'", $filename));
 
         if(file_exists($filename)) {
             $data = file_get_contents($filename);
-            if ($key == IStateMachine::DEVICEDATA)
+            if ($type == IStateMachine::DEVICEDATA)
                 $data = unserialize($data);
             return $data;
         }
-        else
+        // throw an exception on all other states, but not FAILSAVE as it's most of the times not there by default
+        else if ($type !== IStateMachine::FAILSAVE)
             throw new StateNotFoundException(sprintf("FileStateMachine->GetState(): Could not locate state '%s'",$filename));
     }
 
@@ -134,18 +137,19 @@ class FileStateMachine implements IStateMachine {
      *
      * @param mixed     $state
      * @param string    $devid              the device id
-     * @param string    $key
-     * @param int       $counter            (optional)
+     * @param string    $type               the state type
+     * @param string    $key                (opt)
+     * @param int       $counter            (opt)
      *
      * @access public
-     * @return int      amount of bytes written
+     * @return boolean
      * @throws StateInvalidException
      */
-    public function SetState($state, $devid, $key, $counter = false) {
-        if ($key == IStateMachine::DEVICEDATA)
+    public function SetState($state, $devid, $type, $key = false, $counter = false) {
+        if ($type == IStateMachine::DEVICEDATA)
             $state = serialize($state);
 
-        $filename = $this->getFullFilePath($devid, $key, $counter);
+        $filename = $this->getFullFilePath($devid, $type, $key, $counter);
         if (($bytes = file_put_contents($filename, $state)) === false)
             throw new FatalMisconfigurationException(sprintf("FileStateMachine->SetState(): Could not write state '%s'",$filename));
 
@@ -159,6 +163,7 @@ class FileStateMachine implements IStateMachine {
      * If called without $counter, all keys (independently from the counter) can be removed
      *
      * @param string    $devid              the device id
+     * @param string    $type               the state type
      * @param string    $key
      * @param string    $counter            (opt)
      *
@@ -166,19 +171,19 @@ class FileStateMachine implements IStateMachine {
      * @return
      * @throws StateInvalidException
      */
-    public function CleanStates($devid, $key, $counter = false) {
-        foreach(glob($this->getFullFilePath($devid, $key). "*", GLOB_NOSORT) as $state) {
+    public function CleanStates($devid, $type, $key, $counter = false) {
+        foreach(glob($this->getFullFilePath($devid, $type, $key). "*", GLOB_NOSORT) as $state) {
             $file = false;
             if($counter !== false && preg_match('/([0-9]+)$/', $state, $matches)) {
                 if($matches[1] < $counter) {
-                    $candidate = $this->getFullFilePath($devid, $key, (int)$matches[1]);
+                    $candidate = $this->getFullFilePath($devid, $type, $key, (int)$matches[1]);
 
                     if ($candidate == $state)
                         $file = $candidate;
                 }
             }
             else if ($counter === false)
-                $file =  $this->getFullFilePath($devid, $key);
+                $file =  $this->getFullFilePath($devid, $type, $key);
 
             if ($file !== false) {
                 ZLog::Write(LOGLEVEL_DEBUG, sprintf("FileStateMachine->CleanStates(): Deleting file: '%s'", $file));
@@ -308,7 +313,8 @@ class FileStateMachine implements IStateMachine {
      * Returns the full path incl. filename for a key (generally uuid) and a counter
      *
      * @param string    $devid              the device id
-     * @param string    $key
+     * @param string    $type               the state type
+     * @param string    $key                (opt)
      * @param string    $counter            (opt) default false
      * @param boolean   $doNotCreateDirs    (opt) indicates if missing subdirectories should be created, default false
      *
@@ -316,12 +322,12 @@ class FileStateMachine implements IStateMachine {
      * @return string
      * @throws StateInvalidException
      */
-    private function getFullFilePath($devid, $key, $counter = false, $doNotCreateDirs = false) {
-        $testkey = $devid . "-" . $key;
-        if (preg_match('/^[a-zA-Z0-9-]+$/', $testkey, $matches))
+    private function getFullFilePath($devid, $type, $key = false, $counter = false, $doNotCreateDirs = false) {
+        $testkey = $devid . (($key !== false)? "-". $key : "") . (($type !== "")? "-". $type : "");
+        if (preg_match('/^[a-zA-Z0-9-]+$/', $testkey, $matches) || ($type == "" && $key === false))
             $internkey = $testkey . (($counter && is_int($counter))?"-".$counter:"");
         else
-            throw new StateInvalidException("FileStateMachine->getFullFilePath(): Invalid state deviceid, key or both");
+            throw new StateInvalidException("FileStateMachine->getFullFilePath(): Invalid state deviceid, type, key or in any combination");
 
         return $this->getDirectoryForDevice($devid, $doNotCreateDirs) ."/". $internkey;
     }
