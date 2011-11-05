@@ -86,7 +86,7 @@ interface IStateMachine {
      * @return string
      * @throws StateNotFoundException, StateInvalidException
      */
-    public function GetStateHash($devid, $type, $key, $counter = false);
+    public function GetStateHash($devid, $type, $key = false, $counter = false);
 
     /**
      * Gets a state for a specified key and counter.
