@@ -569,8 +569,8 @@ class ExportChangesDiff extends DiffState implements IExportChanges{
 
             //do nothing if it is a dummy folder
             if ($this->folderid != SYNC_FOLDER_TYPE_DUMMY) {
-                // on ping: check if backend supports alternative PING mechanism & use it
-                if ($this->contentparameters->GetContentClass() === false && $this->flags == BACKEND_DISCARD_DATA && $this->backend->AlterPing()) {
+                // when BACKEND_DISCARD_DATA is requested (PING): check if backend supports alternative PING mechanism & use it
+                if ($this->flags == BACKEND_DISCARD_DATA && $this->backend->AlterPing()) {
                     $this->changes = $this->backend->AlterPingChanges($this->folderid, $this->syncstate);
                     // if the folder was deleted, no information is available anymore. A hierarchysync should be executed
                     if($this->changes === false)
