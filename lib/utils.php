@@ -460,7 +460,7 @@ class Utils {
     /**
      * Checks if a string is base64 encoded
      *
-     * @param string $string	the string to be checked
+     * @param string $string    the string to be checked
      *
      * @access public
      * @return boolean
@@ -513,6 +513,72 @@ class Utils {
             $decoded = substr($decoded, 2 + $paramLength);
         }
         return $unpackedQuery;
+    }
+
+    /**
+     * Returns a command string for a given command code.
+     *
+     * @param int $code
+     *
+     * @access public
+     * @return string or false if code is unknown
+     */
+    public static function GetCommandFromCode($code) {
+        switch ($code) {
+            case ZPush::COMMAND_SYNC:                 return 'Sync';
+            case ZPush::COMMAND_SENDMAIL:             return 'SendMail';
+            case ZPush::COMMAND_SMARTFORWARD:         return 'SmartForward';
+            case ZPush::COMMAND_SMARTREPLY:           return 'SmartReply';
+            case ZPush::COMMAND_GETATTACHMENT:        return 'GetAttachment';
+            case ZPush::COMMAND_FOLDERSYNC:           return 'FolderSync';
+            case ZPush::COMMAND_FOLDERCREATE:         return 'FolderCreate';
+            case ZPush::COMMAND_FOLDERDELETE:         return 'FolderDelete';
+            case ZPush::COMMAND_FOLDERUPDATE:         return 'FolderUpdate';
+            case ZPush::COMMAND_MOVEITEMS:            return 'MoveItems';
+            case ZPush::COMMAND_GETITEMESTIMATE:      return 'GetItemEstimate';
+            case ZPush::COMMAND_MEETINGRESPONSE:      return 'MeetingResponse';
+            case ZPush::COMMAND_SEARCH:               return 'Search';
+            case ZPush::COMMAND_SETTINGS:             return 'Settings';
+            case ZPush::COMMAND_PING:                 return 'Ping';
+            case ZPush::COMMAND_ITEMOPERATIONS:       return 'ItemOperations';
+            case ZPush::COMMAND_PROVISION:            return 'Provision';
+            case ZPush::COMMAND_RESOLVERECIPIENTS:    return 'ResolveRecipients';
+            case ZPush::COMMAND_VALIDATECERT:         return 'ValidateCert';
+        }
+        return false;
+    }
+
+    /**
+     * Returns a command code for a given command.
+     *
+     * @param string $command
+     *
+     * @access public
+     * @return int or false if command is unknown
+     */
+    public static function GetCodeFromCommand($command) {
+        switch ($command) {
+            case 'Sync':                 return ZPush::COMMAND_SYNC;
+            case 'SendMail':             return ZPush::COMMAND_SENDMAIL;
+            case 'SmartForward':         return ZPush::COMMAND_SMARTFORWARD;
+            case 'SmartReply':           return ZPush::COMMAND_SMARTREPLY;
+            case 'GetAttachment':        return ZPush::COMMAND_GETATTACHMENT;
+            case 'FolderSync':           return ZPush::COMMAND_FOLDERSYNC;
+            case 'FolderCreate':         return ZPush::COMMAND_FOLDERCREATE;
+            case 'FolderDelete':         return ZPush::COMMAND_FOLDERDELETE;
+            case 'FolderUpdate':         return ZPush::COMMAND_FOLDERUPDATE;
+            case 'MoveItems':            return ZPush::COMMAND_MOVEITEMS;
+            case 'GetItemEstimate':      return ZPush::COMMAND_GETITEMESTIMATE;
+            case 'MeetingResponse':      return ZPush::COMMAND_MEETINGRESPONSE;
+            case 'Search':               return ZPush::COMMAND_SEARCH;
+            case 'Settings':             return ZPush::COMMAND_SETTINGS;
+            case 'Ping':                 return ZPush::COMMAND_PING;
+            case 'ItemOperations':       return ZPush::COMMAND_ITEMOPERATIONS;
+            case 'Provision':            return ZPush::COMMAND_PROVISION;
+            case 'ResolveRecipients':    return ZPush::COMMAND_RESOLVERECIPIENTS;
+            case 'ValidateCert':         return ZPush::COMMAND_VALIDATECERT;
+        }
+        return false;
     }
 }
 
