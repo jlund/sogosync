@@ -2043,10 +2043,12 @@ class RequestProcessor {
                     }
                     elseif ($policytype == 'MS-EAS-Provisioning-WBXML') {
                         self::$encoder->startTag(SYNC_PROVISION_EASPROVISIONDOC);
-                            // TODO execute $data->Check() to see if SyncObject is valid
-                            // if not, this should throw a FatalException
 
-                            self::$deviceManager->GetProvisioningObject()->Encode(self::$encoder);
+                            $prov = self::$deviceManager->GetProvisioningObject();
+                            if (!$prov->Check())
+                                throw new FatalException("Invalid policies!");
+
+                            $prov->Encode(self::$encoder);
                         self::$encoder->endTag();
                     }
                     else {
