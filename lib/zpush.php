@@ -53,6 +53,29 @@ class ZPush {
     const CLASS_DEFAULTTYPE = 3;
     const CLASS_OTHERTYPES = 4;
 
+    /**
+     * Command codes for base64 encoded requests (AS >= 12.1)
+     */
+    const COMMAND_SYNC = 0;
+    const COMMAND_SENDMAIL = 1;
+    const COMMAND_SMARTFORWARD = 2;
+    const COMMAND_SMARTREPLY = 3;
+    const COMMAND_GETATTACHMENT = 4;
+    const COMMAND_FOLDERSYNC = 9;
+    const COMMAND_FOLDERCREATE = 10;
+    const COMMAND_FOLDERDELETE = 11;
+    const COMMAND_FOLDERUPDATE = 12;
+    const COMMAND_MOVEITEMS = 13;
+    const COMMAND_GETITEMESTIMATE = 14;
+    const COMMAND_MEETINGRESPONSE = 15;
+    const COMMAND_SEARCH = 16;
+    const COMMAND_SETTINGS = 17;
+    const COMMAND_PING = 18;
+    const COMMAND_ITEMOPERATIONS = 19;
+    const COMMAND_PROVISION = 20;
+    const COMMAND_RESOLVERECIPIENTS = 21;
+    const COMMAND_VALIDATECERT = 22;
+
     static private $supportedASVersions = array("1.0","2.0","2.1","2.5");
     static private $supportedCommands = array(
                                             'Sync' => false,
