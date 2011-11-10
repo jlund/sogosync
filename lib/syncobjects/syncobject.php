@@ -322,6 +322,7 @@ abstract class SyncObject extends Streamer {
                                 ) {
 
                                 ZLog::Write(LOGLEVEL_WARN, sprintf("SyncObject->Check(): Unmet condition in object from type %s: parameter '%s' is %s than '%s'. Check failed!",
+                                                                    $objClass,
                                                                     $v[self::STREAMER_VAR],
                                                                     (($rule === self::STREAMER_CHECK_CMPHIGHER)?'LOWER':'HIGHER'),
                                                                     ((isset($cmpPar)?$cmpPar:$condition))  ));
