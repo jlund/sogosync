@@ -57,9 +57,6 @@
  * the PIM, and can therefore be removed. This algorithm should be
  * automatically enforced by the IStateMachine implementation.
  *
- * The key could be IStateMachine::DEVICEDATA or IStateMachine::PINGDATA
- * indicating that these are general device or ping data
- *
  * Constructor
  * @throws FatalMisconfigurationException
  */
