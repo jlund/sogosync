@@ -56,6 +56,7 @@ class Streamer {
     const STREAMER_TYPE_DATE_DASHES = 3;
     const STREAMER_TYPE_MAPI_STREAM = 4;
     const STREAMER_TYPE_IGNORE = 5;
+    const STREAMER_TYPE_SEND_EMPTY = 6;
 
     protected $mapping;
     public $flags;
@@ -207,25 +208,30 @@ class Streamer {
                 }
                 else if(isset($map[self::STREAMER_ARRAY])) {
                     // Array of objects
-                    $encoder->startTag($tag); // Outputs array container (eg Attachments)
-                    foreach ($this->$map[self::STREAMER_VAR] as $element) {
-                        if(is_object($element)) {
-                            $encoder->startTag($map[self::STREAMER_ARRAY]); // Outputs object container (eg Attachment)
-                            $element->Encode($encoder);
-                            $encoder->endTag();
-                        }
-                        else {
-                            if(strlen($element) == 0)
-                                  // Do not output empty items. Not sure if we should output an empty tag with $encoder->startTag($map[self::STREAMER_ARRAY], false, true);
-                                  ;
-                            else {
-                                $encoder->startTag($map[self::STREAMER_ARRAY]);
-                                $encoder->content($element);
+                    if (empty($this->$map[self::STREAMER_VAR]) && isset($map[self::STREAMER_TYPE]) && $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_SEND_EMPTY) {
+                        $encoder->startTag($tag, false, true);
+                    }
+                    else {
+                        $encoder->startTag($tag); // Outputs array container (eg Attachments)
+                        foreach ($this->$map[self::STREAMER_VAR] as $element) {
+                            if(is_object($element)) {
+                                $encoder->startTag($map[self::STREAMER_ARRAY]); // Outputs object container (eg Attachment)
+                                $element->Encode($encoder);
                                 $encoder->endTag();
                             }
+                            else {
+                                if(strlen($element) == 0)
+                                      // Do not output empty items. Not sure if we should output an empty tag with $encoder->startTag($map[self::STREAMER_ARRAY], false, true);
+                                      ;
+                                else {
+                                    $encoder->startTag($map[self::STREAMER_ARRAY]);
+                                    $encoder->content($element);
+                                    $encoder->endTag();
+                                }
+                            }
                         }
+                        $encoder->endTag();
                     }
-                    $encoder->endTag();
                 }
                 else {
                     if(isset($map[self::STREAMER_TYPE]) && $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_IGNORE) {
@@ -234,6 +240,9 @@ class Streamer {
 
                     // Simple type
                     if(strlen($this->$map[self::STREAMER_VAR]) == 0) {
+                        if (isset($map[self::STREAMER_TYPE]) && $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_SEND_EMPTY) {
+                            $encoder->startTag($tag, false, true);
+                        }
                           // Do not output empty items. See above: $encoder->startTag($tag, false, true);
                         continue;
                     } else
