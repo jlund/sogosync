@@ -466,7 +466,7 @@ class Utils {
      * @return boolean
      */
     static public function IsBase64String($string) {
-        return (bool) preg_match("#^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+\/]{3}=|[A-Za-z0-9+/]{4})?$#", $str);
+        return (bool) preg_match("#^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+\/]{3}=|[A-Za-z0-9+/]{4})?$#", $string);
     }
 }
 
