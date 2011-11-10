@@ -132,6 +132,33 @@ class SyncTask extends SyncObject {
 
         parent::SyncObject($mapping);
     }
+
+    /**
+     * Method checks if the object has the minimum of required parameters
+     * and fullfills semantic dependencies
+     *
+     * This overloads the general check() with special checks to be executed
+     *
+     * @access public
+     * @return boolean
+     */
+    public function Check() {
+        $ret = parent::Check();
+        if (!$ret)
+            return false;
+
+        if (isset($this->startdate) && isset($this->duedate) && $this->duedate < $this->startdate) {
+            ZLog::Write(LOGLEVEL_WARN, sprintf("SyncObject->Check(): Unmet condition in object from type %s: parameter 'startdate' is HIGHER than 'duedate'. Check failed!", get_class($this) ));
+            return false;
+        }
+
+        if (isset($this->utcstartdate) && isset($this->utcduedate) && $this->utcduedate < $this->utcstartdate) {
+            ZLog::Write(LOGLEVEL_WARN, sprintf("SyncObject->Check(): Unmet condition in object from type %s: parameter 'utcstartdate' is HIGHER than 'utcduedate'. Check failed!", get_class($this) ));
+            return false;
+        }
+
+        return true;
+    }
 }
 
 ?>

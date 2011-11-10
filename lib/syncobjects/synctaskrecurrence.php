@@ -75,8 +75,7 @@ class SyncTaskRecurrence extends SyncObject {
                                                                                                                         self::STREAMER_CHECK_ONEVALUEOF => array(0,1,2,3,5,6) )),
 
                     SYNC_POOMTASKS_UNTIL                                => array (  self::STREAMER_VAR      => "until",
-                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE,
-                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_CMPLOWER       => SYNC_POOMTASKS_UNTIL ) ),
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE ),
 
                     SYNC_POOMTASKS_OCCURRENCES                          => array (  self::STREAMER_VAR      => "occurrences",
                                                                                     self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_CMPHIGHER  => 0,
@@ -118,6 +117,28 @@ class SyncTaskRecurrence extends SyncObject {
 
                 );
         parent::SyncObject($mapping);
+    }
+
+    /**
+     * Method checks if the object has the minimum of required parameters
+     * and fullfills semantic dependencies
+     *
+     * This overloads the general check() with special checks to be executed
+     *
+     * @access public
+     * @return boolean
+     */
+    public function Check() {
+        $ret = parent::Check();
+        if (!$ret)
+            return false;
+
+        if (isset($this->start) && isset($this->until) && $this->until < $this->start) {
+            ZLog::Write(LOGLEVEL_WARN, sprintf("SyncObject->Check(): Unmet condition in object from type %s: parameter 'start' is HIGHER than 'until'. Check failed!", get_class($this) ));
+            return false;
+        }
+
+        return true;
     }
 }
 
