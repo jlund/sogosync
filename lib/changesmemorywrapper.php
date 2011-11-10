@@ -57,7 +57,7 @@ class ChangesMemoryWrapper extends HierarchyCache implements IImportChanges, IEx
      * @access public
      * @return
      */
-    function ChangesMemoryWrapper() {
+    public function ChangesMemoryWrapper() {
         $this->changes = array();
         $this->step = 0;
         parent::HierarchyCache();
@@ -142,7 +142,7 @@ class ChangesMemoryWrapper extends HierarchyCache implements IImportChanges, IEx
      * @access public
      * @return boolean
      */
-    function ImportMessageChange($id, $message) {
+    public function ImportMessageChange($id, $message) {
         $this->changes[] = array(self::CHANGE, $id);
         return true;
     }
@@ -155,7 +155,7 @@ class ChangesMemoryWrapper extends HierarchyCache implements IImportChanges, IEx
      * @access public
      * @return boolean
      */
-    function ImportMessageDeletion($id) {
+    public function ImportMessageDeletion($id) {
         $this->changes[] = array(self::DELETION, $id);
         return true;
     }
@@ -168,7 +168,7 @@ class ChangesMemoryWrapper extends HierarchyCache implements IImportChanges, IEx
      * @access public
      * @return boolean
      */
-    function IsChanged($id) {
+    public function IsChanged($id) {
         return (array_search(array(self::CHANGE, $id), $this->changes) === false) ? false:true;
     }
 
@@ -180,7 +180,7 @@ class ChangesMemoryWrapper extends HierarchyCache implements IImportChanges, IEx
      * @access public
      * @return boolean
      */
-    function IsDeleted($id) {
+    public function IsDeleted($id) {
        return (array_search(array(self::DELETION, $id), $this->changes) === false) ? false:true;
     }
 
