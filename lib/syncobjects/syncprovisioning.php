@@ -122,7 +122,10 @@ class SyncProvisioning extends SyncObject {
                                                                                     self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_CMPHIGHER  => 3,
                                                                                                                         self::STREAMER_CHECK_CMPLOWER   => 17  )),
 
-                    SYNC_PROVISION_MAXATTSIZE                           => array (  self::STREAMER_VAR      => "maxattsize"),
+                    SYNC_PROVISION_MAXATTSIZE                           => array (  self::STREAMER_VAR      => "maxattsize",
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_SEND_EMPTY,
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_CMPHIGHER  => -1 )),
+
                     SYNC_PROVISION_ALLOWSIMPLEDEVPW                     => array (  self::STREAMER_VAR      => "allowsimpledevpw",
                                                                                     self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_ONEVALUEOF => array(0,1) )),
 
@@ -221,10 +224,12 @@ class SyncProvisioning extends SyncObject {
                                                                                     self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_ONEVALUEOF => array(0,1) )),
 
                     SYNC_PROVISION_UNAPPROVEDINROMAPPLIST               => array (  self::STREAMER_VAR      => "unapprovedinromapplist",
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_SEND_EMPTY,
                                                                                     self::STREAMER_ARRAY    => SYNC_PROVISION_APPNAME),  //TODO check
 
                     SYNC_PROVISION_APPROVEDAPPLIST                      => array (  self::STREAMER_VAR      => "approvedapplist",
-                                                                                    self::STREAMER_ARRAY     => SYNC_PROVISION_HASH), //TODO check
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_SEND_EMPTY,
+                                                                                    self::STREAMER_ARRAY    => SYNC_PROVISION_HASH), //TODO check
             );
         }
 
