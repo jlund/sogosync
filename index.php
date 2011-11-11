@@ -118,7 +118,7 @@ include_once('version.php');
         Request::ProcessHeaders();
 
         // Check required GET parameters
-        if(Request::IsMethodPOST() && (!Request::GetCommand() || !Request::GetGETUser() || !Request::GetDeviceID() || !Request::GetDeviceType()))
+        if(Request::IsMethodPOST() && (Request::GetCommandCode() === false || !Request::GetGETUser() || !Request::GetDeviceID() || !Request::GetDeviceType()))
             throw new FatalException("Requested the Z-Push URL without the required GET parameters");
 
         // Load the backend
@@ -129,7 +129,7 @@ include_once('version.php');
             throw new AuthenticationRequiredException("Access denied. Please send authorisation information");
 
         // check the provisioning information
-        if (PROVISIONING === true && Request::IsMethodPOST() && ZPush::CommandNeedsProvisioning(Request::GetCommand()) &&
+        if (PROVISIONING === true && Request::IsMethodPOST() && ZPush::CommandNeedsProvisioning(Request::GetCommandCode()) &&
             ((Request::WasPolicyKeySent() && Request::GetPolicyKey() == 0) || ZPush::GetDeviceManager()->ProvisioningRequired(Request::GetPolicyKey())) &&
             (LOOSE_PROVISIONING === false ||
             (LOOSE_PROVISIONING === true && Request::WasPolicyKeySent())))
@@ -137,7 +137,7 @@ include_once('version.php');
             throw new ProvisioningRequiredException();
 
         // most commands require an authenticated user
-        if (ZPush::CommandNeedsAuthentication(Request::GetCommand()))
+        if (ZPush::CommandNeedsAuthentication(Request::GetCommandCode()))
             RequestProcessor::Authenticate();
 
         // Do the actual processing of the request

@@ -229,7 +229,7 @@ class LoopDetection extends InterProcessData {
      * @return boolean
      */
     public function IgnoreNextMessage($markAsIgnored = true) {
-        if (Request::GetCommand() == "Sync" && $this->ignore_next_streamed_message === true) {
+        if (Request::GetCommandCode() == ZPush::COMMAND_SYNC && $this->ignore_next_streamed_message === true) {
             if ($markAsIgnored)
                 $this->ignore_next_streamed_message = false;
             return true;

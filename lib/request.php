@@ -303,6 +303,19 @@ class Request {
     }
 
     /**
+     * Returns the command code which is being executed
+     *
+     * @access public
+     * @return string/boolean       false if not available
+     */
+    static public function GetCommandCode() {
+        if (isset(self::$command))
+            return Utils::GetCodeFromCommand(self::$command);
+        else
+            return false;
+    }
+
+    /**
      * Returns the device id transmitted
      *
      * @access public

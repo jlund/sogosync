@@ -45,9 +45,11 @@
 ************************************************/
 
 include ("lib/zpushdefs.php");
+include ("lib/zpush.php");
 include ("lib/request.php");
 include ("lib/requestprocessor.php");
 include ("lib/debug.php");
+include ("lib/utils.php");
 include ("config.php");
 include ("version.php");
 include ("lib/interprocessdata.php");
@@ -213,6 +215,8 @@ class ZPushTop {
                 foreach ($pids as $pid=>$line) {
                     if (!is_array($line))
                         continue;
+
+                    $line['command'] = Utils::GetCommandFromCode($line['command']);
 
                     if ($line["ended"] == 0) {
                         $this->activeDevices[$devid] = 1;

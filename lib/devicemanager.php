@@ -102,7 +102,7 @@ class DeviceManager {
         else
             throw new FatalNotImplementedException("Can not proceed without a device id.");
 
-        $this->hierarchyOperation = ZPush::HierarchyCommand(Request::GetCommand());
+        $this->hierarchyOperation = ZPush::HierarchyCommand(Request::GetCommandCode());
         $this->loopdetection = new LoopDetection();
     }
 

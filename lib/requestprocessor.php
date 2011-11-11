@@ -108,7 +108,7 @@ class RequestProcessor {
         self::$deviceManager = ZPush::GetDeviceManager();
         self::$topCollector = ZPush::GetTopCollector();
 
-        if (!ZPush::CommandNeedsPlainInput(Request::GetCommand()))
+        if (!ZPush::CommandNeedsPlainInput(Request::GetCommandCode()))
             self::$decoder = new WBXMLDecoder(Request::GetInputStream());
 
         self::$encoder = new WBXMLEncoder(Request::GetOutputStream());
@@ -121,66 +121,66 @@ class RequestProcessor {
      * @return boolean
      */
     static public function HandleRequest() {
-        switch(Request::GetCommand()) {
-            case 'Sync':
+        switch(Request::GetCommandCode()) {
+            case ZPush::COMMAND_SYNC:
                 $status = self::HandleSync();
                 break;
-            case 'SendMail':
+            case ZPush::COMMAND_SENDMAIL:
                 $status = self::HandleSendMail();
                 break;
-            case 'SmartForward':
+            case ZPush::COMMAND_SMARTFORWARD:
                 $status = self::HandleSmartForward();
                 break;
-            case 'SmartReply':
+            case ZPush::COMMAND_SMARTREPLY:
                 $status = self::HandleSmartReply();
                 break;
-            case 'GetAttachment':
+            case ZPush::COMMAND_GETATTACHMENT:
                 $status = self::HandleGetAttachment();
                 break;
-            case 'GetHierarchy':
+            case ZPush::COMMAND_GETHIERARCHY:
                 $status = self::HandleGetHierarchy();
                 break;
-            case 'FolderSync':
+            case ZPush::COMMAND_FOLDERSYNC:
                 $status = self::HandleFolderSync();
                 break;
-            case 'FolderCreate':
-            case 'FolderUpdate':
-            case 'FolderDelete':
+            case ZPush::COMMAND_FOLDERCREATE:
+            case ZPush::COMMAND_FOLDERUPDATE:
+            case ZPush::COMMAND_FOLDERDELETE:
                 $status = self::HandleFolderChange();
                 break;
-            case 'MoveItems':
+            case ZPush::COMMAND_MOVEITEMS:
                 $status = self::HandleMoveItems();
                 break;
-            case 'GetItemEstimate':
+            case ZPush::COMMAND_GETITEMESTIMATE:
                 $status = self::HandleGetItemEstimate();
                 break;
-            case 'MeetingResponse':
+            case ZPush::COMMAND_MEETINGRESPONSE:
                 $status = self::HandleMeetingResponse();
                 break;
-            case 'Notify': // Used for sms-based notifications (pushmail)
+            case ZPush::COMMAND_NOTIFY:                     // Used for sms-based notifications (pushmail)
                 $status = self::HandleNotify();
                 break;
-            case 'Ping': // Used for http-based notifications (pushmail)
+            case ZPush::COMMAND_PING:                       // Used for http-based notifications (pushmail)
                 $status = self::HandlePing();
                 break;
-            case 'Provision':
+            case ZPush::COMMAND_PROVISION:
                 $status = (PROVISIONING === true) ? self::HandleProvision() : false;
                 break;
-            case 'Search':
+            case ZPush::COMMAND_SEARCH:
                 $status = self::HandleSearch();
                 break;
-            case 'ItemOperations':
+            case ZPush::COMMAND_ITEMOPERATIONS:
                 $status = self::HandleItemOperations();
                 break;
 
 
             // TODO implement ResolveRecipients and ValidateCert
-            case 'ResolveRecipients':
-            case 'ValidateCert':
+            case ZPush::COMMAND_RESOLVERECIPIENTS:
+            case ZPush::COMMAND_VALIDATECERT:
             // deprecated commands
-            case 'CreateCollection':
-            case 'DeleteCollection':
-            case 'MoveCollection':
+            case ZPush::COMMAND_CREATECOLLECTION:
+            case ZPush::COMMAND_DELETECOLLECTION:
+            case ZPush::COMMAND_MOVECOLLECTION:
             default:
                 throw new FatalNotImplementedException(sprintf("RequestProcessor::HandleRequest(): Command '%s' is not implemented", Request::GetCommand()));
                 break;

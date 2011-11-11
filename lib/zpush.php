@@ -76,32 +76,39 @@ class ZPush {
     const COMMAND_RESOLVERECIPIENTS = 21;
     const COMMAND_VALIDATECERT = 22;
 
+    // Deprecated commands
+    const COMMAND_GETHIERARCHY = -1;
+    const COMMAND_CREATECOLLECTION = -2;
+    const COMMAND_DELETECOLLECTION = -3;
+    const COMMAND_MOVECOLLECTION = -4;
+    const COMMAND_NOTIFY = -5;
+
     static private $supportedASVersions = array("1.0","2.0","2.1","2.5");
     static private $supportedCommands = array(
-                                            'Sync' => false,
-                                            'SendMail' => array(self::PLAININPUT),
-                                            'SmartForward' => array(self::PLAININPUT),
-                                            'SmartReply' => array(self::PLAININPUT),
-                                            'GetAttachment' => false,
-                                            'GetHierarchy' => array(self::HIERARCHYCOMMAND),
-                                            'CreateCollection' => false,                                        // deprecated & not implemented
-                                            'DeleteCollection' => false,                                        // deprecated & not implemented
-                                            'MoveCollection' => false,                                          // deprecated & not implemented
-                                            'FolderSync' => array(self::HIERARCHYCOMMAND),
-                                            'FolderCreate' => array(self::HIERARCHYCOMMAND),
-                                            'FolderDelete' => array(self::HIERARCHYCOMMAND),
-                                            'FolderUpdate' => array(self::HIERARCHYCOMMAND),
-                                            'MoveItems' => false,
-                                            'GetItemEstimate' => false,                                         // deprecated
-                                            'MeetingResponse' => false,
-                                            'ResolveRecipients' => false,
-                                            'ValidateCert' => false,
-                                            'Provision' => array(self::UNAUTHENTICATED, self::UNPROVISIONED),
-                                            'Search' => false,
-                                            'Ping' => array(self::UNPROVISIONED),
-                                            'Notify' => false,                                                  //deprecated
-                                            //'ItemOperations' => false,
-                                            //'Settings' => false,
+                                            self::COMMAND_SYNC              => false,
+                                            self::COMMAND_SENDMAIL          => array(self::PLAININPUT),
+                                            self::COMMAND_SMARTFORWARD      => array(self::PLAININPUT),
+                                            self::COMMAND_SMARTREPLY        => array(self::PLAININPUT),
+                                            self::COMMAND_GETATTACHMENT     => false,
+                                            self::COMMAND_GETHIERARCHY      => array(self::HIERARCHYCOMMAND),                       // deprecated but implemented
+                                            self::COMMAND_CREATECOLLECTION  => false,                                               // deprecated & not implemented
+                                            self::COMMAND_DELETECOLLECTION  => false,                                               // deprecated & not implemented
+                                            self::COMMAND_MOVECOLLECTION    => false,                                               // deprecated & not implemented
+                                            self::COMMAND_FOLDERSYNC        => array(self::HIERARCHYCOMMAND),
+                                            self::COMMAND_FOLDERCREATE      => array(self::HIERARCHYCOMMAND),
+                                            self::COMMAND_FOLDERDELETE      => array(self::HIERARCHYCOMMAND),
+                                            self::COMMAND_FOLDERUPDATE      => array(self::HIERARCHYCOMMAND),
+                                            self::COMMAND_MOVEITEMS         => false,
+                                            self::COMMAND_GETITEMESTIMATE   => false,
+                                            self::COMMAND_MEETINGRESPONSE   => false,
+                                            self::COMMAND_RESOLVERECIPIENTS => false,
+                                            self::COMMAND_VALIDATECERT      => false,
+                                            self::COMMAND_PROVISION         => array(self::UNAUTHENTICATED, self::UNPROVISIONED),
+                                            self::COMMAND_SEARCH            => false,
+                                            self::COMMAND_PING              => array(self::UNPROVISIONED),
+                                            self::COMMAND_NOTIFY            => false,                                               // deprecated & not implemented
+                                            self::COMMAND_ITEMOPERATIONS    => false,
+                                            self::COMMAND_SETTINGS          => false,
                                             //'Autodiscover' => false,
                                           );
 
@@ -560,7 +567,7 @@ END;
         // filter all non-activesync commands
         foreach (self::$supportedCommands as $c=>$v)
             if ($v === false || (is_array($v) && !in_array(self::NOACTIVESYNCCOMMAND, $v)))
-                $asCommands[] = $c;
+                $asCommands[] = Utils::GetCommandFromCode($c);
 
         return "MS-ASProtocolCommands: ". implode(',', $asCommands);
     }
@@ -573,71 +580,71 @@ END;
      * @access public
      * @return boolean
      */
-    static public function CommandNeedsAuthentication($command) {
-        $stat = ! self::checkCommandOptions($command, self::UNAUTHENTICATED);
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::CommandNeedsAuthentication('%s'): %s", $command, Utils::PrintAsString($stat)));
+    static public function CommandNeedsAuthentication($commandCode) {
+        $stat = ! self::checkCommandOptions($commandCode, self::UNAUTHENTICATED);
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::CommandNeedsAuthentication(%d): %s", $commandCode, Utils::PrintAsString($stat)));
         return $stat;
     }
 
     /**
      * Indicates if the Provisioning check has to be forced on these commands
      *
-     * @param string $command
+     * @param string $commandCode
 
      * @access public
      * @return boolean
      */
-    static public function CommandNeedsProvisioning($command) {
-        $stat = ! self::checkCommandOptions($command, self::UNPROVISIONED);
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::CommandNeedsProvisioning('%s'): %s", $command, Utils::PrintAsString($stat)));
+    static public function CommandNeedsProvisioning($commandCode) {
+        $stat = ! self::checkCommandOptions($commandCode, self::UNPROVISIONED);
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::CommandNeedsProvisioning(%s): %s", $commandCode, Utils::PrintAsString($stat)));
         return $stat;
     }
 
     /**
      * Indicates if these commands expect plain text input instead of wbxml
      *
-     * @param string $command
+     * @param string $commandCode
      *
      * @access public
      * @return boolean
      */
-    static public function CommandNeedsPlainInput($command) {
-        $stat = self::checkCommandOptions($command, self::PLAININPUT);
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::CommandNeedsPlainInput('%s'): %s", $command, Utils::PrintAsString($stat)));
+    static public function CommandNeedsPlainInput($commandCode) {
+        $stat = self::checkCommandOptions($commandCode, self::PLAININPUT);
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::CommandNeedsPlainInput(%d): %s", $commandCode, Utils::PrintAsString($stat)));
         return $stat;
     }
 
     /**
      * Indicates if the comand to be executed operates on the hierarchy
      *
-     * @param string $command
+     * @param int $commandCode
 
      * @access public
      * @return boolean
      */
-    static public function HierarchyCommand($command) {
-        $stat = self::checkCommandOptions($command, self::HIERARCHYCOMMAND);
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::HierarchyCommand('%s'): %s", $command, Utils::PrintAsString($stat)));
+    static public function HierarchyCommand($commandCode) {
+        $stat = self::checkCommandOptions($commandCode, self::HIERARCHYCOMMAND);
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPush::HierarchyCommand(%d): %s", $commandCode, Utils::PrintAsString($stat)));
         return $stat;
     }
 
     /**
      * Checks access types of a command
      *
-     * @param string $command       a command
+     * @param string $commandCode   a commandCode
      * @param string $option        e.g. UNAUTHENTICATED
 
-     * @access public
+     * @access private
      * @throws FatalNotImplementedException
      * @return object StateMachine
      */
-    static private function checkCommandOptions($command, $option) {
-        if ($command === false) return false;
+    static private function checkCommandOptions($commandCode, $option) {
+        if ($commandCode === false) return false;
 
-        if (!array_key_exists($command, self::$supportedCommands))
-            throw new FatalNotImplementedException("Command '$command' is not supported");
+        if (!array_key_exists($commandCode, self::$supportedCommands))
+            throw new FatalNotImplementedException(sprintf("Command '%s' is not supported", Utils::GetCommandFromCode($commandCode)));
 
-        $capa = self::$supportedCommands[$command];
+        $capa = self::$supportedCommands[$commandCode];
         return (is_array($capa))?in_array($option, $capa):false;
     }
 

@@ -71,7 +71,7 @@ class TopCollector extends InterProcessData {
                                 "devtype"   => Request::GetDeviceType(),
                                 "devid"     => self::$devid,
                                 "devagent"  => Request::GetUserAgent(),
-                                "command"   => Request::GetCommand(),
+                                "command"   => Request::GetCommandCode(),
                                 "ended"     => 0,
                         );
 

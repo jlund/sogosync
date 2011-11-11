@@ -544,6 +544,13 @@ class Utils {
             case ZPush::COMMAND_PROVISION:            return 'Provision';
             case ZPush::COMMAND_RESOLVERECIPIENTS:    return 'ResolveRecipients';
             case ZPush::COMMAND_VALIDATECERT:         return 'ValidateCert';
+
+            // Deprecated commands
+            case ZPush::COMMAND_GETHIERARCHY:         return 'GetHierarchy';
+            case ZPush::COMMAND_CREATECOLLECTION:     return 'CreateCollection';
+            case ZPush::COMMAND_DELETECOLLECTION:     return 'DeleteCollection';
+            case ZPush::COMMAND_MOVECOLLECTION:       return 'MoveCollection';
+            case ZPush::COMMAND_NOTIFY:               return 'Notify';
         }
         return false;
     }
@@ -577,6 +584,13 @@ class Utils {
             case 'Provision':            return ZPush::COMMAND_PROVISION;
             case 'ResolveRecipients':    return ZPush::COMMAND_RESOLVERECIPIENTS;
             case 'ValidateCert':         return ZPush::COMMAND_VALIDATECERT;
+
+            // Deprecated commands
+            case 'GetHierarchy':         return ZPush::COMMAND_GETHIERARCHY;
+            case 'CreateCollection':     return ZPush::COMMAND_CREATECOLLECTION;
+            case 'DeleteCollection':     return ZPush::COMMAND_DELETECOLLECTION;
+            case 'MoveCollection':       return ZPush::COMMAND_MOVECOLLECTION;
+            case 'Notify':               return ZPush::COMMAND_NOTIFY;
         }
         return false;
     }
