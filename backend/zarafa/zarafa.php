@@ -873,6 +873,26 @@ class BackendZarafa implements IBackend, ISearchProvider {
         return array();
     }
 
+    /**
+     * Applies settings to and gets informations from the device
+     *
+     * @param SyncObject        $settings (SyncOOF or SyncUserInformation possible)
+     *
+     * @access public
+     * @return SyncObject       $settings
+     */
+    public function Settings($settings) {
+        if ($settings instanceof SyncOOF) {
+            $this->settingsOOF($settings);
+        }
+
+        if ($settings instanceof SyncUserInformation) {
+            $this->settingsUserInformation($settings);
+        }
+
+        return $settings;
+    }
+
 
     /**----------------------------------------------------------------------------------------------------------
      * Implementation of the ISearchProvider interface
@@ -1085,6 +1105,115 @@ class BackendZarafa implements IBackend, ISearchProvider {
             ($props[PR_RIGHTS] & ecRightsFolderVisible) ) {
             return true;
         }
+        return false;
+    }
+
+    /**
+     * The meta function for out of office settings.
+     *
+     * @param SyncObject $oof
+     *
+     * @access private
+     * @return void
+     */
+    private function settingsOOF(&$oof) {
+        //if oof state is set it must be set of oof and get otherwise
+        if (isset($oof->oofstate)) {
+            $this->settingsOOFSEt($oof);
+        }
+        else {
+            $this->settingsOOFGEt($oof);
+        }
+    }
+
+    /**
+     * Gets the out of office settings
+     *
+     * @param SyncObject $oof
+     *
+     * @access private
+     * @return void
+     */
+    private function settingsOOFGEt(&$oof) {
+        $oofprops = mapi_getprops($this->defaultstore, array(PR_EC_OUTOFOFFICE, PR_EC_OUTOFOFFICE_MSG, PR_EC_OUTOFOFFICE_SUBJECT));
+        $oof->oofstate = SYNC_SETTINGSOOF_DISABLED;
+        $oof->Status = SYNC_SETTINGSSTATUS_SUCCESS;
+        if ($oofprops != false) {
+            $oof->oofstate = isset($oofprops[PR_EC_OUTOFOFFICE]) ? ($oofprops[PR_EC_OUTOFOFFICE] ? SYNC_SETTINGSOOF_GLOBAL : SYNC_SETTINGSOOF_DISABLED) : SYNC_SETTINGSOOF_DISABLED;
+            //TODO external and external unknown
+            $oofmessage = new SyncOOFMessage();
+            $oofmessage->appliesToInternal = "";
+            $oofmessage->enabled = $oof->oofstate;
+            $oofmessage->replymessage = w2u(isset($oofprops[PR_EC_OUTOFOFFICE_MSG]) ? $oofprops[PR_EC_OUTOFOFFICE_MSG] : "");
+            $oofmessage->bodytype = $oof->bodytype;
+            unset($oofmessage->appliesToExternal, $oofmessage->appliesToExternalUnknown);
+            $oof->oofmessage[] = $oofmessage;
+        }
+        else {
+            ZLog::Write(LOGLEVEL_WARN, "Unable to get out of office information");
+        }
+
+        //unset body type for oof in order not to stream it
+        unset($oof->bodyType);
+
+    }
+
+    /**
+     * Sets the out of office settings.
+     *
+     * @param SyncObject $oof
+     *
+     * @access private
+     * @return void
+     */
+    private function settingsOOFSEt(&$oof) {
+        $oof->Status = SYNC_SETTINGSSTATUS_SUCCESS;
+        $props = array();
+        if ($oof->oofstate == SYNC_SETTINGSOOF_GLOBAL || $oof->oofstate == SYNC_SETTINGSOOF_TIMEBASED) {
+            $props[PR_EC_OUTOFOFFICE] = true;
+            foreach ($oof->oofmessage as $oofmessage) {
+                if (isset($oofmessage->appliesToInternal)) {
+                    $props[PR_EC_OUTOFOFFICE_MSG] = isset($oofmessage->replymessage) ? u2w($oofmessage->replymessage) : "";
+                    $props[PR_EC_OUTOFOFFICE_SUBJECT] = "Out of office";
+                }
+            }
+        }
+        elseif($oof->oofstate == SYNC_SETTINGSOOF_DISABLED) {
+            $props[PR_EC_OUTOFOFFICE] = false;
+        }
+
+        if (!empty($props)) {
+            @mapi_setprops($this->defaultstore, $props);
+            $result = mapi_last_hresult();
+            if ($result != NOERROR) {
+                ZLog::Write(LOGLEVEL_ERROR, sprintf("Setting oof information failed (%X)", $result));
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Gets the user's email address from server
+     *
+     * @param SyncObject $userinformation
+     *
+     * @access private
+     * @return void
+     */
+    private function settingsUserInformation(&$userinformation) {
+        if (!isset($this->defaultstore) || !isset($this->mainUser)) {
+            ZLog::Write(LOGLEVEL_ERROR, "The store or user are not available for getting user information");
+            return false;
+        }
+        $user = mapi_zarafa_getuser($this->defaultstore, $this->mainUser);
+        if ($user != false) {
+            $userInformation->Status = SYNC_SETTINGSSTATUS_USERINFO_SUCCESS;
+            $userinformation->emailaddresses[] = $user["emailaddress"];
+            return true;
+        }
+        ZLog::Write(LOGLEVEL_ERROR, sprintf("Getting user information failed: mapi_zarafa_getuser(%X)", mapi_last_hresult()));
         return false;
     }
 

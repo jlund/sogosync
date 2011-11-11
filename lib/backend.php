@@ -125,5 +125,19 @@ abstract class Backend implements IBackend {
     public function AlterPingChanges($folderid, &$syncstate) {
         return array();
     }
+
+    /**
+     * Applies settings to and gets informations from the device
+     *
+     * @param SyncObject    $settings (SyncOOF or SyncUserInformation possible)
+     *
+     * @access public
+     * @return SyncObject   $settings
+     */
+    public function Settings($settings) {
+        if ($settings instanceof SyncOOF || $settings instanceof SyncUserInformation)
+            $settings->Status = SYNC_SETTINGSSTATUS_SUCCESS;
+        return $settings;
+    }
 }
 ?>
