@@ -199,7 +199,7 @@ class DeviceManager {
      * @return int
      */
     public function GenerateProvisioningPolicyKey() {
-        return mt_rand(1000000000, 9999999999);
+        return mt_rand(100000000, 999999999);
     }
 
     /**
