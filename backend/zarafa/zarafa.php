@@ -612,6 +612,39 @@ class BackendZarafa implements IBackend, ISearchProvider {
                 $body .= $fwheader;
                 if (strlen($body_html) > 0)
                     $body_html .= str_ireplace("\r\n", "<br>", $fwheader);
+
+                // attach the original attachments to the outgoing message
+                $attachtable = mapi_message_getattachmenttable($fwmessage);
+                $rows = mapi_table_queryallrows($attachtable, array(PR_ATTACH_NUM));
+
+                foreach($rows as $row) {
+                    if(isset($row[PR_ATTACH_NUM])) {
+                        $attach = mapi_message_openattach($fwmessage, $row[PR_ATTACH_NUM]);
+
+                        $newattach = mapi_message_createattach($mapimessage);
+
+                        // Copy all attachments from old to new attachment
+                        $attachprops = mapi_getprops($attach);
+                        mapi_setprops($newattach, $attachprops);
+
+                        if(isset($attachprops[mapi_prop_tag(PT_ERROR, mapi_prop_id(PR_ATTACH_DATA_BIN))])) {
+                            // Data is in a stream
+                            $srcstream = mapi_openpropertytostream($attach, PR_ATTACH_DATA_BIN);
+                            $dststream = mapi_openpropertytostream($newattach, PR_ATTACH_DATA_BIN, MAPI_MODIFY | MAPI_CREATE);
+
+                            while(1) {
+                                $data = mapi_stream_read($srcstream, 4096);
+                                if(strlen($data) == 0)
+                                    break;
+
+                                mapi_stream_write($dststream, $data);
+                            }
+
+                            mapi_stream_commit($dststream);
+                        }
+                        mapi_savechanges($newattach);
+                    }
+                }
             }
 
             if(strlen($body) > 0)
@@ -619,49 +652,6 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
             if (strlen($body_html) > 0)
                   $body_html .= $fwbody_html;
-        }
-
-        if($forward) {
-            // Add attachments from the original message in a forward
-            $entryid = mapi_msgstore_entryidfromsourcekey($this->store, hex2bin($parent), hex2bin($orig));
-            if ($entryid)
-                $fwmessage = mapi_msgstore_openentry($this->store, $entryid);
-
-            if(isset($fwmessage) && $fwmessage)
-                throw new HTTPReturnCodeException(sprintf("ZarafaBackend->SendMail(): Could not open message id '%s' in folder id '%s' to be replied/forwarded: 0x%X", $orig, $parent, mapi_last_hresult()), HTTP_CODE_500, null, LOGLEVEL_WARN);
-
-
-            $attachtable = mapi_message_getattachmenttable($fwmessage);
-            $rows = mapi_table_queryallrows($attachtable, array(PR_ATTACH_NUM));
-
-            foreach($rows as $row) {
-                if(isset($row[PR_ATTACH_NUM])) {
-                    $attach = mapi_message_openattach($fwmessage, $row[PR_ATTACH_NUM]);
-
-                    $newattach = mapi_message_createattach($mapimessage);
-
-                    // Copy all attachments from old to new attachment
-                    $attachprops = mapi_getprops($attach);
-                    mapi_setprops($newattach, $attachprops);
-
-                    if(isset($attachprops[mapi_prop_tag(PT_ERROR, mapi_prop_id(PR_ATTACH_DATA_BIN))])) {
-                        // Data is in a stream
-                        $srcstream = mapi_openpropertytostream($attach, PR_ATTACH_DATA_BIN);
-                        $dststream = mapi_openpropertytostream($newattach, PR_ATTACH_DATA_BIN, MAPI_MODIFY | MAPI_CREATE);
-
-                        while(1) {
-                            $data = mapi_stream_read($srcstream, 4096);
-                            if(strlen($data) == 0)
-                                break;
-
-                            mapi_stream_write($dststream, $data);
-                        }
-
-                        mapi_stream_commit($dststream);
-                    }
-                    mapi_savechanges($newattach);
-                }
-            }
         }
 
         //set PR_INTERNET_CPID to 65001 (utf-8) if store supports it and to 1252 otherwise
