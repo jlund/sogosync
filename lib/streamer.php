@@ -51,12 +51,14 @@ class Streamer {
     const STREAMER_VAR = 1;
     const STREAMER_ARRAY = 2;
     const STREAMER_TYPE = 3;
+    const STREAMER_PROP = 4;
     const STREAMER_TYPE_DATE = 1;
     const STREAMER_TYPE_HEX = 2;
     const STREAMER_TYPE_DATE_DASHES = 3;
     const STREAMER_TYPE_MAPI_STREAM = 4;
     const STREAMER_TYPE_IGNORE = 5;
     const STREAMER_TYPE_SEND_EMPTY = 6;
+    const STREAMER_TYPE_NO_CONTAINER = 7;
 
     protected $mapping;
     public $flags;
@@ -97,6 +99,8 @@ class Streamer {
                     else if ($map[self::STREAMER_TYPE] == self::STREAMER_TYPE_DATE || $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_DATE_DASHES ) {
                         $this->$map[self::STREAMER_VAR] = "";
                     }
+                    else if ($map[self::STREAMER_TYPE] == self::STREAMER_TYPE_SEND_EMPTY)
+                        $this->$map[self::STREAMER_VAR] = "";
                     continue;
                 }
                 // Found a start tag
@@ -111,10 +115,14 @@ class Streamer {
                     // Handle an array
                     if(isset($map[self::STREAMER_ARRAY])) {
                         while(1) {
-                            if(!$decoder->getElementStartTag($map[self::STREAMER_ARRAY]))
-                                break;
+                            //do not get start tag for an array without a container
+                            if (!(isset($map[self::STREAMER_PROP]) && $map[self::STREAMER_PROP] == self::STREAMER_TYPE_NO_CONTAINER)) {
+                                if(!$decoder->getElementStartTag($map[self::STREAMER_ARRAY]))
+                                    break;
+                            }
                             if(isset($map[self::STREAMER_TYPE])) {
                                 $decoded = new $map[self::STREAMER_TYPE];
+
                                 $decoded->Decode($decoder);
                             }
                             else {
@@ -126,11 +134,27 @@ class Streamer {
                             else
                                 array_push($this->$map[self::STREAMER_VAR], $decoded);
 
-                            if(!$decoder->getElementEndTag())
+                            if(!$decoder->getElementEndTag()) //end tag of a container element
+                                return false;
+
+                            if (isset($map[self::STREAMER_PROP]) && $map[self::STREAMER_PROP] == self::STREAMER_TYPE_NO_CONTAINER) {
+                                $e = $decoder->peek();
+                                //go back to the initial while if another block of no container elements is found
+                                if ($e[EN_TYPE] == EN_TYPE_STARTTAG) {
+                                    continue 2;
+                                }
+                                //break on end tag because no container elements block end is reached
+                                if ($e[EN_TYPE] == EN_TYPE_ENDTAG)
+                                    break;
+                                if (empty($e))
+                                    break;
+                            }
+                        }
+                        //do not get end tag for an array without a container
+                        if (!(isset($map[self::STREAMER_PROP]) && $map[self::STREAMER_PROP] == self::STREAMER_TYPE_NO_CONTAINER)) {
+                            if(!$decoder->getElementEndTag()) //end tag of container
                                 return false;
                         }
-                        if(!$decoder->getElementEndTag())
-                            return false;
                     }
                     else { // Handle single value
                         if(isset($map[self::STREAMER_TYPE])) {
@@ -206,13 +230,17 @@ class Streamer {
                     $this->$map[self::STREAMER_VAR]->Encode($encoder);
                     $encoder->endTag();
                 }
+                // Array of objects
                 else if(isset($map[self::STREAMER_ARRAY])) {
-                    // Array of objects
                     if (empty($this->$map[self::STREAMER_VAR]) && isset($map[self::STREAMER_TYPE]) && $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_SEND_EMPTY) {
                         $encoder->startTag($tag, false, true);
                     }
                     else {
-                        $encoder->startTag($tag); // Outputs array container (eg Attachments)
+                        // Outputs array container (eg Attachments)
+                        // Do not output start and end tag when type is STREAMER_TYPE_NO_CONTAINER
+                        if (!isset($map[self::STREAMER_PROP]) || $map[self::STREAMER_PROP] != self::STREAMER_TYPE_NO_CONTAINER)
+                            $encoder->startTag($tag);
+
                         foreach ($this->$map[self::STREAMER_VAR] as $element) {
                             if(is_object($element)) {
                                 $encoder->startTag($map[self::STREAMER_ARRAY]); // Outputs object container (eg Attachment)
@@ -230,7 +258,9 @@ class Streamer {
                                 }
                             }
                         }
-                        $encoder->endTag();
+
+                        if  (!isset($map[self::STREAMER_PROP]) || $map[self::STREAMER_PROP] != self::STREAMER_TYPE_NO_CONTAINER)
+                            $encoder->endTag();
                     }
                 }
                 else {
