@@ -557,7 +557,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
             if ($entryid)
                 $fwmessage = mapi_msgstore_openentry($this->store, $entryid);
 
-            if(isset($fwmessage) && !$fwmessage)
+            if(!isset($fwmessage) || !$fwmessage)
                 throw new HTTPReturnCodeException(sprintf("ZarafaBackend->SendMail(): Could not open message id '%s' in folder id '%s' to be replied/forwarded: 0x%X", $orig, $parent, mapi_last_hresult()), HTTP_CODE_500, null, LOGLEVEL_WARN);
 
             //update icon when forwarding or replying message
