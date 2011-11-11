@@ -73,6 +73,7 @@ class SyncMail extends SyncObject {
     // AS 12.0 props
     public $asbody;
     public $asattachments;
+    public $flag;
     public $contentclass;
     public $nativebodytype;
 
@@ -162,6 +163,9 @@ class SyncMail extends SyncObject {
 
             $mapping[SYNC_POOMMAIL_CONTENTCLASS]                        = array (   self::STREAMER_VAR      => "contentclass",
                                                                                     self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_ONEVALUEOF     => array('urn:content-classes:message') ));
+
+            $mapping[SYNC_POOMMAIL_FLAG]                                = array (   self::STREAMER_VAR      => "flag",
+                                                                                    self::STREAMER_TYPE     => "SyncMailFlags");
 
             $mapping[SYNC_AIRSYNCBASE_NATIVEBODYTYPE]                   = array (   self::STREAMER_VAR      => "nativebodytype");
 
