@@ -596,6 +596,8 @@ define("SYNC_SETTINGS_ACCOUNTNAME", "Settings:AccountName");
 define("SYNC_SETTINGS_USERDISPLAYNAME", "Settings:UserDisplayName"); //12.1 and 14.0
 define("SYNC_SETTINGS_SENDDISABLED", "Settings:SendDisabled"); //14.0
 define("SYNC_SETTINGS_IHSMANAGEMENTINFORMATION", "Settings:ihsManagementInformation"); //14.0
+// only for internal use - never to be streamed to the mobile
+define("SYNC_SETTINGS_PROP_STATUS", "Settings:PropertyStatus");
 
 //DocumentLibrary //12.0, 12.1 and 14.0
 define("SYNC_DOCUMENTLIBRARY_LINKID", "DocumentLibrary:LinkId");
@@ -1022,4 +1024,5 @@ define("MAPI_E_NOT_ENOUGH_MEMORY_64BIT", 2147942414);
 
 define("SYNC_SETTINGSOOF_BODYTYPE_HTML", "HTML");
 define("SYNC_SETTINGSOOF_BODYTYPE_TEXT", "TEXT");
+
 ?>
