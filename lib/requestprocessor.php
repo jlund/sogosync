@@ -173,7 +173,6 @@ class RequestProcessor {
                 $status = self::HandleItemOperations();
                 break;
 
-
             // TODO implement ResolveRecipients and ValidateCert
             case ZPush::COMMAND_RESOLVERECIPIENTS:
             case ZPush::COMMAND_VALIDATECERT:
@@ -539,420 +538,437 @@ class RequestProcessor {
                 return false;
         }
 
-        if(!self::$decoder->getElementStartTag(SYNC_FOLDERS))
-            return false;
+        if(self::$decoder->getElementStartTag(SYNC_FOLDERS)) {
+            $foldersync = true;
 
-        while(self::$decoder->getElementStartTag(SYNC_FOLDER)) {
-            $collection = array();
-            $collection["clientids"] = array();
-            $collection["modifyids"] = array();
-            $collection["removeids"] = array();
-            $collection["fetchids"] = array();
-            $collection["statusids"] = array();
+            while(self::$decoder->getElementStartTag(SYNC_FOLDER)) {
+                $collection = array();
+                $collection["clientids"] = array();
+                $collection["modifyids"] = array();
+                $collection["removeids"] = array();
+                $collection["fetchids"] = array();
+                $collection["statusids"] = array();
 
-            //for AS versions < 2.5
-            if(self::$decoder->getElementStartTag(SYNC_FOLDERTYPE)) {
-                $collection["class"] = self::$decoder->getElementContent();
-                ZLog::Write(LOGLEVEL_DEBUG, sprintf("Sync folder: '%s'", $collection["class"]));
+                //for AS versions < 2.5
+                if(self::$decoder->getElementStartTag(SYNC_FOLDERTYPE)) {
+                    $collection["class"] = self::$decoder->getElementContent();
+                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("Sync folder: '%s'", $collection["class"]));
 
-                if(!self::$decoder->getElementEndTag())
-                    return false;
-            }
-
-            if(!self::$decoder->getElementStartTag(SYNC_SYNCKEY))
-                return false;
-
-            $collection["synckey"] = self::$decoder->getElementContent();
-
-            if(!self::$decoder->getElementEndTag())
-                return false;
-
-            if(self::$decoder->getElementStartTag(SYNC_FOLDERID)) {
-                $collection["collectionid"] = self::$decoder->getElementContent();
-
-                if(!self::$decoder->getElementEndTag())
-                    return false;
-            }
-
-            // Get class for as versions >= 12.0
-            if (!isset($collection["class"])) {
-                try {
-                    $collection["class"] = self::$deviceManager->GetFolderClassFromCacheByID($collection["collectionid"]);
-                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("GetFolderClassFromCacheByID from Device Manager: '%s' for id:'%s'", $collection["class"], $collection["collectionid"]));
-                }
-                catch (NoHierarchyCacheAvailableException $nhca) {
-                    $status = SYNC_STATUS_FOLDERHIERARCHYCHANGED;
-                    self::$deviceManager->ForceFullResync();
-                }
-            }
-            self::$topCollector->AnnounceInformation(sprintf("%s",$collection["class"]), true);
-
-            // SUPPORTED properties
-            if(self::$decoder->getElementStartTag(SYNC_SUPPORTED)) {
-                $supfields = array();
-                while(1) {
-                    $el = self::$decoder->getElement();
-
-                    if($el[EN_TYPE] == EN_TYPE_ENDTAG)
-                        break;
-                    else
-                        $supfields[] = $el[EN_TAG];
-                }
-                self::$deviceManager->SetSupportedFields($collection["collectionid"], $supfields);
-            }
-
-            if(self::$decoder->getElementStartTag(SYNC_DELETESASMOVES))
-                $collection["deletesasmoves"] = true;
-
-            // Get changes can be an empty tag as well as have value
-            // dw2412 contribution start
-            if(self::$decoder->getElementStartTag(SYNC_GETCHANGES)) {
-                //TODO do not send server changes if $collection["getchanges"] is false
-                if (($collection["getchanges"] = self::$decoder->getElementContent()) !== false) {
-                    if(!self::$decoder->getElementEndTag()) {
+                    if(!self::$decoder->getElementEndTag())
                         return false;
-                    }
                 }
-                else {
-                    $collection["getchanges"] = true;
-                }
-            }
-            // dw2412 contribution end
 
-            if(self::$decoder->getElementStartTag(SYNC_WINDOWSIZE)) {
-                self::$deviceManager->SetWindowSize($collection["collectionid"], self::$decoder->getElementContent());
+                if(!self::$decoder->getElementStartTag(SYNC_SYNCKEY))
+                    return false;
+
+                $collection["synckey"] = self::$decoder->getElementContent();
+
                 if(!self::$decoder->getElementEndTag())
                     return false;
-            }
 
-            // Save all OPTIONS into a ContentParameters object
-            $collection["cpo"] = new ContentParameters();
-            $collection["cpo"]->SetContentClass($collection["class"]);
-            $collection["cpo"]->SetTruncation(SYNC_TRUNCATION_ALL);
+                if(self::$decoder->getElementStartTag(SYNC_FOLDERID)) {
+                    $collection["collectionid"] = self::$decoder->getElementContent();
 
-            if(self::$decoder->getElementStartTag(SYNC_OPTIONS)) {
-                while(1) {
-                    if(self::$decoder->getElementStartTag(SYNC_FILTERTYPE)) {
-                        $collection["cpo"]->SetFilterType(self::$decoder->getElementContent());
-                        if(!self::$decoder->getElementEndTag())
-                            return false;
-                    }
-                    if(self::$decoder->getElementStartTag(SYNC_TRUNCATION)) {
-                        $collection["cpo"]->SetTruncation(self::$decoder->getElementContent());
-                        if(!self::$decoder->getElementEndTag())
-                            return false;
-                    }
-                    if(self::$decoder->getElementStartTag(SYNC_RTFTRUNCATION)) {
-                        $collection["cpo"]->SetRTFTruncation(self::$decoder->getElementContent());
-                        if(!self::$decoder->getElementEndTag())
-                            return false;
-                    }
+                    if(!self::$decoder->getElementEndTag())
+                        return false;
+                }
 
-                    if(self::$decoder->getElementStartTag(SYNC_MIMESUPPORT)) {
-                        $collection["cpo"]->SetMimeSupport(self::$decoder->getElementContent());
-                        if(!self::$decoder->getElementEndTag())
-                            return false;
+                // Get class for as versions >= 12.0
+                if (!isset($collection["class"])) {
+                    try {
+                        $collection["class"] = self::$deviceManager->GetFolderClassFromCacheByID($collection["collectionid"]);
+                        ZLog::Write(LOGLEVEL_DEBUG, sprintf("GetFolderClassFromCacheByID from Device Manager: '%s' for id:'%s'", $collection["class"], $collection["collectionid"]));
                     }
-
-                    if(self::$decoder->getElementStartTag(SYNC_MIMETRUNCATION)) {
-                        $collection["cpo"]->SetMimeTruncation(self::$decoder->getElementContent());
-                        if(!self::$decoder->getElementEndTag())
-                            return false;
+                    catch (NoHierarchyCacheAvailableException $nhca) {
+                        $status = SYNC_STATUS_FOLDERHIERARCHYCHANGED;
+                        self::$deviceManager->ForceFullResync();
                     }
+                }
+                self::$topCollector->AnnounceInformation(sprintf("%s",$collection["class"]), true);
 
-                    if(self::$decoder->getElementStartTag(SYNC_CONFLICT)) {
-                        $collection["conflict"] = self::$decoder->getElementContent();
-                        if(!self::$decoder->getElementEndTag())
-                            return false;
+                // SUPPORTED properties
+                if(self::$decoder->getElementStartTag(SYNC_SUPPORTED)) {
+                    $supfields = array();
+                    while(1) {
+                        $el = self::$decoder->getElement();
+
+                        if($el[EN_TYPE] == EN_TYPE_ENDTAG)
+                            break;
+                        else
+                            $supfields[] = $el[EN_TAG];
                     }
+                    self::$deviceManager->SetSupportedFields($collection["collectionid"], $supfields);
+                }
 
-                    while (self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_BODYPREFERENCE)) {
-                        if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_TYPE)) {
-                            $bptype = self::$decoder->getElementContent();
-                            $collection["cpo"]->BodyPreference($bptype);
-                            if(!self::$decoder->getElementEndTag()) {
+                if(self::$decoder->getElementStartTag(SYNC_DELETESASMOVES))
+                    $collection["deletesasmoves"] = true;
+
+                // Get changes can be an empty tag as well as have value
+                // dw2412 contribution start
+                if(self::$decoder->getElementStartTag(SYNC_GETCHANGES)) {
+                    //TODO do not send server changes if $collection["getchanges"] is false
+                    if (($collection["getchanges"] = self::$decoder->getElementContent()) !== false) {
+                        if(!self::$decoder->getElementEndTag()) {
+                            return false;
+                        }
+                    }
+                    else {
+                        $collection["getchanges"] = true;
+                    }
+                }
+                // dw2412 contribution end
+
+                if(self::$decoder->getElementStartTag(SYNC_WINDOWSIZE)) {
+                    self::$deviceManager->SetWindowSize($collection["collectionid"], self::$decoder->getElementContent());
+                    if(!self::$decoder->getElementEndTag())
+                        return false;
+                }
+
+                // Save all OPTIONS into a ContentParameters object
+                $collection["cpo"] = new ContentParameters();
+                $collection["cpo"]->SetContentClass($collection["class"]);
+                $collection["cpo"]->SetTruncation(SYNC_TRUNCATION_ALL);
+
+                if(self::$decoder->getElementStartTag(SYNC_OPTIONS)) {
+                    while(1) {
+                        if(self::$decoder->getElementStartTag(SYNC_FILTERTYPE)) {
+                            $collection["cpo"]->SetFilterType(self::$decoder->getElementContent());
+                            if(!self::$decoder->getElementEndTag())
                                 return false;
+                        }
+                        if(self::$decoder->getElementStartTag(SYNC_TRUNCATION)) {
+                            $collection["cpo"]->SetTruncation(self::$decoder->getElementContent());
+                            if(!self::$decoder->getElementEndTag())
+                                return false;
+                        }
+                        if(self::$decoder->getElementStartTag(SYNC_RTFTRUNCATION)) {
+                            $collection["cpo"]->SetRTFTruncation(self::$decoder->getElementContent());
+                            if(!self::$decoder->getElementEndTag())
+                                return false;
+                        }
+
+                        if(self::$decoder->getElementStartTag(SYNC_MIMESUPPORT)) {
+                            $collection["cpo"]->SetMimeSupport(self::$decoder->getElementContent());
+                            if(!self::$decoder->getElementEndTag())
+                                return false;
+                        }
+
+                        if(self::$decoder->getElementStartTag(SYNC_MIMETRUNCATION)) {
+                            $collection["cpo"]->SetMimeTruncation(self::$decoder->getElementContent());
+                            if(!self::$decoder->getElementEndTag())
+                                return false;
+                        }
+
+                        if(self::$decoder->getElementStartTag(SYNC_CONFLICT)) {
+                            $collection["conflict"] = self::$decoder->getElementContent();
+                            if(!self::$decoder->getElementEndTag())
+                                return false;
+                        }
+
+                        while (self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_BODYPREFERENCE)) {
+                            if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_TYPE)) {
+                                $bptype = self::$decoder->getElementContent();
+                                $collection["cpo"]->BodyPreference($bptype);
+                                if(!self::$decoder->getElementEndTag()) {
+                                    return false;
+                                }
+                            }
+
+                            if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_TRUNCATIONSIZE)) {
+                                $collection["cpo"]->BodyPreference($bptype)->SetTruncationSize(self::$decoder->getElementContent());
+                                if(!self::$decoder->getElementEndTag())
+                                    return false;
+                            }
+
+                            if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_ALLORNONE)) {
+                                $collection["cpo"]->BodyPreference($bptype)->SetAllOrNone(self::$decoder->getElementContent());
+                                if(!self::$decoder->getElementEndTag())
+                                    return false;
+                            }
+
+                            if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_PREVIEW)) {
+                                $collection["cpo"]->BodyPreference($bptype)->SetPreview(self::$decoder->getElementContent());
+                                if(!self::$decoder->getElementEndTag())
+                                    return false;
+                            }
+
+                            if(!self::$decoder->getElementEndTag())
+                                return false;
+                        }
+
+                        $e = self::$decoder->peek();
+                        if($e[EN_TYPE] == EN_TYPE_ENDTAG) {
+                            self::$decoder->getElementEndTag();
+                            break;
+                        }
+                    }
+                }
+
+                // limit items to be synchronized to the mobiles if configured
+                if (defined('SYNC_FILTERTIME_MAX') && SYNC_FILTERTIME_MAX > SYNC_FILTERTYPE_ALL &&
+                    ($collection["cpo"]->GetFilterType() === false || $collection["cpo"]->GetFilterType() > SYNC_FILTERTIME_MAX)) {
+                        $collection["cpo"]->SetFilterType(SYNC_FILTERTIME_MAX);
+                }
+
+                // compatibility mode AS 1.0 - get folderid which was sent during GetHierarchy()
+                if (!isset($collection["collectionid"])) {
+                    $collection["collectionid"] = self::$deviceManager->GetFolderIdFromCacheByClass($collection["class"]);
+                }
+
+                // set default conflict behavior from config if the device doesn't send a conflict resolution parameter
+                if (!isset($collection["conflict"])) {
+                    $collection["conflict"] = SYNC_CONFLICT_DEFAULT;
+                }
+
+                // Get our sync state for this collection
+                if ($status == SYNC_STATUS_SUCCESS) {
+                    try {
+                        $collection["syncstate"] = self::$deviceManager->GetSyncState($collection["synckey"]);
+
+                        // if this request was made before, there will be a failstate available
+                        $collection["failstate"] = self::$deviceManager->GetSyncFailState();
+
+                        // if this is an additional folder the backend has to be setup correctly
+                        if (!self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore($collection["collectionid"])))
+                            throw new StatusException(sprintf("HandleSync() could not Setup() the backend for folder id '%s'", $collection["collectionid"]), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
+                    }
+                    catch (StateNotFoundException $snfex) {
+                        $status = SYNC_STATUS_INVALIDSYNCKEY;
+                    }
+                    catch (StatusException $stex) {
+                       $status = $stex->getCode();
+                    }
+                }
+
+                if ($status != SYNC_STATUS_SUCCESS)
+                    self::$topCollector->AnnounceInformation(sprintf("StateNotFoundException with status code: %d", $status), true);
+
+                if(self::$decoder->getElementStartTag(SYNC_PERFORM)) {
+                    if ($status == SYNC_STATUS_SUCCESS) {
+                        try {
+                            // Configure importer with last state
+                            $importer = self::$backend->GetImporter($collection["collectionid"]);
+
+                            // if something goes wrong, ask the mobile to resync the hierarchy
+                            if ($importer === false)
+                                throw new StatusException(sprintf("HandleSync() could not get an importer for folder id '%s'", $collection["collectionid"]), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
+
+                            // if there is a valid state obtained after importing changes in a previous loop, we use that state
+                            if ($collection["failstate"] && isset($collection["failstate"]["failedsyncstate"])) {
+                                $importer->Config($collection["failstate"]["failedsyncstate"], $collection["conflict"]);
+                            }
+                            else
+                                $importer->Config($collection["syncstate"], $collection["conflict"]);
+                        }
+                        catch (StatusException $stex) {
+                           $status = $stex->getCode();
+                        }
+                    }
+
+                    $nchanges = 0;
+                    while(1) {
+                        // ADD, MODIFY, REMOVE or FETCH
+                        $element = self::$decoder->getElement();
+
+                        if($element[EN_TYPE] != EN_TYPE_STARTTAG) {
+                            self::$decoder->ungetElement($element);
+                            break;
+                        }
+
+                        // before importing the first change, load potential conflicts
+                        // for the current state
+
+                        // TODO check if the failsyncstate applies for conflict detection as well
+                        if ($status == SYNC_STATUS_SUCCESS && $nchanges == 0)
+                            $importer->LoadConflicts($collection["cpo"], $collection["syncstate"]);
+
+                        if ($status == SYNC_STATUS_SUCCESS)
+                            $nchanges++;
+
+                        if(self::$decoder->getElementStartTag(SYNC_SERVERENTRYID)) {
+                            $serverid = self::$decoder->getElementContent();
+
+                            if(!self::$decoder->getElementEndTag()) // end serverid
+                                return false;
+                        }
+                        else
+                            $serverid = false;
+
+                        if(self::$decoder->getElementStartTag(SYNC_CLIENTENTRYID)) {
+                            $clientid = self::$decoder->getElementContent();
+
+                            if(!self::$decoder->getElementEndTag()) // end clientid
+                                return false;
+                        }
+                        else
+                            $clientid = false;
+
+                        // Get the SyncMessage if sent
+                        if(self::$decoder->getElementStartTag(SYNC_DATA)) {
+                            $message = ZPush::getSyncObjectFromFolderClass($collection["class"]);
+                            $message->Decode(self::$decoder);
+
+                            // set Ghosted fields
+                            $message->emptySupported(self::$deviceManager->GetSupportedFields($collection["collectionid"]));
+                            if(!self::$decoder->getElementEndTag()) // end applicationdata
+                                return false;
+                        }
+
+                        if ($status != SYNC_STATUS_SUCCESS) {
+                            ZLog::Write(LOGLEVEL_WARN, "Ignored incoming change, global status indicates problem.");
+                            continue;
+                        }
+
+                        // Detect incoming loop
+                        // messages which were created/removed before will not have the same action executed again
+                        // if a message is edited we perform this action "again", as the message could have been changed on the mobile in the meantime
+                        $ignoreMessage = false;
+                        if ($collection["failstate"]) {
+                            // message was ADDED before, do NOT add it again
+                            if ($element[EN_TAG] == SYNC_ADD && $collection["failstate"]["clientids"][$clientid]) {
+                                $ignoreMessage = true;
+
+                                // make sure no messages are sent back
+                                self::$deviceManager->SetWindowSize($collection["collectionid"], 0);
+
+                                $collection["clientids"][$clientid] = $collection["failstate"]["clientids"][$clientid];
+                                $collection["statusids"][$clientid] = $collection["failstate"]["statusids"][$clientid];
+
+                                ZLog::Write(LOGLEVEL_WARN, sprintf("Mobile loop detected! Incoming new message '%s' was created on the server before. Replying with known new server id: %s", $clientid, $collection["clientids"][$clientid]));
+                            }
+
+                            // message was REMOVED before, do NOT attemp to remove it again
+                            if ($element[EN_TAG] == SYNC_REMOVE && $collection["failstate"]["removeids"][$serverid]) {
+                                $ignoreMessage = true;
+
+                                // make sure no messages are sent back
+                                self::$deviceManager->SetWindowSize($collection["collectionid"], 0);
+
+                                $collection["removeids"][$serverid] = $collection["failstate"]["removeids"][$serverid];
+                                $collection["statusids"][$serverid] = $collection["failstate"]["statusids"][$serverid];
+
+                                ZLog::Write(LOGLEVEL_WARN, sprintf("Mobile loop detected! Message '%s' was deleted by the mobile before. Replying with known status: %s", $clientid, $collection["statusids"][$serverid]));
                             }
                         }
 
-                        if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_TRUNCATIONSIZE)) {
-                            $collection["cpo"]->BodyPreference($bptype)->SetTruncationSize(self::$decoder->getElementContent());
-                            if(!self::$decoder->getElementEndTag())
-                                return false;
-                        }
+                        if (!$ignoreMessage) {
+                            switch($element[EN_TAG]) {
+                                case SYNC_MODIFY:
+                                    try {
+                                        $collection["modifyids"][] = $serverid;
 
-                        if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_ALLORNONE)) {
-                            $collection["cpo"]->BodyPreference($bptype)->SetAllOrNone(self::$decoder->getElementContent());
-                            if(!self::$decoder->getElementEndTag())
-                                return false;
-                        }
+                                        if (!$message->Check()) {
+                                            $collection["statusids"][$serverid] = SYNC_STATUS_CLIENTSERVERCONVERSATIONERROR;
+                                        }
+                                        else {
+                                            if(isset($message->read)) // Currently, 'read' is only sent by the PDA when it is ONLY setting the read flag.
+                                                $importer->ImportMessageReadFlag($serverid, $message->read);
+                                            else
+                                                $importer->ImportMessageChange($serverid, $message);
 
-                        if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_PREVIEW)) {
-                            $collection["cpo"]->BodyPreference($bptype)->SetPreview(self::$decoder->getElementContent());
-                            if(!self::$decoder->getElementEndTag())
-                                return false;
-                        }
-
-                        if(!self::$decoder->getElementEndTag())
-                            return false;
-                    }
-
-                    $e = self::$decoder->peek();
-                    if($e[EN_TYPE] == EN_TYPE_ENDTAG) {
-                        self::$decoder->getElementEndTag();
-                        break;
-                    }
-                }
-            }
-
-            // limit items to be synchronized to the mobiles if configured
-            if (defined('SYNC_FILTERTIME_MAX') && SYNC_FILTERTIME_MAX > SYNC_FILTERTYPE_ALL &&
-                ($collection["cpo"]->GetFilterType() === false || $collection["cpo"]->GetFilterType() > SYNC_FILTERTIME_MAX)) {
-                    $collection["cpo"]->SetFilterType(SYNC_FILTERTIME_MAX);
-            }
-
-            // compatibility mode AS 1.0 - get folderid which was sent during GetHierarchy()
-            if (!isset($collection["collectionid"])) {
-                $collection["collectionid"] = self::$deviceManager->GetFolderIdFromCacheByClass($collection["class"]);
-            }
-
-            // set default conflict behavior from config if the device doesn't send a conflict resolution parameter
-            if (!isset($collection["conflict"])) {
-                $collection["conflict"] = SYNC_CONFLICT_DEFAULT;
-            }
-
-            // Get our sync state for this collection
-            if ($status == SYNC_STATUS_SUCCESS) {
-                try {
-                    $collection["syncstate"] = self::$deviceManager->GetSyncState($collection["synckey"]);
-
-                    // if this request was made before, there will be a failstate available
-                    $collection["failstate"] = self::$deviceManager->GetSyncFailState();
-
-                    // if this is an additional folder the backend has to be setup correctly
-                    if (!self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore($collection["collectionid"])))
-                        throw new StatusException(sprintf("HandleSync() could not Setup() the backend for folder id '%s'", $collection["collectionid"]), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
-                }
-                catch (StateNotFoundException $snfex) {
-                    $status = SYNC_STATUS_INVALIDSYNCKEY;
-                }
-                catch (StatusException $stex) {
-                   $status = $stex->getCode();
-                }
-            }
-
-            if ($status != SYNC_STATUS_SUCCESS)
-                self::$topCollector->AnnounceInformation(sprintf("StateNotFoundException with status code: %d", $status), true);
-
-            if(self::$decoder->getElementStartTag(SYNC_PERFORM)) {
-                if ($status == SYNC_STATUS_SUCCESS) {
-                    try {
-                        // Configure importer with last state
-                        $importer = self::$backend->GetImporter($collection["collectionid"]);
-
-                        // if something goes wrong, ask the mobile to resync the hierarchy
-                        if ($importer === false)
-                            throw new StatusException(sprintf("HandleSync() could not get an importer for folder id '%s'", $collection["collectionid"]), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
-
-                        // if there is a valid state obtained after importing changes in a previous loop, we use that state
-                        if ($collection["failstate"] && isset($collection["failstate"]["failedsyncstate"])) {
-                            $importer->Config($collection["failstate"]["failedsyncstate"], $collection["conflict"]);
-                        }
-                        else
-                            $importer->Config($collection["syncstate"], $collection["conflict"]);
-                    }
-                    catch (StatusException $stex) {
-                       $status = $stex->getCode();
-                    }
-                }
-
-                $nchanges = 0;
-                while(1) {
-                    // ADD, MODIFY, REMOVE or FETCH
-                    $element = self::$decoder->getElement();
-
-                    if($element[EN_TYPE] != EN_TYPE_STARTTAG) {
-                        self::$decoder->ungetElement($element);
-                        break;
-                    }
-
-                    // before importing the first change, load potential conflicts
-                    // for the current state
-
-                    // TODO check if the failsyncstate applies for conflict detection as well
-                    if ($status == SYNC_STATUS_SUCCESS && $nchanges == 0)
-                        $importer->LoadConflicts($collection["cpo"], $collection["syncstate"]);
-
-                    if ($status == SYNC_STATUS_SUCCESS)
-                        $nchanges++;
-
-                    if(self::$decoder->getElementStartTag(SYNC_SERVERENTRYID)) {
-                        $serverid = self::$decoder->getElementContent();
-
-                        if(!self::$decoder->getElementEndTag()) // end serverid
-                            return false;
-                    }
-                    else
-                        $serverid = false;
-
-                    if(self::$decoder->getElementStartTag(SYNC_CLIENTENTRYID)) {
-                        $clientid = self::$decoder->getElementContent();
-
-                        if(!self::$decoder->getElementEndTag()) // end clientid
-                            return false;
-                    }
-                    else
-                        $clientid = false;
-
-                    // Get the SyncMessage if sent
-                    if(self::$decoder->getElementStartTag(SYNC_DATA)) {
-                        $message = ZPush::getSyncObjectFromFolderClass($collection["class"]);
-                        $message->Decode(self::$decoder);
-
-                        // set Ghosted fields
-                        $message->emptySupported(self::$deviceManager->GetSupportedFields($collection["collectionid"]));
-                        if(!self::$decoder->getElementEndTag()) // end applicationdata
-                            return false;
-                    }
-
-                    if ($status != SYNC_STATUS_SUCCESS) {
-                        ZLog::Write(LOGLEVEL_WARN, "Ignored incoming change, global status indicates problem.");
-                        continue;
-                    }
-
-                    // Detect incoming loop
-                    // messages which were created/removed before will not have the same action executed again
-                    // if a message is edited we perform this action "again", as the message could have been changed on the mobile in the meantime
-                    $ignoreMessage = false;
-                    if ($collection["failstate"]) {
-                        // message was ADDED before, do NOT add it again
-                        if ($element[EN_TAG] == SYNC_ADD && $collection["failstate"]["clientids"][$clientid]) {
-                            $ignoreMessage = true;
-
-                            // make sure no messages are sent back
-                            self::$deviceManager->SetWindowSize($collection["collectionid"], 0);
-
-                            $collection["clientids"][$clientid] = $collection["failstate"]["clientids"][$clientid];
-                            $collection["statusids"][$clientid] = $collection["failstate"]["statusids"][$clientid];
-
-                            ZLog::Write(LOGLEVEL_WARN, sprintf("Mobile loop detected! Incoming new message '%s' was created on the server before. Replying with known new server id: %s", $clientid, $collection["clientids"][$clientid]));
-                        }
-
-                        // message was REMOVED before, do NOT attemp to remove it again
-                        if ($element[EN_TAG] == SYNC_REMOVE && $collection["failstate"]["removeids"][$serverid]) {
-                            $ignoreMessage = true;
-
-                            // make sure no messages are sent back
-                            self::$deviceManager->SetWindowSize($collection["collectionid"], 0);
-
-                            $collection["removeids"][$serverid] = $collection["failstate"]["removeids"][$serverid];
-                            $collection["statusids"][$serverid] = $collection["failstate"]["statusids"][$serverid];
-
-                            ZLog::Write(LOGLEVEL_WARN, sprintf("Mobile loop detected! Message '%s' was deleted by the mobile before. Replying with known status: %s", $clientid, $collection["statusids"][$serverid]));
-                        }
-                    }
-
-                    if (!$ignoreMessage) {
-                        switch($element[EN_TAG]) {
-                            case SYNC_MODIFY:
-                                try {
-                                    $collection["modifyids"][] = $serverid;
-
-                                    if (!$message->Check()) {
-                                        $collection["statusids"][$serverid] = SYNC_STATUS_CLIENTSERVERCONVERSATIONERROR;
+                                            $collection["statusids"][$serverid] = SYNC_STATUS_SUCCESS;
+                                        }
                                     }
-                                    else {
-                                        if(isset($message->read)) // Currently, 'read' is only sent by the PDA when it is ONLY setting the read flag.
-                                            $importer->ImportMessageReadFlag($serverid, $message->read);
-                                        else
-                                            $importer->ImportMessageChange($serverid, $message);
+                                    catch (StatusException $stex) {
+                                        $collection["statusids"][$serverid] = $stex->getCode();
+                                    }
 
+                                    break;
+                                case SYNC_ADD:
+                                    try {
+                                        if (!$message->Check()) {
+                                            $collection["statusids"][$clientid] = SYNC_STATUS_CLIENTSERVERCONVERSATIONERROR;
+                                        }
+                                        else {
+                                            $collection["clientids"][$clientid] = false;
+                                            $collection["clientids"][$clientid] = $importer->ImportMessageChange(false, $message);
+                                            $collection["statusids"][$clientid] = SYNC_STATUS_SUCCESS;
+                                        }
+                                    }
+                                    catch (StatusException $stex) {
+                                       $collection["statusids"][$clientid] = $stex->getCode();
+                                    }
+                                    break;
+                                case SYNC_REMOVE:
+                                    try {
+                                        $collection["removeids"][] = $serverid;
+                                        // if message deletions are to be moved, move them
+                                        if(isset($collection["deletesasmoves"])) {
+                                            $folderid = self::$backend->GetWasteBasket();
+
+                                            if($folderid) {
+                                                $importer->ImportMessageMove($serverid, $folderid);
+                                                $collection["statusids"][$serverid] = SYNC_STATUS_SUCCESS;
+                                                break;
+                                            }
+                                            else
+                                                ZLog::Write(LOGLEVEL_WARN, "Message should be moved to WasteBasket, but the Backend did not return a destination ID. Message is hard deleted now!");
+                                        }
+
+                                        $importer->ImportMessageDeletion($serverid);
                                         $collection["statusids"][$serverid] = SYNC_STATUS_SUCCESS;
                                     }
-                                }
-                                catch (StatusException $stex) {
-                                    $collection["statusids"][$serverid] = $stex->getCode();
-                                }
-
-                                break;
-                            case SYNC_ADD:
-                                try {
-                                    if (!$message->Check()) {
-                                        $collection["statusids"][$clientid] = SYNC_STATUS_CLIENTSERVERCONVERSATIONERROR;
+                                    catch (StatusException $stex) {
+                                       $collection["statusids"][$serverid] = $stex->getCode();
                                     }
-                                    else {
-                                        $collection["clientids"][$clientid] = false;
-                                        $collection["clientids"][$clientid] = $importer->ImportMessageChange(false, $message);
-                                        $collection["statusids"][$clientid] = SYNC_STATUS_SUCCESS;
-                                    }
-                                }
-                                catch (StatusException $stex) {
-                                   $collection["statusids"][$clientid] = $stex->getCode();
-                                }
-                                break;
-                            case SYNC_REMOVE:
-                                try {
-                                    $collection["removeids"][] = $serverid;
-                                    // if message deletions are to be moved, move them
-                                    if(isset($collection["deletesasmoves"])) {
-                                        $folderid = self::$backend->GetWasteBasket();
-
-                                        if($folderid) {
-                                            $importer->ImportMessageMove($serverid, $folderid);
-                                            $collection["statusids"][$serverid] = SYNC_STATUS_SUCCESS;
-                                            break;
-                                        }
-                                        else
-                                            ZLog::Write(LOGLEVEL_WARN, "Message should be moved to WasteBasket, but the Backend did not return a destination ID. Message is hard deleted now!");
-                                    }
-
-                                    $importer->ImportMessageDeletion($serverid);
-                                    $collection["statusids"][$serverid] = SYNC_STATUS_SUCCESS;
-                                }
-                                catch (StatusException $stex) {
-                                   $collection["statusids"][$serverid] = $stex->getCode();
-                                }
-                                break;
-                            case SYNC_FETCH:
-                                array_push($collection["fetchids"], $serverid);
-                                break;
+                                    break;
+                                case SYNC_FETCH:
+                                    array_push($collection["fetchids"], $serverid);
+                                    break;
+                            }
+                            self::$topCollector->AnnounceInformation(sprintf("Incoming %d", $nchanges),($nchanges>0)?true:false);
                         }
-                        self::$topCollector->AnnounceInformation(sprintf("Incoming %d", $nchanges),($nchanges>0)?true:false);
+
+                        if(!self::$decoder->getElementEndTag()) // end add/change/delete/move
+                            return false;
                     }
 
-                    if(!self::$decoder->getElementEndTag()) // end add/change/delete/move
+                    if ($status == SYNC_STATUS_SUCCESS) {
+                        ZLog::Write(LOGLEVEL_INFO, sprintf("Processed '%d' incoming changes", $nchanges));
+                        try {
+                            // Save the updated state, which is used for the exporter later
+                            $collection["syncstate"] = $importer->GetState();
+                        }
+                        catch (StatusException $stex) {
+                           $status = $stex->getCode();
+                        }
+                    }
+
+                    if(!self::$decoder->getElementEndTag()) // end commands
                         return false;
                 }
 
-                if ($status == SYNC_STATUS_SUCCESS) {
-                    ZLog::Write(LOGLEVEL_INFO, sprintf("Processed '%d' incoming changes", $nchanges));
-                    try {
-                        // Save the updated state, which is used for the exporter later
-                        $collection["syncstate"] = $importer->GetState();
-                    }
-                    catch (StatusException $stex) {
-                       $status = $stex->getCode();
-                    }
+                // save the failsave state
+                if (!empty($collection["statusids"])) {
+                    unset($collection["failstate"]);
+                    self::$deviceManager->SetSyncFailState($collection);
                 }
 
-                if(!self::$decoder->getElementEndTag()) // end commands
+                if(!self::$decoder->getElementEndTag()) // end collections
                     return false;
+
+                array_push($collections, $collection);
             }
-
-            // save the failsave state
-            if (!empty($collection["statusids"])) {
-                unset($collection["failstate"]);
-                self::$deviceManager->SetSyncFailState($collection);
-            }
-
-            if(!self::$decoder->getElementEndTag()) // end collections
-                return false;
-
-            array_push($collections, $collection);
         }
 
-        if(!self::$decoder->getElementEndTag()) // end collections
-            return false;
+        //TODO heartbeatinterval
+        if (self::$decoder->getElementStartTag(SYNC_HEARTBEATINTERVAL)) {
+            $hbinterval = self::$decoder->getElementContent();
+            if(!self::$decoder->getElementEndTag()) // SYNC_HEARTBEATINTERVAL
+                return false;
+        }
+
+        //TODO windowsize
+        if (self::$decoder->getElementStartTag(SYNC_WINDOWSIZE)) {
+            $windowsize = self::$decoder->getElementContent();
+            if(!self::$decoder->getElementEndTag()) // SYNC_WINDOWSIZE
+                return false;
+        }
+
+        //TODO partial
+        if(self::$decoder->getElementStartTag(SYNC_PARTIAL)) {
+            $partial = true;
+        }
 
         if(!self::$decoder->getElementEndTag()) // end sync
             return false;
@@ -961,226 +977,228 @@ class RequestProcessor {
         self::$encoder->startWBXML();
         self::$encoder->startTag(SYNC_SYNCHRONIZE);
         {
-            self::$encoder->startTag(SYNC_FOLDERS);
-            {
-                foreach($collections as $collection) {
-                    // initialize exporter to get changecount
-                    $changecount = 0;
-                    //TODO observe if it works correct after merge of rev 716
-                    if($status == SYNC_STATUS_SUCCESS && (isset($collection["getchanges"]) || $collection["synckey"] == "0")) {
-                        try {
-                            // Use the state from the importer, as changes may have already happened
-                            $exporter = self::$backend->GetExporter($collection["collectionid"]);
-
-                            if ($exporter === false)
-                                throw new StatusException(sprintf("HandleSync() could not get an exporter for folder id '%s'", $collection["collectionid"]), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
-
-                            // Stream the messages directly to the PDA
-                            $streamimporter = new ImportChangesStream(self::$encoder, ZPush::getSyncObjectFromFolderClass($collection["class"]));
-
-                            $exporter->Config($collection["syncstate"]);
-                            $exporter->ConfigContentParameters($collection["cpo"]);
-                            $exporter->InitializeExporter($streamimporter);
-
-                            $changecount = $exporter->GetChangeCount();
-                        }
-                        catch (StatusException $stex) {
-                           $status = $stex->getCode();
-                        }
-                        if ($collection["synckey"] == "0")
-                            self::$topCollector->AnnounceInformation(sprintf("Exporter registered. %d objects queued.", $changecount), true);
-                        else if ($status != SYNC_STATUS_SUCCESS)
-                            self::$topCollector->AnnounceInformation(sprintf("StatusException code: %d", $status), true);
-                    }
-
-                    // Get a new sync key to output to the client if any changes have been send or will are available
-                    if (!empty($collection["modifyids"]) ||
-                        !empty($collection["clientids"]) ||
-                        !empty($collection["removeids"]) ||
-                        $changecount > 0 || $collection["synckey"] == "0")
-                            $collection["newsynckey"] = self::$deviceManager->GetNewSyncKey($collection["synckey"]);
-
-                    self::$encoder->startTag(SYNC_FOLDER);
-
-                    if(isset($collection["class"])) {
-                        self::$encoder->startTag(SYNC_FOLDERTYPE);
-                            self::$encoder->content($collection["class"]);
-                        self::$encoder->endTag();
-                    }
-
-                    self::$encoder->startTag(SYNC_SYNCKEY);
-                    if(isset($collection["newsynckey"]))
-                        self::$encoder->content($collection["newsynckey"]);
-                    else
-                        self::$encoder->content($collection["synckey"]);
-                    self::$encoder->endTag();
-
-                    self::$encoder->startTag(SYNC_FOLDERID);
-                        self::$encoder->content($collection["collectionid"]);
-                    self::$encoder->endTag();
-
-                    self::$encoder->startTag(SYNC_STATUS);
-                        self::$encoder->content($status);
-                    self::$encoder->endTag();
-
-                    // Output IDs and status for incoming items & requests
-                    if($status == SYNC_STATUS_SUCCESS && (
-                        !empty($collection["clientids"]) ||
-                        !empty($collection["modifyids"]) ||
-                        !empty($collection["removeids"]) ||
-                        !empty($collection["fetchids"]) )) {
-
-                        self::$encoder->startTag(SYNC_REPLIES);
-                        // output result of all new incoming items
-                        foreach($collection["clientids"] as $clientid => $serverid) {
-                            self::$encoder->startTag(SYNC_ADD);
-                                self::$encoder->startTag(SYNC_CLIENTENTRYID);
-                                    self::$encoder->content($clientid);
-                                self::$encoder->endTag();
-                                if ($serverid) {
-                                    self::$encoder->startTag(SYNC_SERVERENTRYID);
-                                        self::$encoder->content($serverid);
-                                    self::$encoder->endTag();
-                                }
-                                self::$encoder->startTag(SYNC_STATUS);
-                                    self::$encoder->content((isset($collection["statusids"][$clientid])?$collection["statusids"][$clientid]:SYNC_STATUS_CLIENTSERVERCONVERSATIONERROR));
-                                self::$encoder->endTag();
-                            self::$encoder->endTag();
-                        }
-
-                        // loop through modify operations which were not a success, send status
-                        foreach($collection["modifyids"] as $serverid) {
-                            if (isset($collection["statusids"][$serverid]) && $collection["statusids"][$serverid] !== SYNC_STATUS_SUCCESS) {
-                                self::$encoder->startTag(SYNC_MODIFY);
-                                    self::$encoder->startTag(SYNC_SERVERENTRYID);
-                                        self::$encoder->content($serverid);
-                                    self::$encoder->endTag();
-                                    self::$encoder->startTag(SYNC_STATUS);
-                                        self::$encoder->content($collection["statusids"][$serverid]);
-                                    self::$encoder->endTag();
-                                self::$encoder->endTag();
-                            }
-                        }
-
-                        // loop through remove operations which were not a success, send status
-                        foreach($collection["removeids"] as $serverid) {
-                            if (isset($collection["statusids"][$serverid]) && $collection["statusids"][$serverid] !== SYNC_STATUS_SUCCESS) {
-                                self::$encoder->startTag(SYNC_REMOVE);
-                                    self::$encoder->startTag(SYNC_SERVERENTRYID);
-                                        self::$encoder->content($serverid);
-                                    self::$encoder->endTag();
-                                    self::$encoder->startTag(SYNC_STATUS);
-                                        self::$encoder->content($collection["statusids"][$serverid]);
-                                    self::$encoder->endTag();
-                                self::$encoder->endTag();
-                            }
-                        }
-
-                        if (!empty($collection["fetchids"]))
-                            self::$topCollector->AnnounceInformation(sprintf("Fetching %d objects ", count($collection["fetchids"])), true);
-
-                        foreach($collection["fetchids"] as $id) {
+            if (isset($foldersync)) {
+                self::$encoder->startTag(SYNC_FOLDERS);
+                {
+                    foreach($collections as $collection) {
+                        // initialize exporter to get changecount
+                        $changecount = 0;
+                        //TODO observe if it works correct after merge of rev 716
+                        if($status == SYNC_STATUS_SUCCESS && (isset($collection["getchanges"]) || $collection["synckey"] == "0")) {
                             try {
-                                $fetchstatus = SYNC_STATUS_SUCCESS;
-                                $data = self::$backend->Fetch($collection["collectionid"], $id, $collection["cpo"]);
+                                // Use the state from the importer, as changes may have already happened
+                                $exporter = self::$backend->GetExporter($collection["collectionid"]);
 
-                                // check if the message is broken
-                                if (ZPush::GetDeviceManager(false) && ZPush::GetDeviceManager()->DoNotStreamMessage($id, $data)) {
-                                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandleSync(): message not to be streamed as requested by DeviceManager.", $id));
-                                    $fetchstatus = SYNC_STATUS_CLIENTSERVERCONVERSATIONERROR;
-                                }
+                                if ($exporter === false)
+                                    throw new StatusException(sprintf("HandleSync() could not get an exporter for folder id '%s'", $collection["collectionid"]), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
+
+                                // Stream the messages directly to the PDA
+                                $streamimporter = new ImportChangesStream(self::$encoder, ZPush::getSyncObjectFromFolderClass($collection["class"]));
+
+                                $exporter->Config($collection["syncstate"]);
+                                $exporter->ConfigContentParameters($collection["cpo"]);
+                                $exporter->InitializeExporter($streamimporter);
+
+                                $changecount = $exporter->GetChangeCount();
                             }
                             catch (StatusException $stex) {
-                               $fetchstatus = $stex->getCode();
+                               $status = $stex->getCode();
+                            }
+                            if ($collection["synckey"] == "0")
+                                self::$topCollector->AnnounceInformation(sprintf("Exporter registered. %d objects queued.", $changecount), true);
+                            else if ($status != SYNC_STATUS_SUCCESS)
+                                self::$topCollector->AnnounceInformation(sprintf("StatusException code: %d", $status), true);
+                        }
+
+                        // Get a new sync key to output to the client if any changes have been send or will are available
+                        if (!empty($collection["modifyids"]) ||
+                            !empty($collection["clientids"]) ||
+                            !empty($collection["removeids"]) ||
+                            $changecount > 0 || $collection["synckey"] == "0")
+                                $collection["newsynckey"] = self::$deviceManager->GetNewSyncKey($collection["synckey"]);
+
+                        self::$encoder->startTag(SYNC_FOLDER);
+
+                        if(isset($collection["class"])) {
+                            self::$encoder->startTag(SYNC_FOLDERTYPE);
+                                self::$encoder->content($collection["class"]);
+                            self::$encoder->endTag();
+                        }
+
+                        self::$encoder->startTag(SYNC_SYNCKEY);
+                        if(isset($collection["newsynckey"]))
+                            self::$encoder->content($collection["newsynckey"]);
+                        else
+                            self::$encoder->content($collection["synckey"]);
+                        self::$encoder->endTag();
+
+                        self::$encoder->startTag(SYNC_FOLDERID);
+                            self::$encoder->content($collection["collectionid"]);
+                        self::$encoder->endTag();
+
+                        self::$encoder->startTag(SYNC_STATUS);
+                            self::$encoder->content($status);
+                        self::$encoder->endTag();
+
+                        // Output IDs and status for incoming items & requests
+                        if($status == SYNC_STATUS_SUCCESS && (
+                            !empty($collection["clientids"]) ||
+                            !empty($collection["modifyids"]) ||
+                            !empty($collection["removeids"]) ||
+                            !empty($collection["fetchids"]) )) {
+
+                            self::$encoder->startTag(SYNC_REPLIES);
+                            // output result of all new incoming items
+                            foreach($collection["clientids"] as $clientid => $serverid) {
+                                self::$encoder->startTag(SYNC_ADD);
+                                    self::$encoder->startTag(SYNC_CLIENTENTRYID);
+                                        self::$encoder->content($clientid);
+                                    self::$encoder->endTag();
+                                    if ($serverid) {
+                                        self::$encoder->startTag(SYNC_SERVERENTRYID);
+                                            self::$encoder->content($serverid);
+                                        self::$encoder->endTag();
+                                    }
+                                    self::$encoder->startTag(SYNC_STATUS);
+                                        self::$encoder->content((isset($collection["statusids"][$clientid])?$collection["statusids"][$clientid]:SYNC_STATUS_CLIENTSERVERCONVERSATIONERROR));
+                                    self::$encoder->endTag();
+                                self::$encoder->endTag();
                             }
 
-                            self::$encoder->startTag(SYNC_FETCH);
-                                self::$encoder->startTag(SYNC_SERVERENTRYID);
-                                    self::$encoder->content($id);
-                                self::$encoder->endTag();
-
-                                self::$encoder->startTag(SYNC_STATUS);
-                                    self::$encoder->content($fetchstatus);
-                                self::$encoder->endTag();
-
-                                if($data !== false && $status == SYNC_STATUS_SUCCESS) {
-                                    self::$encoder->startTag(SYNC_DATA);
-                                        $data->Encode(self::$encoder);
+                            // loop through modify operations which were not a success, send status
+                            foreach($collection["modifyids"] as $serverid) {
+                                if (isset($collection["statusids"][$serverid]) && $collection["statusids"][$serverid] !== SYNC_STATUS_SUCCESS) {
+                                    self::$encoder->startTag(SYNC_MODIFY);
+                                        self::$encoder->startTag(SYNC_SERVERENTRYID);
+                                            self::$encoder->content($serverid);
+                                        self::$encoder->endTag();
+                                        self::$encoder->startTag(SYNC_STATUS);
+                                            self::$encoder->content($collection["statusids"][$serverid]);
+                                        self::$encoder->endTag();
                                     self::$encoder->endTag();
                                 }
-                                else
-                                    ZLog::Write(LOGLEVEL_WARN, sprintf("Unable to Fetch '%s'", $id));
-                            self::$encoder->endTag();
-
-                        }
-                        self::$encoder->endTag();
-                    }
-
-                    if(isset($collection["getchanges"])) {
-                        $windowSize = self::$deviceManager->GetWindowSize($collection["collectionid"], $collection["class"], $changecount);
-
-                        if($changecount > $windowSize) {
-                            self::$encoder->startTag(SYNC_MOREAVAILABLE, false, true);
-                        }
-                    }
-
-                    // Stream outgoing changes
-                    if($status == SYNC_STATUS_SUCCESS && isset($collection["getchanges"]) && $windowSize > 0) {
-                        self::$topCollector->AnnounceInformation(sprintf("Streaming data of %d objects", (($changecount > $windowSize)?$windowSize:$changecount)));
-
-                        // Output message changes per folder
-                        self::$encoder->startTag(SYNC_PERFORM);
-
-                        $n = 0;
-                        while(1) {
-                            $progress = $exporter->Synchronize();
-                            if(!is_array($progress))
-                                break;
-                            $n++;
-
-                            if($n >= $windowSize) {
-                                ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandleSync(): Exported maxItems of messages: %d / %d", $n, $changecount));
-                                break;
                             }
 
+                            // loop through remove operations which were not a success, send status
+                            foreach($collection["removeids"] as $serverid) {
+                                if (isset($collection["statusids"][$serverid]) && $collection["statusids"][$serverid] !== SYNC_STATUS_SUCCESS) {
+                                    self::$encoder->startTag(SYNC_REMOVE);
+                                        self::$encoder->startTag(SYNC_SERVERENTRYID);
+                                            self::$encoder->content($serverid);
+                                        self::$encoder->endTag();
+                                        self::$encoder->startTag(SYNC_STATUS);
+                                            self::$encoder->content($collection["statusids"][$serverid]);
+                                        self::$encoder->endTag();
+                                    self::$encoder->endTag();
+                                }
+                            }
+
+                            if (!empty($collection["fetchids"]))
+                                self::$topCollector->AnnounceInformation(sprintf("Fetching %d objects ", count($collection["fetchids"])), true);
+
+                            foreach($collection["fetchids"] as $id) {
+                                try {
+                                    $fetchstatus = SYNC_STATUS_SUCCESS;
+                                    $data = self::$backend->Fetch($collection["collectionid"], $id, $collection["cpo"]);
+
+                                    // check if the message is broken
+                                    if (ZPush::GetDeviceManager(false) && ZPush::GetDeviceManager()->DoNotStreamMessage($id, $data)) {
+                                        ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandleSync(): message not to be streamed as requested by DeviceManager.", $id));
+                                        $fetchstatus = SYNC_STATUS_CLIENTSERVERCONVERSATIONERROR;
+                                    }
+                                }
+                                catch (StatusException $stex) {
+                                   $fetchstatus = $stex->getCode();
+                                }
+
+                                self::$encoder->startTag(SYNC_FETCH);
+                                    self::$encoder->startTag(SYNC_SERVERENTRYID);
+                                        self::$encoder->content($id);
+                                    self::$encoder->endTag();
+
+                                    self::$encoder->startTag(SYNC_STATUS);
+                                        self::$encoder->content($fetchstatus);
+                                    self::$encoder->endTag();
+
+                                    if($data !== false && $status == SYNC_STATUS_SUCCESS) {
+                                        self::$encoder->startTag(SYNC_DATA);
+                                            $data->Encode(self::$encoder);
+                                        self::$encoder->endTag();
+                                    }
+                                    else
+                                        ZLog::Write(LOGLEVEL_WARN, sprintf("Unable to Fetch '%s'", $id));
+                                self::$encoder->endTag();
+
+                            }
+                            self::$encoder->endTag();
                         }
+
+                        if(isset($collection["getchanges"])) {
+                            $windowSize = self::$deviceManager->GetWindowSize($collection["collectionid"], $collection["class"], $changecount);
+
+                            if($changecount > $windowSize) {
+                                self::$encoder->startTag(SYNC_MOREAVAILABLE, false, true);
+                            }
+                        }
+
+                        // Stream outgoing changes
+                        if($status == SYNC_STATUS_SUCCESS && isset($collection["getchanges"]) && $windowSize > 0) {
+                            self::$topCollector->AnnounceInformation(sprintf("Streaming data of %d objects", (($changecount > $windowSize)?$windowSize:$changecount)));
+
+                            // Output message changes per folder
+                            self::$encoder->startTag(SYNC_PERFORM);
+
+                            $n = 0;
+                            while(1) {
+                                $progress = $exporter->Synchronize();
+                                if(!is_array($progress))
+                                    break;
+                                $n++;
+
+                                if($n >= $windowSize) {
+                                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandleSync(): Exported maxItems of messages: %d / %d", $n, $changecount));
+                                    break;
+                                }
+
+                            }
+                            self::$encoder->endTag();
+                            self::$topCollector->AnnounceInformation(sprintf("Outgoing %d objects%s", $n, ($n >= $windowSize)?" of ".$changecount:""), true);
+                        }
+
                         self::$encoder->endTag();
-                        self::$topCollector->AnnounceInformation(sprintf("Outgoing %d objects%s", $n, ($n >= $windowSize)?" of ".$changecount:""), true);
-                    }
 
-                    self::$encoder->endTag();
+                        // Save the sync state for the next time
+                        if(isset($collection["newsynckey"])) {
+                            self::$topCollector->AnnounceInformation("Saving state");
 
-                    // Save the sync state for the next time
-                    if(isset($collection["newsynckey"])) {
-                        self::$topCollector->AnnounceInformation("Saving state");
+                            try {
+                                if (isset($exporter) && $exporter)
+                                    $state = $exporter->GetState();
 
-                        try {
-                            if (isset($exporter) && $exporter)
-                                $state = $exporter->GetState();
+                                // nothing exported, but possibly imported
+                                else if (isset($importer) && $importer)
+                                    $state = $importer->GetState();
 
-                            // nothing exported, but possibly imported
-                            else if (isset($importer) && $importer)
-                                $state = $importer->GetState();
+                                // if a new request without state information (hierarchy) save an empty state
+                                else if ($collection["synckey"] == "0")
+                                    $state = "";
+                            }
+                            catch (StatusException $stex) {
+                               $status = $stex->getCode();
+                            }
 
-                            // if a new request without state information (hierarchy) save an empty state
-                            else if ($collection["synckey"] == "0")
-                                $state = "";
+
+                            if (isset($state) && $status == SYNC_STATUS_SUCCESS)
+                                self::$deviceManager->SetSyncState($collection["newsynckey"], $state, $collection["collectionid"]);
+                            else
+                                ZLog::Write(LOGLEVEL_ERROR, sprintf("HandleSync(): error saving '%s' - no state information available", $collection["newsynckey"]));
                         }
-                        catch (StatusException $stex) {
-                           $status = $stex->getCode();
-                        }
-
-
-                        if (isset($state) && $status == SYNC_STATUS_SUCCESS)
-                            self::$deviceManager->SetSyncState($collection["newsynckey"], $state, $collection["collectionid"]);
-                        else
-                            ZLog::Write(LOGLEVEL_ERROR, sprintf("HandleSync(): error saving '%s' - no state information available", $collection["newsynckey"]));
                     }
                 }
+                self::$encoder->endTag(); //SYNC_FOLDERS
             }
-            self::$encoder->endTag();
         }
-        self::$encoder->endTag();
+        self::$encoder->endTag(); //SYNC_SYNCHRONIZE
 
         return true;
     }
@@ -1203,49 +1221,97 @@ class RequestProcessor {
 
         while(self::$decoder->getElementStartTag(SYNC_GETITEMESTIMATE_FOLDER)) {
             $collection = array();
+            $collection["cpo"] = new ContentParameters();
 
-            if(!self::$decoder->getElementStartTag(SYNC_GETITEMESTIMATE_FOLDERTYPE))
-                return false;
+            if (Request::GetProtocolVersion() >= 14.0) {
+                if(self::$decoder->getElementStartTag(SYNC_SYNCKEY)) {
+                    $synckey = self::$decoder->getElementContent();
 
-            $class = self::$decoder->getElementContent();
+                    if(!self::$decoder->getElementEndTag())
+                        return false;
+                }
 
-            if(!self::$decoder->getElementEndTag())
-                return false;
+                if(self::$decoder->getElementStartTag(SYNC_GETITEMESTIMATE_FOLDERID)) {
+                    $collectionid = self::$decoder->getElementContent();
 
-            if(self::$decoder->getElementStartTag(SYNC_GETITEMESTIMATE_FOLDERID)) {
-                $collectionid = self::$decoder->getElementContent();
+                    if(!self::$decoder->getElementEndTag())
+                        return false;
+                }
+
+                if(self::$decoder->getElementStartTag(SYNC_OPTIONS)) {
+                    while(1) {
+                        if(self::$decoder->getElementStartTag(SYNC_FILTERTYPE)) {
+                            $collection["cpo"]->SetFilterType(self::$decoder->getElementContent());
+                            if(!self::$decoder->getElementEndTag())
+                                return false;
+                        }
+
+                        if(self::$decoder->getElementStartTag(SYNC_FOLDERTYPE)) {
+                            $class = self::$decoder->getElementContent();
+                            if(!self::$decoder->getElementEndTag())
+                                return false;
+                        }
+                        //TODO handle maxitems
+                        if(self::$decoder->getElementStartTag(SYNC_MAXITEMS)) {
+                            $maxitems = self::$decoder->getElementContent();
+                            if(!self::$decoder->getElementEndTag())
+                                return false;
+                        }
+
+                        $e = self::$decoder->peek();
+                        if($e[EN_TYPE] == EN_TYPE_ENDTAG) {
+                            self::$decoder->getElementEndTag();
+                            break;
+                        }
+                    }
+                }
+            }
+            else {
+                if(!self::$decoder->getElementStartTag(SYNC_GETITEMESTIMATE_FOLDERTYPE))
+                    return false;
+
+                $class = self::$decoder->getElementContent();
+
+                if(!self::$decoder->getElementEndTag())
+                    return false;
+
+                if(self::$decoder->getElementStartTag(SYNC_GETITEMESTIMATE_FOLDERID)) {
+                    $collectionid = self::$decoder->getElementContent();
+
+                    if(!self::$decoder->getElementEndTag())
+                        return false;
+                }
+
+                if(!self::$decoder->getElementStartTag(SYNC_FILTERTYPE))
+                    return false;
+
+                $filtertype = self::$decoder->getElementContent();
+
+                if(!self::$decoder->getElementEndTag())
+                    return false;
+
+                if(!self::$decoder->getElementStartTag(SYNC_SYNCKEY))
+                    return false;
+
+                $synckey = self::$decoder->getElementContent();
 
                 if(!self::$decoder->getElementEndTag())
                     return false;
             }
-
-            if(!self::$decoder->getElementStartTag(SYNC_FILTERTYPE))
-                return false;
-
-            $filtertype = self::$decoder->getElementContent();
-
             if(!self::$decoder->getElementEndTag())
-                return false;
+                return false; //SYNC_GETITEMESTIMATE_FOLDER
 
-            if(!self::$decoder->getElementStartTag(SYNC_SYNCKEY))
-                return false;
-
-            $synckey = self::$decoder->getElementContent();
-
-            if(!self::$decoder->getElementEndTag())
-                return false;
-            if(!self::$decoder->getElementEndTag())
-                return false;
+            //In AS 14 request only collectionid is sent, without class
+            if (!isset($class) && isset($collectionid))
+                $class = self::$deviceManager->GetFolderClassFromCacheByID($collectionid);
 
             // compatibility mode AS 1.0 - get folderid which was sent during GetHierarchy()
             if (!isset($collectionid)) {
                 $collectionid = self::$deviceManager->GetFolderIdFromCacheByClass($class);
             }
 
-            $collection = array();
             $collection["synckey"] = $synckey;
             $collection["class"] = $class;
-            $collection["cpo"] = new ContentParameters();
             $collection["cpo"]->SetContentClass($class);
             $collection["cpo"]->SetFilterType($filtertype);
             $collection["collectionid"] = $collectionid;
