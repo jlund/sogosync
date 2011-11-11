@@ -116,7 +116,9 @@ class Request {
         if(isset($_SERVER["REMOTE_ADDR"]))
             self::$remoteAddr = self::filterEvilInput($_SERVER["REMOTE_ADDR"], self::NUMBERSDOT_ONLY);
 
-        //TODO AS 14 style query string
+        //in base64 encoded query string user is not set
+        if (!isset(self::$getUser) && isset($_SERVER['PHP_AUTH_USER']))
+            list(self::$getUser,) = Utils::SplitDomainUser($_SERVER['PHP_AUTH_USER']);
     }
 
     /**
@@ -130,13 +132,38 @@ class Request {
         self::$asProtocolVersion = (isset(self::$headers["ms-asprotocolversion"]))? self::filterEvilInput(self::$headers["ms-asprotocolversion"], self::NUMBERSDOT_ONLY) : "1.0";
         self::$useragent = (isset(self::$headers["user-agent"]))? self::$headers["user-agent"] : "unknown";
 
-        if (isset(self::$headers["x-ms-policykey"]))
+        if (!isset(self::$policykey) && isset(self::$headers["x-ms-policykey"]))
             self::$policykey = (int) self::filterEvilInput(self::$headers["x-ms-policykey"], self::NUMBERS_ONLY);
         else
             self::$policykey = 0;
 
-        ZLog::Write(LOGLEVEL_DEBUG, "Incoming PolicyKey: " . (self::WasPolicyKeySent() ? self::$policykey:'none'));
-        ZLog::Write(LOGLEVEL_DEBUG, "Client supports version: " . self::$asProtocolVersion);
+        if (!isset(self::$command) && !empty($_SERVER['QUERY_STRING']) && Utils::IsBase64String($_SERVER['QUERY_STRING'])) {
+            ZLog::Write(LOGLEVEL_WBXML, "Decoding base64 encoded query string");
+            $query = Utils::DecodeBase64URI($_SERVER['QUERY_STRING']);
+            if (!isset(self::$command) && isset($query['Command']))
+                self::$command = Utils::GetCommandFromCode($query['Command']);
+
+            if (!isset(self::$getUser) && isset($query[self::COMMANDPARAM_USER]))
+                self::$getUser = $query[self::COMMANDPARAM_USER];
+
+            if (!isset(self::$devid) && isset($query['DevID']))
+                self::$devid = self::filterEvilInput($query['DevID'], self::WORDCHAR_ONLY);
+
+            if (!isset(self::$devtype) && isset($query['DevType']))
+                self::$devtype = self::filterEvilInput($query['DevType'], self::LETTERS_ONLY);
+
+            if (isset($query['PolKey'])) {
+                self::$policykey = (int) self::filterEvilInput($query['PolKey'], self::NUMBERS_ONLY);
+                self::$headers["x-ms-policykey"] = self::$policykey;
+            }
+
+            if (isset($query['ProtVer'])) {
+                self::$asProtocolVersion = self::filterEvilInput($query['ProtVer'], self::NUMBERSDOT_ONLY) / 10;
+                self::$headers["ms-asprotocolversion"] = self::$asProtocolVersion;
+            }
+
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("command: '%s', user:'%s', devid:'%s', devtype:'%s', protversion:'%f'", self::$command, self::$getUser, self::$devid, self::$devtype, self::$asProtocolVersion));
+        }
 
     }
 
