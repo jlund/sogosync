@@ -57,6 +57,7 @@ class SyncTaskRecurrence extends SyncObject {
     public $dayofmonth;
     public $weekofmonth;
     public $monthofyear;
+    public $deadoccur;
 
     function SyncTaskRecurrence() {
         $mapping = array (
@@ -84,6 +85,9 @@ class SyncTaskRecurrence extends SyncObject {
                     SYNC_POOMTASKS_INTERVAL                             => array (  self::STREAMER_VAR      => "interval",
                                                                                     self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_CMPHIGHER  => 0,
                                                                                                                         self::STREAMER_CHECK_CMPLOWER   => 1000 )),
+
+                    //TODO: check iOS5 sends deadoccur inside of the recurrence
+                    SYNC_POOMTASKS_DEADOCCUR                            => array (  self::STREAMER_VAR      => "deadoccur"),
 
                     // DayOfWeek values
                     //   1 = Sunday
