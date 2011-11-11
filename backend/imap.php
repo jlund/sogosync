@@ -814,11 +814,12 @@ class BackendIMAP extends BackendDiff {
             if ($search !== false)
                 $sequence = implode(",", $search);
         }
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("BackendIMAP->GetMessageList(): searching with sequence '%s'", $sequence));
         $overviews = @imap_fetch_overview($this->mbox, $sequence);
 
         if (!$overviews || !is_array($overviews)) {
             ZLog::Write(LOGLEVEL_WARN, sprintf("BackendIMAP->GetMessageList('%s','%s'): Failed to retrieve overview: %s",$folderid, $cutoffdate, imap_last_error()));
-            return false;
+            return $messages;
         }
 
         foreach($overviews as $overview) {
