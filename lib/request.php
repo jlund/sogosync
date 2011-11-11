@@ -53,6 +53,22 @@ class Request {
     const NUMBERSDOT_ONLY = 5;
     const HEX_EXTENDED = 6;
 
+    /**
+     * Command parameters for base64 encoded requests (AS >= 12.1)
+     */
+    const COMMANDPARAM_ATTACHMENTNAME = 0;
+    const COMMANDPARAM_COLLECTIONID = 1; //deprecated
+    const COMMANDPARAM_COLLECTIONNAME = 2; //deprecated
+    const COMMANDPARAM_ITEMID = 3;
+    const COMMANDPARAM_LONGID = 4;
+    const COMMANDPARAM_PARENTID = 5; //deprecated
+    const COMMANDPARAM_OCCURRENCE = 6;
+    const COMMANDPARAM_OPTIONS = 7; //used by SmartReply, SmartForward, SendMail, ItemOperations
+    const COMMANDPARAM_USER = 8; //used by any command
+    //possible bitflags for COMMANDPARAM_OPTIONS
+    const COMMANDPARAM_OPTIONS_SAVEINSENT = 0x01;
+    const COMMANDPARAM_OPTIONS_ACCEPTMULTIPART = 0x02;
+
     static private $input;
     static private $output;
     static private $headers;
