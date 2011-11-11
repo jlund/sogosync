@@ -83,7 +83,7 @@ class ZPush {
     const COMMAND_MOVECOLLECTION = -4;
     const COMMAND_NOTIFY = -5;
 
-    static private $supportedASVersions = array("1.0","2.0","2.1","2.5");
+    static private $supportedASVersions = array("1.0","2.0","2.1","2.5","12.0","12.1", "14.0");
     static private $supportedCommands = array(
                                             self::COMMAND_SYNC              => false,
                                             self::COMMAND_SENDMAIL          => array(self::PLAININPUT),
@@ -542,8 +542,7 @@ END;
      * @return string
      */
     static public function GetServerHeader() {
-        // TODO review version number
-        return "MS-Server-ActiveSync: 6.5.7638.1";
+        return "MS-Server-ActiveSync: 14.0";
     }
 
     /**
