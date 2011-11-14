@@ -1199,7 +1199,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         }
         $user = mapi_zarafa_getuser($this->defaultstore, $this->mainUser);
         if ($user != false) {
-            $userInformation->Status = SYNC_SETTINGSSTATUS_USERINFO_SUCCESS;
+            $userinformation->Status = SYNC_SETTINGSSTATUS_USERINFO_SUCCESS;
             $userinformation->emailaddresses[] = $user["emailaddress"];
             return true;
         }
