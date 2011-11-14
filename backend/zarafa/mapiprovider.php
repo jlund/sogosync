@@ -1951,7 +1951,7 @@ class MAPIProvider {
             $message->asbody->type = $bpReturnType;
             $this->setMessageBodyForType($mapimessage, $bpReturnType, $message);
             //only set the truncation size data if device set it in request
-            if ($bpo->GetTruncationSize() != false && $message->asbody->estimatedDataSize > $bpo->GetTruncationSize()) {
+            if ($bpo->GetTruncationSize() != false && $bpReturnType != SYNC_BODYPREFERENCE_MIME && $message->asbody->estimatedDataSize > $bpo->GetTruncationSize()) {
                 $message->asbody->data = substr($message->asbody->data, 0, $bpo->GetTruncationSize());
                 $message->asbody->truncated = 1;
             }
