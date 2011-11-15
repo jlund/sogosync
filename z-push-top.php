@@ -408,11 +408,15 @@ class ZPushTop {
                     $this->status = "w i d e  view";
                     $this->statusexpire = $this->currenttime+2;
                 }
-                // TODO check if pid exists
-                else if ($cmds[0] == "log" && isset($cmds[1]) ) {
-                    system('bash -c "fgrep -a '.escapeshellarg($cmds[1]).' /var/log/z-push/z-push.log | less +G" > `tty`');
-                    $this->status = "Returning from log";
-                    $this->statusexpire = $this->currenttime+5;
+                else if (($cmds[0] == "log"  || $cmds[0] == "l") && isset($cmds[1]) ) {
+                    if (!file_exists(LOGFILE)) {
+                        $this->status = "Logfile can not be found: ". LOGFILE;
+                    }
+                    else {
+                        system('bash -c "fgrep -a '.escapeshellarg($cmds[1]).' '. LOGFILE .' | less +G" > `tty`');
+                        $this->status = "Returning from log, updating data";
+                    }
+                    $this->statusexpire = time()+5; // it might be much "later" now
                 }
                 else if ($cmds[0] != "") {
                     $this->status = sprintf("Command '%s' unknown", $cmds[0]);
@@ -482,8 +486,8 @@ class ZPushTop {
      * @return string
      */
     private function getVersion() {
-        if (ZPUSH_VERSION == "SVN checkout" && file_exists(".svn/entries")) {
-            $svn = file(".svn/entries");
+        if (ZPUSH_VERSION == "SVN checkout" && file_exists(BASE_PATH.".svn/entries")) {
+            $svn = file(BASE_PATH.".svn/entries");
             return "SVN " . substr(trim($svn[4]),stripos($svn[4],"z-push")+7) ." r".trim($svn[3]);
         }
         return ZPUSH_VERSION;
