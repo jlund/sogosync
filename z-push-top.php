@@ -372,7 +372,7 @@ class ZPushTop {
                 $this->action .= trim(preg_replace("/[^A-Za-z0-9:]/","",$ans[1]));
             }
 
-            if (bin2hex($ans[1]) == "0a")  {
+            if (bin2hex($ans[0]) == "30" && bin2hex($ans[1]) == "0a")  {
                 $cmds = explode(':', $this->action);
                 if ($cmds[0] == "quit" || $cmds[0] == "q" || (isset($cmds[1]) && $cmds[0] == "" && $cmds[1] == "q")) {
                     $this->topCollector->CollectData(true);
