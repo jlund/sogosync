@@ -58,6 +58,7 @@ include ("lib/topcollector.php");
 /************************************************
  * MAIN
  */
+    ZPush::CheckConfig();
     $zpt = new ZPushTop();
     if ($zpt->IsAvailable()) {
         $zpt->run();
