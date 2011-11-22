@@ -107,6 +107,7 @@ class ZPushTop {
         $this->filter = false;
         $this->status = false;
         $this->statusexpire = 0;
+        $this->helpexpire = 0;
         $this->wide = false;
         $this->terminate = false;
         $this->scrSize = array('width' => 80, 'height' => 24);
@@ -282,6 +283,17 @@ class ZPushTop {
 
         $this->scrPrintAt($lc,0, "\033[4m". $this->getLine(array('pid'=>'PID', 'ip'=>'IP', 'user'=>'USER', 'command'=>'COMMAND', 'time'=>'TIME', 'devagent'=>'AGENT', 'devid'=>'DEVID', 'addinfo'=>'Additional Information')). str_repeat(" ",20)."\033[0m"); $lc++;
 
+        // print help text if requested
+        if ($this->helpexpire > $this->currenttime) {
+            $help = $this->scrHelp();
+            $linesAvail -= count($help);
+            $hl = $this->scrSize['height'] - count($help) -1;
+            foreach ($help as $h) {
+                $this->scrPrintAt($hl,0, $h);
+                $hl++;
+            }
+        }
+
         $toPrintUpdate = $linesAvail;
         $toPrintActive = $linesAvail;
         $toPrintUnknown = $linesAvail;
@@ -336,8 +348,9 @@ class ZPushTop {
         if ($this->statusexpire < $this->currenttime)
             $this->status = false;
 
+        // show request information and help command
         if ($this->starttime + 6 > $this->currenttime) {
-            $this->status = "Requesting information". str_repeat(".", ($this->currenttime-$this->starttime));
+            $this->status = "Requesting information". str_repeat(".", ($this->currenttime-$this->starttime)) . "  type \033[01;31mh\033[00;31m or \033[01;31mhelp\033[00;31m for usage instructions";
             $this->statusexpire = $this->currenttime+1;
         }
 
@@ -400,14 +413,17 @@ class ZPushTop {
                 else if ($cmds[0] == "reset"|| $cmds[0] == "r") {
                     $this->filter = false;
                     $this->wide = false;
+                    $this->helpexpire = 0;
                     $this->status = "resetted";
                     $this->statusexpire = $this->currenttime+2;
-
                 }
                 else if ($cmds[0] == "wide" || $cmds[0] == "w") {
                     $this->wide = true;
                     $this->status = "w i d e  view";
                     $this->statusexpire = $this->currenttime+2;
+                }
+                else if ($cmds[0] == "help"|| $cmds[0] == "h") {
+                    $this->helpexpire = $this->currenttime+15;
                 }
                 else if (($cmds[0] == "log"  || $cmds[0] == "l") && isset($cmds[1]) ) {
                     if (!file_exists(LOGFILE)) {
@@ -426,6 +442,39 @@ class ZPushTop {
                 $this->action = "";
             }
         }
+    }
+
+    /**
+     * Prints a 'help' text at the end of the page
+     *
+     * @access private
+     * @return array        with help lines
+     */
+    private function scrHelp() {
+        $h = array();
+        $secs = $this->helpexpire - $this->currenttime;
+        $h[] = "Actions supported by Z-Push-Top (help page still displayed for ".$secs."secs)";
+        $h[] = "  ".$this->scrAsBold("Action")."\t\t".$this->scrAsBold("Comment");
+        $h[] = "  ".$this->scrAsBold("h")." or ".$this->scrAsBold("help")."\t\tDisplays this information.";
+        $h[] = "  ".$this->scrAsBold("q").", ".$this->scrAsBold("quit")." or ".$this->scrAsBold(":q")."\t\tExits Z-Push-Top.";
+        $h[] = "  ".$this->scrAsBold("w")." or ".$this->scrAsBold("wide")."\t\tDisplays more data per line. Automatically done if more than 150 columns available.";
+        $h[] = "  ".$this->scrAsBold("f:VAL")." or ".$this->scrAsBold("filter:VAL")."\tOnly display lines which contain VAL. This  value is case-insensitive.";
+        $h[] = "  ".$this->scrAsBold("f:")." or ".$this->scrAsBold("filter:")."\t\tWithout a search word: resets the filter.";
+        $h[] = "  ".$this->scrAsBold("l:PID")." or ".$this->scrAsBold("log:PID")."\tGreps through the z-push log file searching for this process.";
+        $h[] = "  ".$this->scrAsBold("r")." or ".$this->scrAsBold("reset")."\t\tResets 'wide' or 'filter'.";
+        return $h;
+    }
+
+    /**
+     * Encapsulates string with different color escape characters
+     *
+     * @param string        $text
+     *
+     * @access private
+     * @return string       same text as bold
+     */
+    private function scrAsBold($text) {
+        return "\033[01m" . $text  ."\033[0m";
     }
 
     /**
