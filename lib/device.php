@@ -413,11 +413,8 @@ class ASDevice {
      * @return object   HierarchyCache
      */
     public function GetHierarchyCache() {
-        if (!isset($this->hierarchyCache)) {
-            ZLog::Write(LOGLEVEL_WARN, "The HierarchyCache should have been initialized by now. Getting empty cache").
-            // TODO this should also trigger a full hierarchy resync???
+        if (!isset($this->hierarchyCache))
             $this->SetHierarchyCache();
-        }
 
         ZLog::Write(LOGLEVEL_DEBUG, "ASDevice->GetHierarchyCache(): ". $this->hierarchyCache->GetStat());
         return $this->hierarchyCache;
