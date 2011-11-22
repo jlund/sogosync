@@ -50,6 +50,7 @@ class ContentParameters {
     private $rtftruncation = false;
     private $mimesupport = false;
     private $mimetruncation = false;
+    private $conversationmode = false;
 
 
     /**
@@ -182,6 +183,28 @@ class ContentParameters {
      */
     public function SetMimeTruncation($mimetruncation) {
         $this->mimetruncation = $mimetruncation;
+    }
+
+    /**
+     * Gets the conversation mode flag
+     *
+     * @access public
+     * @return int/boolean          returns false if value is not defined
+     */
+    public function GetConversationMode() {
+        return $this->conversationmode;
+    }
+
+    /**
+     * Sets the conversation mode flag
+     *
+     * @param boolean   $conversationmode
+     *
+     * @access public
+     * @return
+     */
+    public function SetConversationMode($conversationmode) {
+        $this->conversationmode = $conversationmode;
     }
 
     /**

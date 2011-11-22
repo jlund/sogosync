@@ -551,6 +551,7 @@ class RequestProcessor {
                 $collection["removeids"] = array();
                 $collection["fetchids"] = array();
                 $collection["statusids"] = array();
+                $collection["cpo"] = new ContentParameters();
 
                 //for AS versions < 2.5
                 if(self::$decoder->getElementStartTag(SYNC_FOLDERTYPE)) {
@@ -576,6 +577,16 @@ class RequestProcessor {
                         return false;
                 }
 
+                // conversation mode requested
+                if(self::$decoder->getElementStartTag(SYNC_CONVERSATIONMODE)) {
+                    $collection["cpo"]->SetConversationMode(true);
+                    if(($conversationmode = self::$decoder->getElementContent()) !== false) {
+                        $collection["cpo"]->SetConversationMode((boolean)$conversationmode);
+                        if(!self::$decoder->getElementEndTag())
+                            return false;
+                    }
+                }
+
                 // Get class for as versions >= 12.0
                 if (!isset($collection["class"])) {
                     try {
@@ -587,6 +598,7 @@ class RequestProcessor {
                         self::$deviceManager->ForceFullResync();
                     }
                 }
+                $collection["cpo"]->SetContentClass($collection["class"]);
                 self::$topCollector->AnnounceInformation(sprintf("%s",$collection["class"]), true);
 
                 // SUPPORTED properties
@@ -628,8 +640,6 @@ class RequestProcessor {
                 }
 
                 // Save all OPTIONS into a ContentParameters object
-                $collection["cpo"] = new ContentParameters();
-                $collection["cpo"]->SetContentClass($collection["class"]);
                 $collection["cpo"]->SetTruncation(SYNC_TRUNCATION_ALL);
 
                 if(self::$decoder->getElementStartTag(SYNC_OPTIONS)) {
@@ -1239,6 +1249,16 @@ class RequestProcessor {
 
                     if(!self::$decoder->getElementEndTag())
                         return false;
+                }
+
+                // conversation mode requested
+                if(self::$decoder->getElementStartTag(SYNC_CONVERSATIONMODE)) {
+                    $collection["cpo"]->SetConversationMode(true);
+                    if(($conversationmode = self::$decoder->getElementContent()) !== false) {
+                        $collection["cpo"]->SetConversationMode((boolean)$conversationmode);
+                        if(!self::$decoder->getElementEndTag())
+                            return false;
+                    }
                 }
 
                 if(self::$decoder->getElementStartTag(SYNC_OPTIONS)) {
