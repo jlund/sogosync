@@ -70,8 +70,8 @@ abstract class InterProcessData {
         if (!isset($this->type) || !isset($this->allocate))
             throw new FatalNotImplementedException(sprintf("Class InterProcessData can not be initialized. Subclass %s did not initialize type and allocable memory.", get_class($this)));
 
-        $this->InitSharedMem();
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("InterProcessData(): Initialized mutexid %s and latest memid %s.", $this->mutexid, $this->memid));
+        if ($this->InitSharedMem())
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("InterProcessData(): Initialized mutexid %s and latest memid %s.", $this->mutexid, $this->memid));
     }
 
     /**
@@ -84,6 +84,11 @@ abstract class InterProcessData {
         // shared mem general "turn off switch"
         if (defined("USE_SHARED_MEM") && USE_SHARED_MEM === false) {
             ZLog::Write(LOGLEVEL_INFO, "InterProcessData::InitSharedMem(): the usage of shared memory for Z-Push has been disabled. Check your config for 'USE_SHARED_MEM'.");
+            return false;
+        }
+
+        if (!function_exists('sem_get') || !function_exists('shm_attach') || !function_exists('sem_acquire')|| !function_exists('shm_get_var')) {
+            ZLog::Write(LOGLEVEL_INFO, "InterProcessData::InitSharedMem(): PHP libraries for the use shared memory are not availble. Functionalities like z-push-top or loop detection are not available. Check your php packages.");
             return false;
         }
 
