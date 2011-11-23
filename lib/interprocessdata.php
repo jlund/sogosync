@@ -71,7 +71,7 @@ abstract class InterProcessData {
             throw new FatalNotImplementedException(sprintf("Class InterProcessData can not be initialized. Subclass %s did not initialize type and allocable memory.", get_class($this)));
 
         if ($this->InitSharedMem())
-            ZLog::Write(LOGLEVEL_DEBUG, sprintf("InterProcessData(): Initialized mutexid %s and latest memid %s.", $this->mutexid, $this->memid));
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("%s(): Initialized mutexid %s and memid %s.", get_class($this), $this->mutexid, $this->memid));
     }
 
     /**
