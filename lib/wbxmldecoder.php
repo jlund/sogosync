@@ -58,6 +58,11 @@ class WBXMLDecoder extends WBXMLDefs {
 
     private $logStack = array();
 
+    private $inputBuffer = "";
+    private $isWBXML = true;
+
+    const VERSION = 0x03;
+
     /**
      * WBXML Decode Constructor
      *
@@ -71,7 +76,12 @@ class WBXMLDecoder extends WBXMLDefs {
 
         $this->in = $input;
 
-        $this->version = $this->getByte();
+        $this->readVersion();
+        if (isset($this->version) && $this->version != self::VERSION) {
+            $this->isWBXML = false;
+            return;
+        }
+
         $this->publicid = $this->getMBUInt();
         if($this->publicid == 0) {
             $this->publicstringid = $this->getMBUInt();
@@ -206,6 +216,32 @@ class WBXMLDecoder extends WBXMLDefs {
 
         $this->ungetbuffer = $element;
     }
+
+    /**
+     * Returns the plain input stream
+     *
+     * @access public
+     * @return string
+     */
+    public function GetPlainInputStream() {
+        $plain = $this->inputBuffer;
+        while($data = fread($this->in, 4096))
+            $plain .= $data;
+
+        return $plain;
+    }
+
+    /**
+     * Returns if the input is WBXML
+     *
+     * @access public
+     * @return boolean
+     */
+    public function IsWBXML() {
+        return $this->isWBXML;
+    }
+
+
 
     /**----------------------------------------------------------------------------------------------------------
      * Private WBXMLDecoder stuff
@@ -587,6 +623,21 @@ class WBXMLDecoder extends WBXMLDefs {
                 return $this->dtd["namespaces"][$cp] . ":" . $this->dtd["codes"][$cp][$id];
             } else
                 return $this->dtd["codes"][$cp][$id];
+        }
+    }
+
+    /**
+     * Reads one byte from the input stream
+     *
+     * @access private
+     * @return void
+     */
+    private function readVersion() {
+        $ch = $this->getOpaque(1);
+        $this->inputBuffer .= $ch;
+
+        if(strlen($ch) > 0) {
+            $this->version = ord($ch);
         }
     }
 }
