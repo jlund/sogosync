@@ -58,9 +58,12 @@ include ("lib/topcollector.php");
 /************************************************
  * MAIN
  */
+    declare(ticks = 1);
+
     ZPush::CheckConfig();
     $zpt = new ZPushTop();
     if ($zpt->IsAvailable()) {
+        pcntl_signal(SIGINT, array($zpt, "SignalHandler"));
         $zpt->run();
         $zpt->scrClear();
     }
@@ -108,6 +111,7 @@ class ZPushTop {
         $this->status = false;
         $this->statusexpire = 0;
         $this->helpexpire = 0;
+        $this->doingTail = false;
         $this->wide = false;
         $this->terminate = false;
         $this->scrSize = array('width' => 80, 'height' => 24);
@@ -410,7 +414,7 @@ class ZPushTop {
                         $this->status = false;
                     }
                 }
-                else if ($cmds[0] == "reset"|| $cmds[0] == "r") {
+                else if ($cmds[0] == "reset" || $cmds[0] == "r") {
                     $this->filter = false;
                     $this->wide = false;
                     $this->helpexpire = 0;
@@ -422,10 +426,10 @@ class ZPushTop {
                     $this->status = "w i d e  view";
                     $this->statusexpire = $this->currenttime+2;
                 }
-                else if ($cmds[0] == "help"|| $cmds[0] == "h") {
+                else if ($cmds[0] == "help" || $cmds[0] == "h") {
                     $this->helpexpire = $this->currenttime+15;
                 }
-                else if (($cmds[0] == "log"  || $cmds[0] == "l") && isset($cmds[1]) ) {
+                else if (($cmds[0] == "log" || $cmds[0] == "l") && isset($cmds[1]) ) {
                     if (!file_exists(LOGFILE)) {
                         $this->status = "Logfile can not be found: ". LOGFILE;
                     }
@@ -435,12 +439,46 @@ class ZPushTop {
                     }
                     $this->statusexpire = time()+5; // it might be much "later" now
                 }
+                else if (($cmds[0] == "tail" || $cmds[0] == "t")) {
+                    if (!file_exists(LOGFILE)) {
+                        $this->status = "Logfile can not be found: ". LOGFILE;
+                    }
+                    else {
+                        $this->doingTail = true;
+                        $this->scrClear();
+                        $this->scrPrintAt(1,0,$this->scrAsBold("Press CTRL+C to return to Z-Push-Top\n\n"));
+                        $secondary = "";
+                        if (isset($cmds[1])) $secondary =  " -n 200 | grep ".escapeshellarg($cmds[1]);
+                        system('bash -c "tail -f '. LOGFILE . $secondary . '" > `tty`');
+                        $this->doingTail = false;
+                        $this->status = "Returning from tail, updating data";
+                    }
+                    $this->statusexpire = time()+5; // it might be much "later" now
+                }
+
                 else if ($cmds[0] != "") {
                     $this->status = sprintf("Command '%s' unknown", $cmds[0]);
                     $this->statusexpire = $this->currenttime+8;
                 }
                 $this->action = "";
             }
+        }
+    }
+
+    /**
+     * Signal handler function
+     *
+     * @param int   $signo      signal number
+     *
+     * @access public
+     * @return
+     */
+    public function SignalHandler($signo) {
+        // don't terminate if the signal was sent by terminating tail
+        if (!$this->doingTail) {
+            $this->topCollector->CollectData(true);
+            $this->topCollector->ClearLatest(true);
+            $this->terminate = true;
         }
     }
 
@@ -460,7 +498,8 @@ class ZPushTop {
         $h[] = "  ".$this->scrAsBold("w")." or ".$this->scrAsBold("wide")."\t\tDisplays more data per line. Automatically done if more than 150 columns available.";
         $h[] = "  ".$this->scrAsBold("f:VAL")." or ".$this->scrAsBold("filter:VAL")."\tOnly display lines which contain VAL. This  value is case-insensitive.";
         $h[] = "  ".$this->scrAsBold("f:")." or ".$this->scrAsBold("filter:")."\t\tWithout a search word: resets the filter.";
-        $h[] = "  ".$this->scrAsBold("l:PID")." or ".$this->scrAsBold("log:PID")."\tGreps through the z-push log file searching for this process.";
+        $h[] = "  ".$this->scrAsBold("l:STR")." or ".$this->scrAsBold("log:STR")."\tIssues 'less' on the logfile, after grepping on the optional STR.";
+        $h[] = "  ".$this->scrAsBold("t:STR")." or ".$this->scrAsBold("tail:STR")."\tIssues 'tail -f' on the logfile, grepping for optional STR.";
         $h[] = "  ".$this->scrAsBold("r")." or ".$this->scrAsBold("reset")."\t\tResets 'wide' or 'filter'.";
         return $h;
     }
