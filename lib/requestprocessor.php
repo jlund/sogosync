@@ -1439,7 +1439,7 @@ class RequestProcessor {
      */
     static private function HandlePing() {
 
-        $timeout = 5;
+        $timeout = (defined('PING_INTERVAL') && PING_INTERVAL > 0) ? PING_INTERVAL : 10;
         $pingstatus = false;
 
         $collections = array();
