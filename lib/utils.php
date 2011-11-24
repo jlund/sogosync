@@ -594,6 +594,18 @@ class Utils {
         }
         return false;
     }
+
+    /**
+    * Normalize the given timestamp to the start of the day
+    *
+    * @param long      $timestamp
+    *
+    * @access private
+    * @return long
+    */
+    public static function getDayStartOfTimestamp($timestamp) {
+        return $timestamp - ($timestamp % (60 * 60 * 24));
+    }
 }
 
 
