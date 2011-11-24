@@ -378,11 +378,11 @@ class ZPushTop {
         $ans = explode("^^", `bash -c "read -n 1 -t 1 ANS ; echo \\\$?^^\\\$ANS;"`);
 
         if ($ans[0] < 128) {
-            if (bin2hex(trim($ans[1])) == "7f") {
+            if (isset($ans[1]) && bin2hex(trim($ans[1])) == "7f") {
                 $this->action = substr($this->action,0,-1);
             }
 
-            if ($ans[1] != "" ){
+            if (isset($ans[1]) && $ans[1] != "" ){
                 $this->action .= trim(preg_replace("/[^A-Za-z0-9:]/","",$ans[1]));
             }
 
