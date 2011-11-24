@@ -77,8 +77,9 @@ class LoopDetection extends InterProcessData {
      *
      *    3. request counter is the same as the previous and last time objects were sent (loop!)
      *      3.1)   no loop was detected before, entereing loop mode     -> save loop data, loopcount = 1
-     *      3.2)   loop was detected before, continuing in loop mode    -> this is probably the broken element,loopcount++,
-     *      3.2.1) item identified, loopcount >= 3                      -> ignore item, set ignoredata flag
+     *      3.2)   loop was detected before, but are gone               -> loop resolved
+     *      3.3)   loop was detected before, continuing in loop mode    -> this is probably the broken element,loopcount++,
+     *      3.3.1) item identified, loopcount >= 3                      -> ignore item, set ignoredata flag
      *
      * @param string $folderid          the current folder id to be worked on
      * @param string $type              the type of that folder (Email, Calendar, Contact, Task)
@@ -179,23 +180,31 @@ class LoopDetection extends InterProcessData {
                         // case 3.1) we have just encountered a loop!
                         ZLog::Write(LOGLEVEL_DEBUG, "LoopDetection->Detect(): case 3.1 detected - loop detected, init loop mode");
                         $current['loopcount'] = 1;
+                        $current['maxCount'] = $counter + $queuedMessages;
+                        $loop = true;   // loop mode!!
+                    }
+                    else if ($queuedMessages == 0) {
+                        // case 3.2) there was a loop before but now the changes are GONE
+                        ZLog::Write(LOGLEVEL_DEBUG, "LoopDetection->Detect(): case 3.2 detected - changes gone - clearing loop data");
+                        unset($current['loopcount']);
+                        unset($current['ignored']);
+                        unset($current['maxCount']);
                     }
                     else {
-                        // case 3.2) still looping the same message! Increase counter
-                        ZLog::Write(LOGLEVEL_DEBUG, "LoopDetection->Detect(): case 3.2 detected - in loop mode, increase loop counter");
+                        // case 3.3) still looping the same message! Increase counter
+                        ZLog::Write(LOGLEVEL_DEBUG, "LoopDetection->Detect(): case 3.3 detected - in loop mode, increase loop counter");
                         $current['loopcount']++;
 
-                        // case 3.2.1 - we got our broken item!
+                        // case 3.3.1 - we got our broken item!
                         if ($current['loopcount'] >= 3) {
-                            ZLog::Write(LOGLEVEL_DEBUG, "LoopDetection->Detect(): case 3.2.1 detected - broken item identified, marking to ignore it");
+                            ZLog::Write(LOGLEVEL_DEBUG, "LoopDetection->Detect(): case 3.3.1 detected - broken item identified, marking to ignore it");
 
                             $this->ignore_next_streamed_message = true;
                             $current['ignored'] = true;
                         }
+                        $current['maxCount'] = $counter + $queuedMessages;
+                        $loop = true;   // loop mode!!
                     }
-
-                    $current['maxCount'] = $counter + $queuedMessages;
-                    $loop = true;   // loop mode!!
                 }
 
             }
