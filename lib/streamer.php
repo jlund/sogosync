@@ -232,7 +232,8 @@ class Streamer {
                 }
                 // Array of objects
                 else if(isset($map[self::STREAMER_ARRAY])) {
-                    if (empty($this->$map[self::STREAMER_VAR]) && isset($map[self::STREAMER_TYPE]) && $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_SEND_EMPTY) {
+                    if ((empty($this->$map[self::STREAMER_VAR]) && isset($map[self::STREAMER_TYPE]) && $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_SEND_EMPTY)
+                    || (isset($map[self::STREAMER_PROP]) &&  isset($map[self::STREAMER_PROP]) == self::STREAMER_TYPE_SEND_EMPTY)) {
                         $encoder->startTag($tag, false, true);
                     }
                     else {
@@ -270,7 +271,8 @@ class Streamer {
 
                     // Simple type
                     if(strlen($this->$map[self::STREAMER_VAR]) == 0) {
-                        if (isset($map[self::STREAMER_TYPE]) && $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_SEND_EMPTY) {
+                        if ((isset($map[self::STREAMER_TYPE]) && $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_SEND_EMPTY)
+                        || (isset($map[self::STREAMER_PROP]) &&  isset($map[self::STREAMER_PROP]) == self::STREAMER_TYPE_SEND_EMPTY)) {
                             $encoder->startTag($tag, false, true);
                         }
                           // Do not output empty items. See above: $encoder->startTag($tag, false, true);
