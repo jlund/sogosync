@@ -157,6 +157,11 @@ class SyncTask extends SyncObject {
             return false;
         }
 
+        if (isset($this->duedate)) {
+            $this->duedate = Utils::getDayStartOfTimestamp($this->duedate);
+            ZLog::Write(LOGLEVEL_DEBUG, "Set the due time to the start of the day");
+        }
+
         return true;
     }
 }
