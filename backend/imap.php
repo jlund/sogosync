@@ -137,7 +137,7 @@ class BackendIMAP extends BackendDiff {
      *
      * @access public
      * @return boolean
-     * @throws HTTPReturnCodeException
+     * @throws StatusException
      */
      // TODO implement , $saveInSent = true
     public function SendMail($rfc822, $forward = false, $reply = false, $parent = false, $saveInSent = true) {
@@ -271,7 +271,7 @@ class BackendIMAP extends BackendDiff {
             // receive entire mail (header + body) to decode body correctly
             $origmail = @imap_fetchheader($this->mbox, $reply, FT_UID) . @imap_body($this->mbox, $reply, FT_PEEK | FT_UID);
             if (!$origmail)
-                throw new HTTPReturnCodeException(sprintf("BackendIMAP->SendMail(): Could not open message id '%s' in folder id '%s' to be replied: %s", $reply, $parent, imap_last_error()), HTTP_CODE_500, null, LOGLEVEL_WARN);
+                throw new StatusException(sprintf("BackendIMAP->SendMail(): Could not open message id '%s' in folder id '%s' to be replied: %s", $reply, $parent, imap_last_error()), SYNC_COMMONSTATUS_ITEMNOTFOUND);
 
             $mobj2 = new Mail_mimeDecode($origmail);
             // receive only body
@@ -293,7 +293,7 @@ class BackendIMAP extends BackendDiff {
             $origmail = @imap_fetchheader($this->mbox, $forward, FT_UID) . @imap_body($this->mbox, $forward, FT_PEEK | FT_UID);
 
             if (!$origmail)
-                throw new HTTPReturnCodeException(sprintf("BackendIMAP->SendMail(): Could not open message id '%s' in folder id '%s' to be forwarded: %s", $forward, $parent, imap_last_error()), HTTP_CODE_500, null, LOGLEVEL_WARN);
+                throw new StatusException(sprintf("BackendIMAP->SendMail(): Could not open message id '%s' in folder id '%s' to be forwarded: %s", $forward, $parent, imap_last_error()), SYNC_COMMONSTATUS_ITEMNOTFOUND);
 
             if (!defined('IMAP_INLINE_FORWARD') || IMAP_INLINE_FORWARD === false) {
                 // contrib - chunk base64 encoded body
@@ -445,7 +445,7 @@ class BackendIMAP extends BackendDiff {
 
         // email sent?
         if (!$send)
-            throw new HTTPReturnCodeException(sprintf("BackendIMAP->SendMail(): The email could not be sent. Last IMAP-error: ". imap_last_error()), HTTP_CODE_500, null, LOGLEVEL_WARN);
+            throw new StatusException(sprintf("BackendIMAP->SendMail(): The email could not be sent. Last IMAP-error: ". imap_last_error()), SYNC_COMMONSTATUS_MAILSUBMISSIONFAILED);
 
         // add message to the sent folder
         // build complete headers

@@ -86,9 +86,9 @@ class ZPush {
     static private $supportedASVersions = array("1.0","2.0","2.1","2.5","12.0","12.1", "14.0");
     static private $supportedCommands = array(
                                             self::COMMAND_SYNC              => false,
-                                            self::COMMAND_SENDMAIL          => array(self::PLAININPUT),
-                                            self::COMMAND_SMARTFORWARD      => array(self::PLAININPUT),
-                                            self::COMMAND_SMARTREPLY        => array(self::PLAININPUT),
+                                            self::COMMAND_SENDMAIL          => false,
+                                            self::COMMAND_SMARTFORWARD      => false,
+                                            self::COMMAND_SMARTREPLY        => false,
                                             self::COMMAND_GETATTACHMENT     => false,
                                             self::COMMAND_GETHIERARCHY      => array(self::HIERARCHYCOMMAND),                       // deprecated but implemented
                                             self::COMMAND_CREATECOLLECTION  => false,                                               // deprecated & not implemented

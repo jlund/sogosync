@@ -1679,12 +1679,55 @@ class RequestProcessor {
     static private function HandleSendMail($forward = false, $reply = false, $parent = false) {
         // read rfc822 message from stdin
         $rfc822 = "";
-        while($data = fread(Request::GetInputStream(), 4096))
-            $rfc822 .= $data;
+        $status = SYNC_COMMONSTATUS_SUCCESS;
+        if (self::$decoder->IsWBXML() && self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_SENDMAIL)) {
+            $saveInSent = false;
+            if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_CLIENTID)) {
+                $clientid = self::$decoder->getElementContent();
+                if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_CLIENTID
+                    return false;
+            }
 
+            if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_SAVEINSENTITEMS)) {
+                $saveInSent = true;
+            }
+
+            if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_MIME)) {
+                $rfc822 = self::$decoder->getElementContent();
+                if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_MIME
+                    return false;
+            }
+
+            if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_SENDMAIL
+                return false;
+        }
+        else {
+            $rfc822 = self::$decoder->GetPlainInputStream();
+            // no wbxml output is provided, only a http OK
+            $saveInSent = Request::GetGETSaveInSent();
+        }
         self::$topCollector->AnnounceInformation(sprintf("Sending email with %d bytes", strlen($rfc822)), true);
-        // no wbxml output is provided, only a http OK
-        return self::$backend->SendMail($rfc822, $forward, $reply, $parent, Request::GetGETSaveInSent());
+        try {
+            $status = self::$backend->SendMail($rfc822, $forward, $reply, $parent, $saveInSent);
+        }
+        catch (StatusException $se) {
+            $status = $se->getCode();
+            $statusMessage = $se->getMessage();
+        }
+
+        if (self::$decoder->IsWBXML()) {
+            self::$encoder->StartWBXML();
+            self::$encoder->startTag(SYNC_COMPOSEMAIL_SENDMAIL);
+                self::$encoder->startTag(SYNC_COMPOSEMAIL_STATUS);
+                self::$encoder->content($status); //TODO return the correct status
+                self::$encoder->endTag();
+            self::$encoder->endTag();
+        }
+        elseif ($status != SYNC_COMMONSTATUS_SUCCESS) {
+            throw new HTTPReturnCodeException($statusMessage, HTTP_CODE_500, null, LOGLEVEL_WARN);
+        }
+
+        return $status;
     }
 
     /**

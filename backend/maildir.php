@@ -101,7 +101,7 @@ class BackendMaildir extends BackendDiff {
      *
      * @access public
      * @return boolean
-     * @throws HTTPReturnCodeException
+     * @throws StatusException
      */
     public function SendMail($rfc822, $forward = false, $reply = false, $parent = false, $saveInSent = true) {
         return false;

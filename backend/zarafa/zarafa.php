@@ -361,7 +361,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
      *
      * @access public
      * @return boolean
-     * @throws HTTPReturnCodeException
+     * @throws StatusException
      */
      // TODO implement , $saveInSent = true
     public function SendMail($rfc822, $forward = false, $reply = false, $parent = false, $saveInSent = true) {
@@ -386,7 +386,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
             $outbox = mapi_msgstore_openentry($this->store, $storeprops[PR_IPM_OUTBOX_ENTRYID]);
 
         if(!$outbox)
-            throw new HTTPReturnCodeException(sprintf("ZarafaBackend->SendMail(): No Outbox found or unable to create message: 0x%X", mapi_last_hresult()), HTTP_CODE_500);
+            throw new StatusException(sprintf("ZarafaBackend->SendMail(): No Outbox found or unable to create message: 0x%X", mapi_last_hresult()), SYNC_COMMONSTATUS_SERVERERROR);
 
         $mapimessage = mapi_folder_createmessage($outbox);
 
@@ -431,7 +431,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
             $bccaddr = $Mail_RFC822->parseAddressList($message->headers["bcc"]);
 
         if(empty($toaddr))
-            throw new HTTPReturnCodeException(sprintf("ZarafaBackend->SendMail(): 'To' address in RFC822 message not found or unparsable. To header: '%s'", ((isset($message->headers["to"]))?$message->headers["to"]:'')), HTTP_CODE_500, null, LOGLEVEL_WARN);
+            throw new StatusException(sprintf("ZarafaBackend->SendMail(): 'To' address in RFC822 message not found or unparsable. To header: '%s'", ((isset($message->headers["to"]))?$message->headers["to"]:'')), SYNC_COMMONSTATUS_MESSHASNORECIP);
 
         // Add recipients
         $recips = array();
@@ -558,7 +558,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
                 $fwmessage = mapi_msgstore_openentry($this->store, $entryid);
 
             if(!isset($fwmessage) || !$fwmessage)
-                throw new HTTPReturnCodeException(sprintf("ZarafaBackend->SendMail(): Could not open message id '%s' in folder id '%s' to be replied/forwarded: 0x%X", $orig, $parent, mapi_last_hresult()), HTTP_CODE_500, null, LOGLEVEL_WARN);
+                throw new StatusException(sprintf("ZarafaBackend->SendMail(): Could not open message id '%s' in folder id '%s' to be replied/forwarded: 0x%X", $orig, $parent, mapi_last_hresult()), SYNC_COMMONSTATUS_ITEMNOTFOUND);
 
             //update icon when forwarding or replying message
             if ($forward) mapi_setprops($fwmessage, array(PR_ICON_INDEX=>262));
@@ -669,7 +669,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         mapi_message_submitmessage($mapimessage);
 
         if(mapi_last_hresult())
-            throw new HTTPReturnCodeException(sprintf("ZarafaBackend->SendMail(): Error saving/submitting the message to the Outbox: 0x%X", $orig, $parent, mapi_last_hresult()), HTTP_CODE_500, null, LOGLEVEL_WARN);
+            throw new StatusException(sprintf("ZarafaBackend->SendMail(): Error saving/submitting the message to the Outbox: 0x%X", $orig, $parent, mapi_last_hresult()), SYNC_COMMONSTATUS_MAILSUBMISSIONFAILED);
 
         ZLog::Write(LOGLEVEL_DEBUG, "ZarafaBackend->SendMail(): email submitted");
         return true;
