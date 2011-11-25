@@ -427,7 +427,7 @@ class ZPushTop {
                     $this->statusexpire = $this->currenttime+2;
                 }
                 else if ($cmds[0] == "help" || $cmds[0] == "h") {
-                    $this->helpexpire = $this->currenttime+15;
+                    $this->helpexpire = $this->currenttime+20;
                 }
                 else if (($cmds[0] == "log" || $cmds[0] == "l") && isset($cmds[1]) ) {
                     if (!file_exists(LOGFILE)) {
@@ -495,10 +495,10 @@ class ZPushTop {
         $h[] = "  ".$this->scrAsBold("Action")."\t\t".$this->scrAsBold("Comment");
         $h[] = "  ".$this->scrAsBold("h")." or ".$this->scrAsBold("help")."\t\tDisplays this information.";
         $h[] = "  ".$this->scrAsBold("q").", ".$this->scrAsBold("quit")." or ".$this->scrAsBold(":q")."\t\tExits Z-Push-Top.";
-        $h[] = "  ".$this->scrAsBold("w")." or ".$this->scrAsBold("wide")."\t\tDisplays more data per line. Automatically done if more than 150 columns available.";
-        $h[] = "  ".$this->scrAsBold("f:VAL")." or ".$this->scrAsBold("filter:VAL")."\tOnly display lines which contain VAL. This  value is case-insensitive.";
+        $h[] = "  ".$this->scrAsBold("w")." or ".$this->scrAsBold("wide")."\t\tTries not to truncate data. Automatically done if more than 150 columns available.";
+        $h[] = "  ".$this->scrAsBold("f:VAL")." or ".$this->scrAsBold("filter:VAL")."\tOnly display connections which contain VAL. This value is case-insensitive.";
         $h[] = "  ".$this->scrAsBold("f:")." or ".$this->scrAsBold("filter:")."\t\tWithout a search word: resets the filter.";
-        $h[] = "  ".$this->scrAsBold("l:STR")." or ".$this->scrAsBold("log:STR")."\tIssues 'less' on the logfile, after grepping on the optional STR.";
+        $h[] = "  ".$this->scrAsBold("l:STR")." or ".$this->scrAsBold("log:STR")."\tIssues 'less +G' on the logfile, after grepping on the optional STR.";
         $h[] = "  ".$this->scrAsBold("t:STR")." or ".$this->scrAsBold("tail:STR")."\tIssues 'tail -f' on the logfile, grepping for optional STR.";
         $h[] = "  ".$this->scrAsBold("r")." or ".$this->scrAsBold("reset")."\t\tResets 'wide' or 'filter'.";
         return $h;
