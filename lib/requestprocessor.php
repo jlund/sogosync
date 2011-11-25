@@ -1583,8 +1583,9 @@ class RequestProcessor {
                     break;
                 }
 
-                // Check if there are newer ping requests and this process should be terminated
-                if ($pingTracking->DoForcePingTimeout()) {
+                // Check if there are newer ping requests.
+                // If so, this process should be terminated if more than 30 secs to go
+                if ($pingTracking->DoForcePingTimeout() && ($n * $timeout + 30 ) < $lifetime) {
                     ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandlePing(): Timeout forced after %ss from %ss due to other Ping process", ($n * $timeout), $lifetime));
                     self::$topCollector->AnnounceInformation(sprintf("Forced timeout after %ds", ($n * $timeout)), true);
                     break;
