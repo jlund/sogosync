@@ -87,6 +87,7 @@ class ZPushTop {
     private $wasEnabled;
     private $terminate;
     private $scrSize;
+    private $pingInterval;
 
     private $linesUpdate = array();
     private $linesActive = array();
@@ -115,6 +116,7 @@ class ZPushTop {
         $this->wide = false;
         $this->terminate = false;
         $this->scrSize = array('width' => 80, 'height' => 24);
+        $this->pingInterval = (defined('PING_INTERVAL') && PING_INTERVAL > 0) ? (PING_INTERVAL + 2) : 12;
 
         // get a TopCollector
         $this->topCollector = new TopCollector();
@@ -240,9 +242,10 @@ class ZPushTop {
                                 continue;
                         }
 
+                        $lastUpdate = $this->currenttime - $line["update"];
                         if ($this->currenttime - $line["update"] < 2)
                             $this->linesUpdate[$line["update"].$line["pid"]] = $line;
-                        else if ($this->currenttime - $line["update"] > 6)
+                        else if (($line['command'] == "Ping"  && $lastUpdate > $this->pingInterval) || ($line['command'] != "Ping"  && $lastUpdate > 4))
                             $this->linesUnknown[$line["update"].$line["pid"]] = $line;
                         else
                             $this->linesActive[$line["update"].$line["pid"]] = $line;
