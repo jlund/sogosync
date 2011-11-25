@@ -311,22 +311,28 @@ class BackendCombined extends Backend {
     }
 
     /**
-     * Returns the content of the named attachment.
+     * Returns the content of the named attachment as stream.
      * There is no way to tell which backend the attachment is from, so we try them all
      *
      * @param string        $attname
      *
      * @access public
-     * @return boolean
+     * @return stream
+     * @throws StatusException
      */
-    public function GetAttachmentData($attname){
+    public function GetAttachmentData($attname) {
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("Combined->GetAttachmentData('%s')", $attname));
-        foreach ($this->backends as $i => $b){
-            if($this->backends[$i]->GetAttachmentData($attname) == true){
-                return true;
+        foreach ($this->backends as $i => $b) {
+            try {
+                $stream = $this->backends[$i]->GetAttachmentData($attname);
+                if (is_resource($stream))
+                    return $stream;
+            }
+            catch (StatusException $s) {
+                // backends might throw StatusExceptions if it's not their attachment
             }
         }
-        return false;
+        throw new StatusException("Combined->GetAttachmentData(): no backend found", SYNC_ITEMOPERATIONSSTATUS_INVALIDATT);
     }
 
     /**

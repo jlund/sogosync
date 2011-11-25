@@ -118,7 +118,7 @@ class BackendMaildir extends BackendDiff {
     }
 
     /**
-     * Returns the content of the named attachment. The passed attachment identifier is
+     * Returns the content of the named attachment as stream. The passed attachment identifier is
      * the exact string that is returned in the 'AttName' property of an SyncAttachment.
      * Any information necessary to find the attachment must be encoded in that 'attname' property.
      * Data is written directly (with print $data;)
@@ -126,22 +126,23 @@ class BackendMaildir extends BackendDiff {
      * @param string        $attname
      *
      * @access public
-     * @return boolean
-     * @throws HTTPReturnCodeException
+     * @return stream
+     * @throws StatusException
      */
     public function GetAttachmentData($attname) {
         list($id, $part) = explode(":", $attname);
 
         $fn = $this->findMessage($id);
         if ($fn == false)
-            throw new HTTPReturnCodeException(sprintf("BackendMaildir->GetAttachmentData('%s'): Error, requested message/attachment can not be found", $attname), HTTP_CODE_500, null, LOGLEVEL_WARN);
+            throw new StatusException(sprintf("BackendMaildir->GetAttachmentData('%s'): Error, requested message/attachment can not be found", $attname), SYNC_ITEMOPERATIONSSTATUS_INVALIDATT);
 
         // Parse e-mail
         $rfc822 = file_get_contents($this->getPath() . "/$fn");
 
         $message = Mail_mimeDecode::decode(array('decode_headers' => true, 'decode_bodies' => true, 'include_bodies' => true, 'input' => $rfc822, 'crlf' => "\n", 'charset' => 'utf-8'));
-        print $message->parts[$part]->body;
-        return true;
+
+        include_once('include/stringstreamwrapper.php');
+        return StringStreamWrapper::Open($message->parts[$part]->body);
     }
 
     /**----------------------------------------------------------------------------------------------------------

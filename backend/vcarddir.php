@@ -103,14 +103,14 @@ class BackendVCardDir extends BackendDiff {
     }
 
     /**
-     * Returns the content of the named attachment
+     * Returns the content of the named attachment as stream
      * not implemented
      *
      * @param string        $attname
      *
      * @access public
-     * @return boolean
-     * @throws HTTPReturnCodeException
+     * @return stream
+     * @throws StatusException
      */
     public function GetAttachmentData($attname) {
         return false;

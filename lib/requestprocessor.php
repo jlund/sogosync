@@ -1424,8 +1424,30 @@ class RequestProcessor {
         if(!$attname)
             return false;
 
-        header("Content-Type: application/octet-stream");
-        self::$backend->GetAttachmentData($attname);
+        try {
+            $stream = self::$backend->GetAttachmentData($attname);
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandleGetAttachment(): attachment stream from backend: %s", $stream));
+
+            header("Content-Type: application/octet-stream");
+            $l = 0;
+            while (!feof($stream)) {
+                $d = fgets($stream, 4096);
+                $l += strlen($d);
+                echo $d;
+
+                // announce an update every 100K
+                if (($l/1024) % 100 == 0)
+                    self::$topCollector->AnnounceInformation(sprintf("Streaming attachment: %d KB sent", round($l/1024)));
+            }
+            fclose($stream);
+            self::$topCollector->AnnounceInformation(sprintf("Streamed %d KB attachment", $l/1024), true);
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandleGetAttachment(): attachment with %d KB sent to mobile", $l/1024));
+
+        }
+        catch (StatusException $s) {
+            // StatusException already logged so we just need to pass it upwards to send a HTTP error
+            throw new HTTPReturnCodeException($s->getMessage(), HTTP_CODE_500, null, LOGLEVEL_DEBUG);
+        }
 
         return true;
     }

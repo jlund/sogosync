@@ -316,7 +316,7 @@ interface IBackend {
     public function GetWasteBasket();
 
     /**
-     * Returns the content of the named attachment. The passed attachment identifier is
+     * Returns the content of the named attachment as stream. The passed attachment identifier is
      * the exact string that is returned in the 'AttName' property of an SyncAttachment.
      * Any information necessary to locate the attachment must be encoded in that 'attname' property.
      * Data is written directly - 'print $data;'
@@ -324,8 +324,8 @@ interface IBackend {
      * @param string        $attname
      *
      * @access public
-     * @return boolean
-     * @throws HTTPReturnCodeException
+     * @return stream
+     * @throws StatusException
      */
     public function GetAttachmentData($attname);
 

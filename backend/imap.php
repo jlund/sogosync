@@ -510,7 +510,7 @@ class BackendIMAP extends BackendDiff {
     }
 
     /**
-     * Returns the content of the named attachment. The passed attachment identifier is
+     * Returns the content of the named attachment as stream. The passed attachment identifier is
      * the exact string that is returned in the 'AttName' property of an SyncAttachment.
      * Any information necessary to find the attachment must be encoded in that 'attname' property.
      * Data is written directly (with print $data;)
@@ -518,8 +518,8 @@ class BackendIMAP extends BackendDiff {
      * @param string        $attname
      *
      * @access public
-     * @return boolean
-     * @throws HTTPReturnCodeException
+     * @return stream
+     * @throws StatusException
      */
     public function GetAttachmentData($attname) {
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("BackendIMAP->GetAttachmentData('%s')", $attname));
@@ -528,7 +528,7 @@ class BackendIMAP extends BackendDiff {
         list($folderid, $id, $part) = explode(":", $attname);
 
         if (!$folderid || $id || $part)
-            throw new HTTPReturnCodeException(sprintf("BackendIMAP->GetAttachmentData('%s'): Error, attachment name key can not be parsed", $attname), HTTP_CODE_500, null, LOGLEVEL_WARN);
+            throw new StatusException(sprintf("BackendIMAP->GetAttachmentData('%s'): Error, attachment name key can not be parsed", $attname), SYNC_ITEMOPERATIONSSTATUS_INVALIDATT);
 
         $this->imap_reopenFolder($folderid);
         $mail = @imap_fetchheader($this->mbox, $id, FT_UID) . @imap_body($this->mbox, $id, FT_PEEK | FT_UID);
@@ -536,15 +536,15 @@ class BackendIMAP extends BackendDiff {
         $mobj = new Mail_mimeDecode($mail);
         $message = $mobj->decode(array('decode_headers' => true, 'decode_bodies' => true, 'include_bodies' => true, 'charset' => 'utf-8'));
 
-        if (isset($message->parts[$part]->body))
-            print $message->parts[$part]->body;
-        else
-            throw new HTTPReturnCodeException(sprintf("BackendIMAP->GetAttachmentData('%s'): Error, requested part key can not be found: '%d'", $attname, $part), HTTP_CODE_500, null, LOGLEVEL_WARN);
+        if (!isset($message->parts[$part]->body))
+            throw new StatusException(sprintf("BackendIMAP->GetAttachmentData('%s'): Error, requested part key can not be found: '%d'", $attname, $part), SYNC_ITEMOPERATIONSSTATUS_INVALIDATT);
 
         // unset mimedecoder & mail
         unset($mobj);
         unset($mail);
-        return true;
+
+        include_once('include/stringstreamwrapper.php');
+        return StringStreamWrapper::Open($message->parts[$part]->body);
     }
 
     /**
