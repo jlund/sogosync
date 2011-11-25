@@ -3,6 +3,7 @@
 * File      :   stringstreamwrapper.php
 * Project   :   Z-Push
 * Descr     :   Wraps a string as a standard php stream
+*               The used method names are predefined and can not be altered.
 *
 * Created   :   24.11.2011
 *
