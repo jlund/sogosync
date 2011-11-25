@@ -83,7 +83,7 @@ class Request {
     static private $authUser;
     static private $authDomain;
     static private $authPassword;
-    static private $asProtocolVersion = "1.0";
+    static private $asProtocolVersion;
     static private $policykey;
     static private $useragent;
 
@@ -135,7 +135,7 @@ class Request {
                 self::$policykey = (int) self::filterEvilInput($query['PolKey'], self::NUMBERS_ONLY);
 
             if (isset($query['ProtVer']))
-                self::$asProtocolVersion = self::filterEvilInput($query['ProtVer'], self::NUMBERSDOT_ONLY) / 10;
+                self::$asProtocolVersion = self::filterEvilInput($query['ProtVer'], self::NUMBERS_ONLY) / 10;
         }
 
         // in base64 encoded query string user is not necessarily set
@@ -155,13 +155,16 @@ class Request {
         if (!isset(self::$asProtocolVersion))
             self::$asProtocolVersion = (isset(self::$headers["ms-asprotocolversion"]))? self::filterEvilInput(self::$headers["ms-asprotocolversion"], self::NUMBERSDOT_ONLY) : "1.0";
 
+        //if policykey is not yet set, try to set it from the header
+        //the policy key might be set in Request::Initialize from the base64 encoded query
+        if (!isset(self::$policykey)) {
+            if (isset(self::$headers["x-ms-policykey"]))
+                self::$policykey = (int) self::filterEvilInput(self::$headers["x-ms-policykey"], self::NUMBERS_ONLY);
+            else
+                self::$policykey = 0;
+        }
 
-        if (!isset(self::$policykey) && isset(self::$headers["x-ms-policykey"]))
-            self::$policykey = (int) self::filterEvilInput(self::$headers["x-ms-policykey"], self::NUMBERS_ONLY);
-        else
-            self::$policykey = 0;
-
-        if (!isset(self::$command) && !empty($_SERVER['QUERY_STRING']) && Utils::IsBase64String($_SERVER['QUERY_STRING'])) {
+        if (!empty($_SERVER['QUERY_STRING']) && Utils::IsBase64String($_SERVER['QUERY_STRING'])) {
             ZLog::Write(LOGLEVEL_DEBUG, "Using data from base64 encoded query string");
             if (isset(self::$policykey))
                 self::$headers["x-ms-policykey"] = self::$policykey;
