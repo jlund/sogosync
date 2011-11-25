@@ -162,14 +162,12 @@ class Request {
             self::$policykey = 0;
 
         if (!isset(self::$command) && !empty($_SERVER['QUERY_STRING']) && Utils::IsBase64String($_SERVER['QUERY_STRING'])) {
-            ZLog::Write(LOGLEVEL_DEBUG, "Decoding base64 encoded query string");
+            ZLog::Write(LOGLEVEL_DEBUG, "Using data from base64 encoded query string");
             if (isset(self::$policykey))
                 self::$headers["x-ms-policykey"] = self::$policykey;
 
             if (isset(self::$asProtocolVersion))
                 self::$headers["ms-asprotocolversion"] = self::$asProtocolVersion;
-
-            ZLog::Write(LOGLEVEL_DEBUG, sprintf("Data from base64 encoded query string - command: '%s', user:'%s', devid:'%s', devtype:'%s', protversion:'%f'", self::$command, self::$getUser, self::$devid, self::$devtype, self::$asProtocolVersion));
         }
 
     }
