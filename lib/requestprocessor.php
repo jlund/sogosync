@@ -1572,8 +1572,12 @@ class RequestProcessor {
 
             ZLog::Write(LOGLEVEL_INFO, sprintf("HandlePing(): Waiting for changes... (lifetime %d seconds)", $lifetime));
             // Wait for something to happen
-            for($n=0;$n<$lifetime / $timeout; $n++ ) {
-                self::$topCollector->AnnounceInformation(sprintf("On %s (lifetime %ds)", $pingtypes, $lifetime));
+            $started = time();
+            $endat = $started + $lifetime;
+            ZLog::Write(LOGLEVEL_INFO, sprintf("HandlePing(): endat: %s  now: %s", $endat, ($now = time())));
+
+            while(($now = time()) < $endat) {
+                            self::$topCollector->AnnounceInformation(sprintf("On %s (lifetime %ds)", $pingtypes, $lifetime));
 
                 // Check if provisioning is necessary
                 // if a PolicyKey was sent use it. If not, compare with the PolicyKey from the last PING request
@@ -1584,10 +1588,10 @@ class RequestProcessor {
                 }
 
                 // Check if there are newer ping requests.
-                // If so, this process should be terminated if more than 30 secs to go
-                if ($pingTracking->DoForcePingTimeout() && ($n * $timeout + 30 ) < $lifetime) {
-                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandlePing(): Timeout forced after %ss from %ss due to other Ping process", ($n * $timeout), $lifetime));
-                    self::$topCollector->AnnounceInformation(sprintf("Forced timeout after %ds", ($n * $timeout)), true);
+                // If so, this process should be terminated if more than 60 secs to go
+                if ($pingTracking->DoForcePingTimeout() && ($now + 60) < $endat) {
+                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandlePing(): Timeout forced after %ss from %ss due to other Ping process", ($endat-$now), $lifetime));
+                    self::$topCollector->AnnounceInformation(sprintf("Forced timeout after %ds", ($endat-$now)), true);
                     break;
                 }
 
@@ -1656,6 +1660,7 @@ class RequestProcessor {
                 sleep($timeout);
             }
         }
+        ZLog::Write(LOGLEVEL_INFO, sprintf("HandlePing(): ended at: to-endat: %s  now: %s", $now, $endat));
 
         self::$encoder->StartWBXML();
 
