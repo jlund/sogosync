@@ -83,7 +83,7 @@ class ZPush {
     const COMMAND_MOVECOLLECTION = -4;
     const COMMAND_NOTIFY = -5;
 
-    static private $supportedASVersions = array("1.0","2.0","2.1","2.5","12.0","12.1", "14.0");
+    static private $supportedASVersions = array("1.0","2.0","2.1","2.5","12.0","12.1","14.0");
     static private $supportedCommands = array(
                                             self::COMMAND_SYNC              => false,
                                             self::COMMAND_SENDMAIL          => false,
