@@ -2545,26 +2545,29 @@ class RequestProcessor {
         self::$encoder->content($status);
         self::$encoder->endTag();//SYNC_ITEMOPERATIONS_STATUS
 
-        if (isset($folderid)) {
+        if (isset($folderid) && isset($serverid)) {
             self::$encoder->startTag(SYNC_FOLDERID);
             self::$encoder->content($folderid);
             self::$encoder->endTag(); // end SYNC_FOLDERID
-        }
-        if (isset($serverid)) {
+
             self::$encoder->startTag(SYNC_SERVERENTRYID);
             self::$encoder->content($serverid);
             self::$encoder->endTag(); // end SYNC_SERVERENTRYID
+
+            self::$encoder->startTag(SYNC_FOLDERTYPE);
+            self::$encoder->content("Email");
+            self::$encoder->endTag();
+
+            $data = self::$backend->Fetch($folderid, $serverid, $collection["cpo"]);
         }
-        self::$encoder->startTag(SYNC_FOLDERTYPE);
-        self::$encoder->content("Email");
-        self::$encoder->endTag();
 
         //TODO put it in try catch block
-        $data = self::$backend->Fetch($folderid, $serverid, $collection["cpo"]);
 
-        self::$encoder->startTag(SYNC_ITEMOPERATIONS_PROPERTIES);
-        $data->Encode(self::$encoder);
-        self::$encoder->endTag(); //SYNC_ITEMOPERATIONS_PROPERTIES
+        if (isset($data)) {
+            self::$encoder->startTag(SYNC_ITEMOPERATIONS_PROPERTIES);
+            $data->Encode(self::$encoder);
+            self::$encoder->endTag(); //SYNC_ITEMOPERATIONS_PROPERTIES
+        }
 
         self::$encoder->endTag();//SYNC_ITEMOPERATIONS_FETCH
         self::$encoder->endTag();//SYNC_ITEMOPERATIONS_RESPONSE
