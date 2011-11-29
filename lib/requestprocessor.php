@@ -1574,10 +1574,9 @@ class RequestProcessor {
             // Wait for something to happen
             $started = time();
             $endat = $started + $lifetime;
-            ZLog::Write(LOGLEVEL_INFO, sprintf("HandlePing(): endat: %s  now: %s", $endat, ($now = time())));
 
             while(($now = time()) < $endat) {
-                            self::$topCollector->AnnounceInformation(sprintf("On %s (lifetime %ds)", $pingtypes, $lifetime));
+                self::$topCollector->AnnounceInformation(sprintf("On %s (lifetime %ds)", $pingtypes, $lifetime));
 
                 // Check if provisioning is necessary
                 // if a PolicyKey was sent use it. If not, compare with the PolicyKey from the last PING request
@@ -1660,7 +1659,6 @@ class RequestProcessor {
                 sleep($timeout);
             }
         }
-        ZLog::Write(LOGLEVEL_INFO, sprintf("HandlePing(): ended at: to-endat: %s  now: %s", $now, $endat));
 
         self::$encoder->StartWBXML();
 
