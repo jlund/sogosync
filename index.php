@@ -84,6 +84,7 @@ include_once('lib/syncobjects/syncoof.php');
 include_once('lib/syncobjects/syncuserinformation.php');
 include_once('lib/syncobjects/syncdeviceinformation.php');
 include_once('lib/syncobjects/syncdevicepassword.php');
+include_once('lib/syncobjects/syncitemoperationsattachment.php');
 include_once('lib/backend.php');
 include_once('lib/searchprovider.php');
 include_once('lib/request.php');
