@@ -518,7 +518,7 @@ class BackendIMAP extends BackendDiff {
      * @param string        $attname
      *
      * @access public
-     * @return stream
+     * @return SyncItemOperationsAttachment
      * @throws StatusException
      */
     public function GetAttachmentData($attname) {
@@ -544,7 +544,12 @@ class BackendIMAP extends BackendDiff {
         unset($mail);
 
         include_once('include/stringstreamwrapper.php');
-        return StringStreamWrapper::Open($message->parts[$part]->body);
+        $attachment = new SyncItemOperationsAttachment();
+        $attachment->data = StringStreamWrapper::Open($message->parts[$part]->body);
+        if (isset($message->parts[$part]->ctype_primary) && isset($message->parts[$part]->ctype_secondary))
+            $attachment->contenttype = $message->parts[$part]->ctype_primary .'/'.$message->parts[$part]->ctype_secondary;
+
+        return $attachment;
     }
 
     /**

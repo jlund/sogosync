@@ -317,16 +317,16 @@ class BackendCombined extends Backend {
      * @param string        $attname
      *
      * @access public
-     * @return stream
+     * @return SyncItemOperationsAttachment
      * @throws StatusException
      */
     public function GetAttachmentData($attname) {
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("Combined->GetAttachmentData('%s')", $attname));
         foreach ($this->backends as $i => $b) {
             try {
-                $stream = $this->backends[$i]->GetAttachmentData($attname);
-                if (is_resource($stream))
-                    return $stream;
+                $attachment = $this->backends[$i]->GetAttachmentData($attname);
+                if ($attachment instanceof SyncItemOperationsAttachment)
+                    return $attachment;
             }
             catch (StatusException $s) {
                 // backends might throw StatusExceptions if it's not their attachment

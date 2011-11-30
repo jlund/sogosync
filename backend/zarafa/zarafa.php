@@ -723,7 +723,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
      *
      * @param string        $attname
      * @access public
-     * @return stream
+     * @return SyncItemOperationsAttachment
      * @throws StatusException
      */
     public function GetAttachmentData($attname) {
@@ -746,8 +746,17 @@ class BackendZarafa implements IBackend, ISearchProvider {
         if(!$stream)
             throw new StatusException(sprintf("ZarafaBackend->GetAttachmentData('%s'): Error, unable to open attachment data stream: 0x%X", $attname, mapi_last_hresult()), SYNC_ITEMOPERATIONSSTATUS_INVALIDATT);
 
+        //get the mime type of the attachment
+        $contenttype = mapi_getprops($attach, array(PR_ATTACH_MIME_TAG, PR_ATTACH_MIME_TAG_W));
+        $attachment = new SyncItemOperationsAttachment();
         // put the mapi stream into a wrapper to get a standard stream
-        return MapiStreamWrapper::Open($stream);
+        $attachment->data = MapiStreamWrapper::Open($stream);
+        if (isset($contenttype[PR_ATTACH_MIME_TAG]))
+            $attachment->contenttype = $contenttype[PR_ATTACH_MIME_TAG];
+        elseif (isset($contenttype[PR_ATTACH_MIME_TAG_W]))
+            $attachment->contenttype = $contenttype[PR_ATTACH_MIME_TAG_W];
+            //TODO default contenttype
+        return $attachment;
     }
 
     /**

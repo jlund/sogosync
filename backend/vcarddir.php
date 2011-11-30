@@ -109,7 +109,7 @@ class BackendVCardDir extends BackendDiff {
      * @param string        $attname
      *
      * @access public
-     * @return stream
+     * @return SyncItemOperationsAttachment
      * @throws StatusException
      */
     public function GetAttachmentData($attname) {

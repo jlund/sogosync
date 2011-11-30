@@ -1425,7 +1425,8 @@ class RequestProcessor {
             return false;
 
         try {
-            $stream = self::$backend->GetAttachmentData($attname);
+            $attachment = self::$backend->GetAttachmentData($attname);
+            $stream = $attachment->data;
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandleGetAttachment(): attachment stream from backend: %s", $stream));
 
             header("Content-Type: application/octet-stream");
@@ -2544,33 +2545,41 @@ class RequestProcessor {
         self::$encoder->startTag(SYNC_ITEMOPERATIONS_RESPONSE);
         self::$encoder->startTag(SYNC_ITEMOPERATIONS_FETCH);
 
-        self::$encoder->startTag(SYNC_ITEMOPERATIONS_STATUS);
-        self::$encoder->content($status);
-        self::$encoder->endTag();//SYNC_ITEMOPERATIONS_STATUS
+            self::$encoder->startTag(SYNC_ITEMOPERATIONS_STATUS);
+            self::$encoder->content($status);
+            self::$encoder->endTag();//SYNC_ITEMOPERATIONS_STATUS
 
-        if (isset($folderid) && isset($serverid)) {
-            self::$encoder->startTag(SYNC_FOLDERID);
-            self::$encoder->content($folderid);
-            self::$encoder->endTag(); // end SYNC_FOLDERID
+            if (isset($folderid) && isset($serverid)) {
+                self::$encoder->startTag(SYNC_FOLDERID);
+                self::$encoder->content($folderid);
+                self::$encoder->endTag(); // end SYNC_FOLDERID
 
-            self::$encoder->startTag(SYNC_SERVERENTRYID);
-            self::$encoder->content($serverid);
-            self::$encoder->endTag(); // end SYNC_SERVERENTRYID
+                self::$encoder->startTag(SYNC_SERVERENTRYID);
+                self::$encoder->content($serverid);
+                self::$encoder->endTag(); // end SYNC_SERVERENTRYID
 
-            self::$encoder->startTag(SYNC_FOLDERTYPE);
-            self::$encoder->content("Email");
-            self::$encoder->endTag();
+                self::$encoder->startTag(SYNC_FOLDERTYPE);
+                self::$encoder->content("Email");
+                self::$encoder->endTag();
 
-            $data = self::$backend->Fetch($folderid, $serverid, $collection["cpo"]);
-        }
+                $data = self::$backend->Fetch($folderid, $serverid, $collection["cpo"]);
+            }
 
-        //TODO put it in try catch block
+            if (isset($filereference)) {
+                self::$encoder->startTag(SYNC_AIRSYNCBASE_FILEREFERENCE);
+                self::$encoder->content($filereference);
+                self::$encoder->endTag(); // end SYNC_AIRSYNCBASE_FILEREFERENCE
 
-        if (isset($data)) {
-            self::$encoder->startTag(SYNC_ITEMOPERATIONS_PROPERTIES);
-            $data->Encode(self::$encoder);
-            self::$encoder->endTag(); //SYNC_ITEMOPERATIONS_PROPERTIES
-        }
+                $data = self::$backend->GetAttachmentData($filereference);
+            }
+
+            //TODO put it in try catch block
+
+            if (isset($data)) {
+                self::$encoder->startTag(SYNC_ITEMOPERATIONS_PROPERTIES);
+                $data->Encode(self::$encoder);
+                self::$encoder->endTag(); //SYNC_ITEMOPERATIONS_PROPERTIES
+            }
 
         self::$encoder->endTag();//SYNC_ITEMOPERATIONS_FETCH
         self::$encoder->endTag();//SYNC_ITEMOPERATIONS_RESPONSE
