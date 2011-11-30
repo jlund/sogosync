@@ -55,7 +55,7 @@ class Streamer {
     const STREAMER_TYPE_DATE = 1;
     const STREAMER_TYPE_HEX = 2;
     const STREAMER_TYPE_DATE_DASHES = 3;
-    const STREAMER_TYPE_MAPI_STREAM = 4;
+    const STREAMER_TYPE_STREAM = 4;
     const STREAMER_TYPE_IGNORE = 5;
     const STREAMER_TYPE_SEND_EMPTY = 6;
     const STREAMER_TYPE_NO_CONTAINER = 7;
@@ -287,8 +287,17 @@ class Streamer {
                     else if(isset($map[self::STREAMER_TYPE]) && $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_HEX) {
                         $encoder->content(strtoupper(bin2hex($this->$map[self::STREAMER_VAR])));
                     }
-                    else if(isset($map[self::STREAMER_TYPE]) && $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_MAPI_STREAM) {
-                        $encoder->content($this->$map[self::STREAMER_VAR]);
+                    else if(isset($map[self::STREAMER_TYPE]) && $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_STREAM) {
+                        //encode stream with base64
+                        //TODO stream chunked without loading the complete attachment into memory
+                        $stream = $this->$map[self::STREAMER_VAR];
+                        $base64filter = stream_filter_append($stream, 'convert.base64-encode');
+                        $d = "";
+                        while (!feof($stream)) {
+                            $d .= fgets($stream, 4096);
+                        }
+                        $encoder->content($d);
+                        stream_filter_remove($base64filter);
                     }
                     else {
                         $encoder->content($this->$map[self::STREAMER_VAR]);
