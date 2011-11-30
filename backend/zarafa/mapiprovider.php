@@ -1909,13 +1909,15 @@ class MAPIProvider {
             $mstreamstat = mapi_stream_stat($mstream);
             if ($mstreamstat['cb'] < MAX_EMBEDDED_SIZE) {
                 if (Request::GetProtocolVersion() >= 12.0) {
+                    //TODO data should be wrapped in a MapiStreamWrapper
                     $message->asbody->data = mapi_stream_read($mstream, MAX_EMBEDDED_SIZE);
                     $message->asbody->estimatedDataSize = $mstreamstat["cb"];
                     $message->asbody->truncated = 0;
                 }
                 else {
                     $message->mimetruncated = 0;
-                    $message->mimedata = mapi_stream_read($mstream, MAX_EMBEDDED_SIZE);;
+                    //TODO mimedata should be a wrapped in a MapiStreamWrapper
+                    $message->mimedata = mapi_stream_read($mstream, MAX_EMBEDDED_SIZE);
                     $message->mimesize = $mstreamstat["cb"];
                 }
                 unset($message->body, $message->bodytruncated);
