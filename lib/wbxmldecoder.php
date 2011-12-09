@@ -550,7 +550,23 @@ class WBXMLDecoder extends WBXMLDefs {
      * @return string
      */
     private function getOpaque($len) {
-        return fread($this->in, $len);
+        // TODO check if it's possible to do it other way
+        // fread stops reading because the following condition is true (from php.net):
+        // if the stream is read buffered and it does not represent a plain file,
+        // at most one read of up to a number of bytes equal to the chunk size
+        // (usually 8192) is made; depending on the previously buffered data,
+        // the size of the returned data may be larger than the chunk size.
+
+        // using only return fread it will return only a part of stream if chunk is smaller
+        // than $len. Read from stream in a loop until the $len is reached.
+        $d = "";
+        $l = 0;
+        while (1) {
+            $l = (($len - strlen($d)) > 8192) ? 8192 : ($len - strlen($d));
+            if ($l > 0) $d .= fread($this->in, $l);
+            if (strlen($d) >= $len) break;
+        }
+        return $d;
     }
 
     /**
