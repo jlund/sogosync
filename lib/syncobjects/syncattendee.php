@@ -59,6 +59,11 @@ class SyncAttendee extends SyncObject {
                                                                                     self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED => self::STREAMER_CHECK_SETEMPTY) )
                 );
 
+        if (Request::GetProtocolVersion() >= 12.0) {
+            $mapping[SYNC_POOMCAL_ATTENDEESTATUS]                       =  array (  self::STREAMER_VAR      => "attendeestatus");
+            $mapping[SYNC_POOMCAL_ATTENDEETYPE]                         =  array (  self::STREAMER_VAR      => "attendeetype");
+        }
+
         parent::SyncObject($mapping);
     }
 }
