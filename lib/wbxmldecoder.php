@@ -649,11 +649,11 @@ class WBXMLDecoder extends WBXMLDefs {
      * @return void
      */
     private function readVersion() {
-        $ch = $this->getOpaque(1);
-        $this->inputBuffer .= $ch;
+        $ch = $this->getByte();
 
-        if(strlen($ch) > 0) {
-            $this->version = ord($ch);
+        if($ch != NULL) {
+            $this->inputBuffer .= chr($ch);
+            $this->version = $ch;
         }
     }
 }
