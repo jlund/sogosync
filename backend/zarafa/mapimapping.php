@@ -396,5 +396,50 @@ class MAPIMapping {
             "icon"                  => PR_ICON_INDEX,
         );
     }
+
+
+    /**
+    * Returns the MAPI to AS mapping for email todo flags
+    *
+    * @return array
+    */
+    public static function GetMailFlagsMapping() {
+        return array (
+            "flagstatus"            => PR_FLAG_STATUS,
+            "flagtype"              => "PT_STRING8:PSETID_Common:0x8530",
+            "datecompleted"         => "PT_SYSTIME:PSETID_Common:0x810F",
+            "completetime"          => PR_FLAG_COMPLETE_TIME,
+            "startdate"             => "PT_SYSTIME:PSETID_Task:0x8104",
+            "duedate"               => "PT_SYSTIME:PSETID_Task:0x8105",
+            "utcstartdate"          => "PT_SYSTIME:PSETID_Common:0x8516",
+            "utcduedate"            => "PT_SYSTIME:PSETID_Common:0x8517",
+            "reminderset"           => "PT_BOOLEAN:PSETID_Common:0x8503",
+            "remindertime"          => "PT_SYSTIME:PSETID_Common:0x8502",
+            "ordinaldate"           => "PT_SYSTIME:PSETID_Common:0x85A0",
+            "subordinaldate"        => "PT_STRING8:PSETID_Common:0x85A1",
+
+        );
+    }
+
+
+    /**
+    * Returns email todo flags' specific MAPI properties
+    *
+    * @access public
+    *
+    * @return array
+    */
+    public static function GetMailFlagsProperties() {
+        return array(
+            "todoitemsflags"        => PR_TODO_ITEM_FLAGS,
+            "todotitle"             => "PT_STRING8:PSETID_Common:0x85A4",
+            "flagicon"              => PR_FLAG_ICON,
+            "replyrequested"        => PR_REPLY_REQUESTED,
+            "responserequested"     => PR_RESPONSE_REQUESTED,
+            "status"                => "PT_LONG:PSETID_Task:0x8101",
+            "completion"            => "PT_DOUBLE:PSETID_Task:0x8102",
+            "complete"              => "PT_BOOLEAN:PSETID_Task:0x811C",
+        );
+    }
 }
 ?>
