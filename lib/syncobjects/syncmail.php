@@ -161,7 +161,7 @@ class SyncMail extends SyncObject {
                                                                                     self::STREAMER_ARRAY    => SYNC_AIRSYNCBASE_ATTACHMENT);
 
             $mapping[SYNC_POOMMAIL_CONTENTCLASS]                        = array (   self::STREAMER_VAR      => "contentclass",
-                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_ONEVALUEOF     => array('urn:content-classes:message') ));
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_ONEVALUEOF     => array(DEFAULT_EMAIL_CONTENTCLASS) ));
 
             $mapping[SYNC_POOMMAIL_FLAG]                                = array (   self::STREAMER_VAR      => "flag",
                                                                                     self::STREAMER_TYPE     => "SyncMailFlags");
