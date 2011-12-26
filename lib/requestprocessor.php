@@ -615,8 +615,17 @@ class RequestProcessor {
                     self::$deviceManager->SetSupportedFields($collection["collectionid"], $supfields);
                 }
 
-                if(self::$decoder->getElementStartTag(SYNC_DELETESASMOVES))
-                    $collection["deletesasmoves"] = true;
+                // Deletes as moves can be an empty tag as well as have value
+                if(self::$decoder->getElementStartTag(SYNC_DELETESASMOVES)) {
+                    if (($collection["deletesasmoves"] = self::$decoder->getElementContent()) !== false) {
+                        if(!self::$decoder->getElementEndTag()) {
+                            return false;
+                        }
+                    }
+                    else {
+                        $collection["deletesasmoves"] = true;
+                    }
+                }
 
                 // Get changes can be an empty tag as well as have value
                 // dw2412 contribution start
