@@ -1299,13 +1299,13 @@ class RequestProcessor {
                 }
             }
             else {
-                if(!self::$decoder->getElementStartTag(SYNC_GETITEMESTIMATE_FOLDERTYPE))
-                    return false;
+                //get items estimate does not necessarily send the folder type
+                if(self::$decoder->getElementStartTag(SYNC_GETITEMESTIMATE_FOLDERTYPE)) {
+                    $class = self::$decoder->getElementContent();
 
-                $class = self::$decoder->getElementContent();
-
-                if(!self::$decoder->getElementEndTag())
-                    return false;
+                    if(!self::$decoder->getElementEndTag())
+                        return false;
+                }
 
                 if(self::$decoder->getElementStartTag(SYNC_GETITEMESTIMATE_FOLDERID)) {
                     $collectionid = self::$decoder->getElementContent();
