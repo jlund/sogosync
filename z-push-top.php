@@ -116,7 +116,7 @@ class ZPushTop {
         $this->wide = false;
         $this->terminate = false;
         $this->scrSize = array('width' => 80, 'height' => 24);
-        $this->pingInterval = (defined('PING_INTERVAL') && PING_INTERVAL > 0) ? (PING_INTERVAL + 2) : 12;
+        $this->pingInterval = (defined('PING_INTERVAL') && PING_INTERVAL > 0) ? PING_INTERVAL : 12;
 
         // get a TopCollector
         $this->topCollector = new TopCollector();
@@ -245,7 +245,7 @@ class ZPushTop {
                         $lastUpdate = $this->currenttime - $line["update"];
                         if ($this->currenttime - $line["update"] < 2)
                             $this->linesUpdate[$line["update"].$line["pid"]] = $line;
-                        else if (($line['command'] == "Ping"  && $lastUpdate > $this->pingInterval) || ($line['command'] != "Ping"  && $lastUpdate > 4))
+                        else if (($line['command'] == "Ping"  && $lastUpdate > ($this->pingInterval+2)) || ($line['command'] != "Ping"  && $lastUpdate > 4))
                             $this->linesUnknown[$line["update"].$line["pid"]] = $line;
                         else
                             $this->linesActive[$line["update"].$line["pid"]] = $line;
@@ -357,7 +357,7 @@ class ZPushTop {
 
         // show request information and help command
         if ($this->starttime + 6 > $this->currenttime) {
-            $this->status = "Requesting information". str_repeat(".", ($this->currenttime-$this->starttime)) . "  type \033[01;31mh\033[00;31m or \033[01;31mhelp\033[00;31m for usage instructions";
+            $this->status = sprintf("Requesting information (takes up to %dsecs)", $this->pingInterval). str_repeat(".", ($this->currenttime-$this->starttime)) . "  type \033[01;31mh\033[00;31m or \033[01;31mhelp\033[00;31m for usage instructions";
             $this->statusexpire = $this->currenttime+1;
         }
 
