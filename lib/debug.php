@@ -47,6 +47,7 @@ class ZLog {
     static private $authUser = false;
     static private $pidstr;
     static private $wbxmlDebug = '';
+    static private $lastLogs = array();
 
     /**
      * Initializes the logging
@@ -97,6 +98,7 @@ class ZLog {
      * @return
      */
     static public function Write($loglevel, $message) {
+        self::$lastLogs[$loglevel] = $message;
         $data = self::buildLogString($loglevel) . $message . "\n";
 
         if ($loglevel <= LOGLEVEL) {
@@ -127,6 +129,18 @@ class ZLog {
      */
     static public function GetWBXMLDebugInfo() {
         return self::$wbxmlDebug;
+    }
+
+    /**
+     * Returns the last message logged for a log level
+     *
+     * @param int       $loglevel           one of the defined LOGLEVELS
+     *
+     * @access public
+     * @return string/false     returns false if there was no message logged in that level
+     */
+    static public function GetLastMessage($loglevel) {
+        return (isset(self::$lastLogs[$loglevel]))?self::$lastLogs[$loglevel]:false;
     }
 
     /**----------------------------------------------------------------------------------------------------------
