@@ -577,16 +577,6 @@ class RequestProcessor {
                         return false;
                 }
 
-                // conversation mode requested
-                if(self::$decoder->getElementStartTag(SYNC_CONVERSATIONMODE)) {
-                    $collection["cpo"]->SetConversationMode(true);
-                    if(($conversationmode = self::$decoder->getElementContent()) !== false) {
-                        $collection["cpo"]->SetConversationMode((boolean)$conversationmode);
-                        if(!self::$decoder->getElementEndTag())
-                            return false;
-                    }
-                }
-
                 // Get class for as versions >= 12.0
                 if (!isset($collection["class"])) {
                     try {
@@ -646,6 +636,16 @@ class RequestProcessor {
                     self::$deviceManager->SetWindowSize($collection["collectionid"], self::$decoder->getElementContent());
                     if(!self::$decoder->getElementEndTag())
                         return false;
+                }
+
+                // conversation mode requested
+                if(self::$decoder->getElementStartTag(SYNC_CONVERSATIONMODE)) {
+                    $collection["cpo"]->SetConversationMode(true);
+                    if(($conversationmode = self::$decoder->getElementContent()) !== false) {
+                        $collection["cpo"]->SetConversationMode((boolean)$conversationmode);
+                        if(!self::$decoder->getElementEndTag())
+                        return false;
+                    }
                 }
 
                 // Save all OPTIONS into a ContentParameters object
