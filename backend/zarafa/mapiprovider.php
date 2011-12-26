@@ -662,6 +662,7 @@ class MAPIProvider {
 
         //TODO contentclass and nativebodytype and internetcpid
         $message->internetcpid = (defined('STORE_INTERNET_CPID')) ? constant('STORE_INTERNET_CPID') : INTERNET_CPID_WINDOWS1252;
+        $this->setFlag($mapimessage, $message);
         $message->contentclass = DEFAULT_EMAIL_CONTENTCLASS;
         if (!isset($message->nativebodytype)) $message->nativebodytype = $this->getNativeBodyType($messageprops);
 
@@ -781,10 +782,86 @@ class MAPIProvider {
             case "synctask":
                 return $this->setTask($mapimessage, $message);
             default:
-                ZLog::Write(LOGLEVEL_ERROR, "Not possible to save message of type: ". get_class($message));
-                return false;
-                // TODO setEmail is not implemented
-                return $this->setEmail($mapimessage, $message); // In fact, this is unimplemented. It never happens. You can't save or modify an email from the PDA (except readflags)
+                //for emails only flag (read and todo) changes are possible
+                return $this->setEmail($mapimessage, $message);
+        }
+    }
+
+    /**
+     * Writes SyncMail to MAPI (actually flags only)
+     *
+     * @param mixed             $mapimessage
+     * @param SyncMail          $message
+     */
+    private function setEmail($mapimessage, $message) {
+        $flagmapping = MAPIMapping::GetMailFlagsMapping();
+        $flagprops = MAPIMapping::GetMailFlagsProperties();
+        $flagprops = array_merge($this->getPropIdsFromStrings($flagmapping), $this->getPropIdsFromStrings($flagprops));
+        // flag specific properties to be set
+        $props = $delprops = array();
+        // unset message flags if:
+        // flag is not set
+        if (empty($message->flag) ||
+            // flag status is not set
+            !isset($message->flag->flagstatus) ||
+            // flag status is 0 or empty
+            (isset($message->flag->flagstatus) && ($message->flag->flagstatus == 0 || $message->flag->flagstatus == "")) ) {
+            // if message flag is empty, some properties need to be deleted
+            // and some set to 0 or false
+
+            $props[$flagprops["todoitemsflags"]] = 0;
+            $props[$flagprops["status"]] = 0;
+            $props[$flagprops["completion"]] = 0.0;
+            $props[$flagprops["flagtype"]] = "";
+            $props[$flagprops["ordinaldate"]] = 0x7fffffff; // ordinal date is 12am 1.1.4501, set it to max possible value
+            $props[$flagprops["subordinaldate"]] = "";
+            $props[$flagprops["replyrequested"]] = false;
+            $props[$flagprops["responserequested"]] = false;
+            $props[$flagprops["reminderset"]] = false;
+            $props[$flagprops["complete"]] = false;
+
+            $delprops[] = $flagprops["todotitle"];
+            $delprops[] = $flagprops["duedate"];
+            $delprops[] = $flagprops["startdate"];
+            $delprops[] = $flagprops["datecompleted"];
+            $delprops[] = $flagprops["utcstartdate"];
+            $delprops[] = $flagprops["utcduedate"];
+            $delprops[] = $flagprops["completetime"];
+            $delprops[] = $flagprops["flagstatus"];
+            $delprops[] = $flagprops["flagicon"];
+        }
+        else {
+            $this->setPropsInMAPI($mapimessage, $message->flag, $flagmapping);
+            $props[$flagprops["todoitemsflags"]] = 1;
+            $props[$flagprops["todotitle"]] = $message->subject;
+            // ordinal date is utc current time
+            if (!isset($message->flag->ordinaldate) || empty($message->flag->ordinaldate)) {
+                $props[$flagprops["ordinaldate"]] = time();
+            }
+            // the default value
+            if (!isset($message->flag->subordinaldate) || empty($message->flag->subordinaldate)) {
+                $props[$flagprops["subordinaldate"]] = "5555555";
+            }
+            $props[$flagprops["flagicon"]] = 6; //red flag icon
+            $props[$flagprops["replyrequested"]] = true;
+            $props[$flagprops["responserequested"]] = true;
+
+            if ($message->flag->flagstatus == SYNC_FLAGSTATUS_COMPLETE) {
+                $props[$flagprops["status"]] = olTaskComplete;
+                $props[$flagprops["completion"]] = 1.0;
+                $props[$flagprops["complete"]] = true;
+                $props[$flagprops["replyrequested"]] = false;
+                $props[$flagprops["responserequested"]] = false;
+                unset($props[$flagprops["flagicon"]]);
+                $delprops[] = $flagprops["flagicon"];
+            }
+        }
+
+        if (!empty($props)) {
+            mapi_setprops($mapimessage, $props);
+        }
+        if (!empty($delprops)) {
+            mapi_deleteprops($mapimessage, $delprops);
         }
     }
 
@@ -2077,6 +2154,24 @@ class MAPIProvider {
             }
         }
             return MAPI_E_NOT_FOUND;
+    }
+
+    /**
+    * sets properties for an email message
+    *
+    * @param mixed             $mapimessage
+    * @param SyncMail          $message
+    *
+    * @access private
+    * @return void
+    */
+    private function setFlag($mapimessage, &$message){
+        // do nothing if protocoll version is lower than 12.0 as flags haven't been defined before
+        if (Request::GetProtocolVersion() < 12.0 ) return;
+
+        $message->flag = new SyncMailFlags();
+
+        $this->getPropsFromMAPI($message->flag, $mapimessage, MAPIMapping::GetMailFlagsMapping());
     }
 }
 

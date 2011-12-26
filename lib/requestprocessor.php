@@ -885,8 +885,14 @@ class RequestProcessor {
                                         else {
                                             if(isset($message->read)) // Currently, 'read' is only sent by the PDA when it is ONLY setting the read flag.
                                                 $importer->ImportMessageReadFlag($serverid, $message->read);
-                                            else
+                                            elseif (!isset($message->flag))
                                                 $importer->ImportMessageChange($serverid, $message);
+
+                                            // email todoflags - some devices send todos flags together with read flags,
+                                            // so they have to be handled separately
+                                            if (isset($message->flag)){
+                                                $importer->ImportMessageChange($serverid, $message);
+                                            }
 
                                             $collection["statusids"][$serverid] = SYNC_STATUS_SUCCESS;
                                         }
