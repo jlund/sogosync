@@ -247,6 +247,16 @@ class ASDevice {
     }
 
     /**
+     * Returns the id of this device
+     *
+     * @access public
+     * @return string
+     */
+    public function GetDeviceId() {
+        return $this->devid;
+    }
+
+    /**
      * Returns the user of this device
      *
      * @access public
@@ -254,6 +264,36 @@ class ASDevice {
      */
     public function GetDeviceUser() {
         return $this->user;
+    }
+
+    /**
+     * Returns the type of this device
+     *
+     * @access public
+     * @return string
+     */
+    public function GetDeviceType() {
+        return $this->devicetype;
+    }
+
+    /**
+     * Returns the user agent of this device
+     *
+     * @access public
+     * @return string
+     */
+    public function GetDeviceUserAgent() {
+        return $this->useragent;
+    }
+
+    /**
+     * Returns the user agent history of this device
+     *
+     * @access public
+     * @return string
+     */
+    public function GetDeviceUserAgentHistory() {
+        return $this->useragentHistory;
     }
 
     /**
@@ -307,22 +347,72 @@ class ASDevice {
      * Sets the current remote wipe status
      *
      * @param int       $status
+     * @param string    $requestedBy
      * @access public
      * @return int
      */
-    public function SetWipeStatus($status) {
+    public function SetWipeStatus($status, $requestedBy = false) {
         // force saving the updated information if there was a transition between the wiping status
         if ($this->wipeStatus > SYNC_PROVISION_RWSTATUS_OK && $status > SYNC_PROVISION_RWSTATUS_OK)
             $this->forceSave = true;
 
+        if ($requestedBy != false) {
+            $this->wipeReqBy = $requestedBy;
+            $this->wipeReqOn = time();
+        }
+        else {
+            $this->wipeActionOn = time();
+        }
+
         $this->wipeStatus = $status;
-        $this->wipeActionOn = time();
         $this->changed = true;
 
         if ($this->wipeStatus > SYNC_PROVISION_RWSTATUS_PENDING)
             ZLog::Write(LOGLEVEL_INFO, sprintf("ASDevice id '%s' was %s remote wiped on %s. Action requested by user '%s' on %s",
                                         $this->devid, ($this->wipeStatus == SYNC_PROVISION_RWSTATUS_REQUESTED ? "requested to be": "sucessfully"),
                                         strftime("%Y-%m-%d %H:%M", $this->wipeActionOn), $this->wipeReqBy, strftime("%Y-%m-%d %H:%M", $this->wipeReqOn)));
+    }
+
+
+   /**
+     * Returns the when the remote wipe was executed
+     *
+     * @access public
+     * @return int
+     */
+    public function GetWipedOn() {
+        if (isset($this->wipeActionOn))
+            return $this->wipeActionOn;
+        else
+            return false;
+    }
+
+
+   /**
+     * Returns by whom the remote wipe was requested
+     *
+     * @access public
+     * @return int
+     */
+    public function GetWipeRequestedBy() {
+        if (isset($this->wipeReqBy))
+            return $this->wipeReqBy;
+        else
+            return false;
+    }
+
+
+   /**
+     * Returns by whom the remote wipe was requested
+     *
+     * @access public
+     * @return int
+     */
+    public function GetWipeRequestedOn() {
+        if (isset($this->wipeReqOn))
+            return $this->wipeReqOn;
+        else
+            return false;
     }
 
 
