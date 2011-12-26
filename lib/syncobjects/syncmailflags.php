@@ -62,19 +62,35 @@ class SyncMailFlags extends SyncObject {
 
     function SyncMailFlags() {
         $mapping = array(
-                    SYNC_POOMTASKS_SUBJECT                              => array (self::STREAMER_VAR        => "subject"),
-                    SYNC_POOMMAIL_FLAGSTATUS                            => array (self::STREAMER_VAR        => "flagstatus"),
-                    SYNC_POOMMAIL_FLAGTYPE                              => array (self::STREAMER_VAR        => "flagtype"),
-                    SYNC_POOMTASKS_DATECOMPLETED                        => array (self::STREAMER_VAR        => "datecompleted"),
-                    SYNC_POOMMAIL_COMPLETETIME                          => array (self::STREAMER_VAR        => "completetime"),
-                    SYNC_POOMTASKS_STARTDATE                            => array (self::STREAMER_VAR        => "startdate"),
-                    SYNC_POOMTASKS_DUEDATE                              => array (self::STREAMER_VAR        => "duedate"),
-                    SYNC_POOMTASKS_UTCSTARTDATE                         => array (self::STREAMER_VAR        => "utcstartdate"),
-                    SYNC_POOMTASKS_UTCDUEDATE                           => array (self::STREAMER_VAR        => "utcduedate"),
-                    SYNC_POOMTASKS_REMINDERSET                          => array (self::STREAMER_VAR        => "reminderset"),
-                    SYNC_POOMTASKS_REMINDERTIME                         => array (self::STREAMER_VAR        => "remindertime"),
-                    SYNC_POOMTASKS_ORDINALDATE                          => array (self::STREAMER_VAR        => "ordinaldate"),
-                    SYNC_POOMTASKS_SUBORDINALDATE                       => array (self::STREAMER_VAR        => "subordinaldate"),
+                    SYNC_POOMTASKS_SUBJECT                              => array (  self::STREAMER_VAR      => "subject"),
+                    SYNC_POOMMAIL_FLAGSTATUS                            => array (  self::STREAMER_VAR      => "flagstatus"),
+                    SYNC_POOMMAIL_FLAGTYPE                              => array (  self::STREAMER_VAR      => "flagtype"),
+                    SYNC_POOMTASKS_DATECOMPLETED                        => array (  self::STREAMER_VAR      => "datecompleted",
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE_DASHES),
+
+                    SYNC_POOMMAIL_COMPLETETIME                          => array (  self::STREAMER_VAR      => "completetime",
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE_DASHES),
+
+                    SYNC_POOMTASKS_STARTDATE                            => array (  self::STREAMER_VAR      => "startdate",
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE_DASHES),
+
+                    SYNC_POOMTASKS_DUEDATE                              => array (  self::STREAMER_VAR      => "duedate",
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE_DASHES),
+
+                    SYNC_POOMTASKS_UTCSTARTDATE                         => array (  self::STREAMER_VAR      => "utcstartdate",
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE_DASHES),
+
+                    SYNC_POOMTASKS_UTCDUEDATE                           => array (  self::STREAMER_VAR      => "utcduedate",
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE_DASHES),
+
+                    SYNC_POOMTASKS_REMINDERSET                          => array (  self::STREAMER_VAR      => "reminderset"),
+                    SYNC_POOMTASKS_REMINDERTIME                         => array (  self::STREAMER_VAR      => "remindertime",
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE_DASHES),
+
+                    SYNC_POOMTASKS_ORDINALDATE                          => array (  self::STREAMER_VAR      => "ordinaldate",
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE_DASHES),
+
+                    SYNC_POOMTASKS_SUBORDINALDATE                       => array (  self::STREAMER_VAR      => "subordinaldate"),
         );
 
         parent::SyncObject($mapping);
