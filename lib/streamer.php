@@ -101,6 +101,8 @@ class Streamer {
                     }
                     else if ($map[self::STREAMER_TYPE] == self::STREAMER_TYPE_SEND_EMPTY)
                         $this->$map[self::STREAMER_VAR] = "";
+                    else if (isset($map[self::STREAMER_PROP]) && $map[self::STREAMER_PROP] == self::STREAMER_TYPE_SEND_EMPTY)
+                        $this->$map[self::STREAMER_VAR] = "";
                     continue;
                 }
                 // Found a start tag
