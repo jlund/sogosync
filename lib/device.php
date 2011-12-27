@@ -440,6 +440,9 @@ class ASDevice {
      */
     public function SetPolicyKey($policykey) {
         $this->policykey = $policykey;
+        if ($this->GetWipeStatus() == SYNC_PROVISION_RWSTATUS_NA)
+            $this->wipeStatus = SYNC_PROVISION_RWSTATUS_OK;
+
         $this->changed = true;
     }
 
