@@ -229,7 +229,7 @@ class ZPushAdmin {
             StateManager::UnLinkState($device, false);
 
             // remove PING data
-            ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::PINGDATA, false, $device->GetFirstSyncTime());
+            ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::PINGDATA, false, 99999999999);
 
             // remove devicedata and unlink user from device
             unset($devicedata[$user]);
