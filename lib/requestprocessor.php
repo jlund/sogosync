@@ -1605,6 +1605,12 @@ class RequestProcessor {
                     break;
                 }
 
+                // Check if a hierarchy sync is necessary
+                if (self::$deviceManager->IsHierarchySyncRequired()) {
+                    $pingstatus = SYNC_PINGSTATUS_FOLDERHIERSYNCREQUIRED;
+                    break;
+                }
+
                 // Check if there are newer ping requests.
                 // If so, this process should be terminated if more than 60 secs to go
                 if ($pingTracking->DoForcePingTimeout() && ($now + 60) < $endat) {

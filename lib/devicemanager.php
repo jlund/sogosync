@@ -65,7 +65,7 @@ class DeviceManager {
     private $latestFolder;
 
     private $loopdetection;
-
+    private $hierarchySyncRequired;
 
     /**
      * Constructor
@@ -78,6 +78,7 @@ class DeviceManager {
         $this->devid = Request::GetDeviceID();
         $this->windowSize = array();
         $this->latestFolder = false;
+        $this->hierarchySyncRequired = false;
 
         // only continue if deviceid is set
         if ($this->devid) {
@@ -462,6 +463,16 @@ class DeviceManager {
         return true;
     }
 
+    /**
+     * Indicates if the hierarchy should be resynchronized
+     * e.g. during PING
+     *
+     * @access public
+     * @return boolean
+     */
+    public function IsHierarchySyncRequired() {
+        return $this->hierarchySyncRequired;
+    }
 
 
     /**----------------------------------------------------------------------------------------------------------
@@ -482,11 +493,15 @@ class DeviceManager {
                     ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->loadDeviceData(): Device data was changed, reloading");
                 $this->device->SetData($this->statemachine->GetState($this->devid, IStateMachine::DEVICEDATA));
                 $this->deviceHash = $deviceHash;
+
+                // check if a hierarchy sync might be necessary
+                if ($this->device->GetFolderUUID(false) === false)
+                    $this->hierarchySyncRequired = true;
             }
         }
-        // TODO might be necessary to catch this and process some StateExceptions later. E.g. -> sync folders -> delete all states -> sync a single folder --> this works, but a full hierarchysync should be triggered!
         catch (StateNotFoundException $snfex) {
             $this->device->SetPolicyKey(0);
+            $this->hierarchySyncRequired = true;
         }
     }
 
