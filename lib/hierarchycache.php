@@ -45,7 +45,6 @@
 class HierarchyCache {
     private $changed = false;
     protected $cacheById;
-    protected $cacheByType;
     private $cacheByIdOld;
 
     /**
@@ -56,7 +55,6 @@ class HierarchyCache {
      */
     public function HierarchyCache() {
         $this->cacheById = array();
-        $this->cacheByType = array();
         $this->cacheByIdOld = $this->cacheById;
         $this->changed = true;
     }
@@ -103,30 +101,6 @@ class HierarchyCache {
     }
 
     /**
-     * Returns the default SyncFolder id for a specific type
-     * This is generally used when doing AS 1.0
-     *
-     * @param int       $type
-     *
-     * @access public
-     * @return string
-     */
-    public function GetFolderIdByType($type) {
-        // this data is available only for default folders
-        if (isset($type) && $type > SYNC_FOLDER_TYPE_OTHER && $type < SYNC_FOLDER_TYPE_USER_MAIL) {
-            if (isset($this->cacheByType[$type]))
-                return $this->cacheByType[$type];
-
-            // Old Palm Treos always do initial sync for calendar and contacts, even if they are not made available by the backend.
-            // We need to fake these folderids, allowing a fake sync/ping, even if they are not supported by the backend
-            // if the folderid would be available, they would already be returned in the above statement
-            if ($type == SYNC_FOLDER_TYPE_APPOINTMENT || $type == SYNC_FOLDER_TYPE_CONTACT)
-                return SYNC_FOLDER_TYPE_DUMMY;
-        }
-        return false;
-    }
-
-    /**
      * Adds a folder to the HierarchyCache
      *
      * @param SyncObject    $folder
@@ -139,12 +113,8 @@ class HierarchyCache {
 
         // add/update
         $this->cacheById[$folder->serverid] = $folder;
-
-        // add folder to the byType cache - only default folders
-        if (isset($folder->type) && $folder->type > SYNC_FOLDER_TYPE_OTHER && $folder->type < SYNC_FOLDER_TYPE_USER_MAIL)
-            $this->cacheByType[$folder->type] = $folder->serverid;
-
         $this->changed = true;
+
         return true;
     }
 
@@ -157,12 +127,9 @@ class HierarchyCache {
      * @return boolean
      */
     public function DelFolder($serverid) {
-        // delete from byType cache first, as we need the foldertype
         $ftype = $this->GetFolder($serverid);
-        if ($ftype->type)
-            unset($this->cacheByType[$ftype->type]);
 
-        ZLog::Write(LOGLEVEL_DEBUG, "HierarchyCache: DelFolder() serverid: $serverid - type (from cache): {$ftype->type}");
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("HierarchyCache: DelFolder() serverid: '%s' - type: '%s'", $serverid, $ftype->type));
         unset($this->cacheById[$serverid]);
         $this->changed = true;
         return true;
@@ -181,7 +148,6 @@ class HierarchyCache {
             return false;
 
         $this->cacheById = array();
-        $this->cacheByType = array();
 
         foreach ($folders as $folder) {
             if (!isset($folder->type))
@@ -213,7 +179,7 @@ class HierarchyCache {
      * @return array        with SyncFolder objects
      */
     public function GetDeletedFolders() {
-        // diffing the OldCacheById with CacheByIdwe know if folders were deleted
+        // diffing the OldCacheById with CacheById we know if folders were deleted
         return array_diff_key($this->cacheByIdOld, $this->cacheById);
     }
 
@@ -235,7 +201,7 @@ class HierarchyCache {
      * @return array
      */
     public function __sleep() {
-        return array("cacheById", "cacheByType");
+        return array("cacheById");
     }
 
 }
