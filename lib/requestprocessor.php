@@ -972,12 +972,15 @@ class RequestProcessor {
                     self::$deviceManager->SetSyncFailState($collection);
                 }
 
-                if(!self::$decoder->getElementEndTag()) // end collections
+                if(!self::$decoder->getElementEndTag()) // end collection
                     return false;
 
                 array_push($collections, $collection);
             }
         }
+
+        if(!self::$decoder->getElementEndTag()) // end collections
+            return false;
 
         //TODO heartbeatinterval
         if (self::$decoder->getElementStartTag(SYNC_HEARTBEATINTERVAL)) {
