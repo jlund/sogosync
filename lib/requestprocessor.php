@@ -371,7 +371,7 @@ class RequestProcessor {
 
         $status = SYNC_FSSTATUS_SUCCESS;
         try {
-            $syncstate = self::$deviceManager->GetSyncState($synckey);
+            $syncstate = self::$deviceManager->GetStateManager()->GetSyncState($synckey);
         }
         catch (StateNotFoundException $snfex) {
                 $status = SYNC_FSSTATUS_SYNCKEYERROR;
@@ -383,7 +383,7 @@ class RequestProcessor {
         $changesMem = self::$deviceManager->GetHierarchyChangesWrapper();
 
         // We will be saving the sync state under 'newsynckey'
-        $newsynckey = self::$deviceManager->GetNewSyncKey($synckey);
+        $newsynckey = self::$deviceManager->GetStateManager()->GetNewSyncKey($synckey);
 
         // the hierarchyCache should now fully be initialized - check for changes in the additional folders
         $changesMem->Config(ZPush::GetAdditionalSyncFolders());
@@ -509,7 +509,7 @@ class RequestProcessor {
 
                 // everything fine, save the sync state for the next time
                 if ($synckey == $newsynckey)
-                    self::$deviceManager->SetSyncState($newsynckey, $newsyncstate);
+                    self::$deviceManager->GetStateManager()->SetSyncState($newsynckey, $newsyncstate);
             }
         }
         self::$encoder->endTag();
@@ -745,10 +745,10 @@ class RequestProcessor {
                 // Get our sync state for this collection
                 if ($status == SYNC_STATUS_SUCCESS) {
                     try {
-                        $collection["syncstate"] = self::$deviceManager->GetSyncState($collection["synckey"]);
+                        $collection["syncstate"] = self::$deviceManager->GetStateManager()->GetSyncState($collection["synckey"]);
 
                         // if this request was made before, there will be a failstate available
-                        $collection["failstate"] = self::$deviceManager->GetSyncFailState();
+                        $collection["failstate"] = self::$deviceManager->GetStateManager()->GetSyncFailState();
 
                         // if this is an additional folder the backend has to be setup correctly
                         if (!self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore($collection["collectionid"])))
@@ -969,7 +969,7 @@ class RequestProcessor {
                 // save the failsave state
                 if (!empty($collection["statusids"])) {
                     unset($collection["failstate"]);
-                    self::$deviceManager->SetSyncFailState($collection);
+                    self::$deviceManager->GetStateManager()->SetSyncFailState($collection);
                 }
 
                 if(!self::$decoder->getElementEndTag()) // end collection
@@ -1046,7 +1046,7 @@ class RequestProcessor {
                             !empty($collection["clientids"]) ||
                             !empty($collection["removeids"]) ||
                             $changecount > 0 || $collection["synckey"] == "0")
-                                $collection["newsynckey"] = self::$deviceManager->GetNewSyncKey($collection["synckey"]);
+                                $collection["newsynckey"] = self::$deviceManager->GetStateManager()->GetNewSyncKey($collection["synckey"]);
 
                         self::$encoder->startTag(SYNC_FOLDER);
 
@@ -1220,7 +1220,7 @@ class RequestProcessor {
 
 
                             if (isset($state) && $status == SYNC_STATUS_SUCCESS)
-                                self::$deviceManager->SetSyncState($collection["newsynckey"], $state, $collection["collectionid"]);
+                                self::$deviceManager->GetStateManager()->SetSyncState($collection["newsynckey"], $state, $collection["collectionid"]);
                             else
                                 ZLog::Write(LOGLEVEL_ERROR, sprintf("HandleSync(): error saving '%s' - no state information available", $collection["newsynckey"]));
                         }
@@ -1377,7 +1377,7 @@ class RequestProcessor {
                             throw new StatusException(sprintf("HandleGetItemEstimate(): no exporter available, for id '%s'", $collection["collectionid"]), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
 
                         $importer = new ChangesMemoryWrapper();
-                        $syncstate = self::$deviceManager->GetSyncState($collection["synckey"]);
+                        $syncstate = self::$deviceManager->GetStateManager()->GetSyncState($collection["synckey"]);
 
                         $exporter->Config($syncstate);
                         $exporter->ConfigContentParameters($collection["cpo"]);
@@ -1490,7 +1490,7 @@ class RequestProcessor {
         $pingTracking = new PingTracking();
 
         // Get previous pingdata, if available
-        list($collections, $lifetime, $policykey) = self::$deviceManager->GetPingState();
+        list($collections, $lifetime, $policykey) = self::$deviceManager->GetStateManager()->GetPingState();
 
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandlePing(): reference PolicyKey for PING: %s", $policykey));
 
@@ -1705,7 +1705,7 @@ class RequestProcessor {
         self::$encoder->endTag();
 
         // Save the ping state
-        self::$deviceManager->SetPingState($collections, $lifetime);
+        self::$deviceManager->GetStateManager()->SetPingState($collections, $lifetime);
 
         return true;
     }
@@ -1870,8 +1870,8 @@ class RequestProcessor {
         $status = SYNC_FSSTATUS_SUCCESS;
         // Get state of hierarchy
         try {
-            $syncstate = self::$deviceManager->GetSyncState($synckey);
-            $newsynckey = self::$deviceManager->GetNewSyncKey($synckey);
+            $syncstate = self::$deviceManager->GetStateManager()->GetSyncState($synckey);
+            $newsynckey = self::$deviceManager->GetStateManager()->GetNewSyncKey($synckey);
 
             // Over the ChangesWrapper the HierarchyCache is notified about all changes
             $changesMem = self::$deviceManager->GetHierarchyChangesWrapper();
@@ -1989,7 +1989,7 @@ class RequestProcessor {
         self::$topCollector->AnnounceInformation(sprintf("Operation status %d", $status), true);
 
         // Save the sync state for the next time
-        self::$deviceManager->SetSyncState($newsynckey, $importer->GetState());
+        self::$deviceManager->GetStateManager()->SetSyncState($newsynckey, $importer->GetState());
 
         return true;
     }

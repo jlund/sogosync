@@ -53,6 +53,7 @@ include_once('lib/pingtracking.php');
 include_once('lib/topcollector.php');
 include_once('lib/loopdetection.php');
 include_once('lib/device.php');
+include_once('lib/statemanager.php');
 include_once('lib/devicemanager.php');
 include_once('lib/zpush.php');
 include_once('lib/interfaces.php');
