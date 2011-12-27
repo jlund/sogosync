@@ -182,7 +182,7 @@ class DeviceManager {
             return true;
         }
 
-        $p = ($policykey == 0 || $policykey != $this->device->GetPolicyKey());
+        $p = ($this->device->GetWipeStatus() != SYNC_PROVISION_RWSTATUS_NA && $policykey != $this->device->GetPolicyKey());
         if (!$noDebug || $p)
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("DeviceManager->ProvisioningRequired('%s') saved device key '%s': %s", $policykey, $this->device->GetPolicyKey(), Utils::PrintAsString($p)));
         return $p;
@@ -500,7 +500,7 @@ class DeviceManager {
             }
         }
         catch (StateNotFoundException $snfex) {
-            $this->device->SetPolicyKey(0);
+            //$this->device->SetPolicyKey(0);
             $this->hierarchySyncRequired = true;
         }
     }
