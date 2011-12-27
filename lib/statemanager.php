@@ -157,8 +157,16 @@ class StateManager {
      */
     public function SetPingState($collections, $lifetime) {
         // TODO: PINGdata should be un/serialized in the state machine
-        return $this->statemachine->SetState(serialize(array("lifetime" => $lifetime, "collections" => $collections, "policykey" => $this->device->GetPolicyKey())),
-                                             $this->device->GetDeviceId(), IStateMachine::PINGDATA, false, $this->device->GetFirstSyncTime());
+
+        // if a HierarchySync is required something major happened
+        // we should remove this current ping state because it's potentially obsolete
+        if (ZPush::GetDeviceManager()->IsHierarchySyncRequired()) {
+            ZPush::GetStateMachine()->CleanStates($this->device->GetDeviceId(), IStateMachine::PINGDATA, false, 99999999999);
+            return false;
+        }
+        else
+            return $this->statemachine->SetState(serialize(array("lifetime" => $lifetime, "collections" => $collections, "policykey" => $this->device->GetPolicyKey())),
+                                                 $this->device->GetDeviceId(), IStateMachine::PINGDATA, false, $this->device->GetFirstSyncTime());
     }
 
     /**
