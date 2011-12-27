@@ -384,7 +384,7 @@ class ZPushAdminCLI {
      */
     static public function CommandResyncDevices() {
         $stat = ZPushAdmin::ResyncDevice(self::$user, self::$device);
-        echo sprintf("Resync device of user '%s': %s", self::$user, ($stat)?'Requested':ZLog::GetLastMessage(LOGLEVEL_ERROR)). "\n";
+        echo sprintf("Resync of device '%s' of user '%s': %s", self::$device, self::$user, ($stat)?'Requested':ZLog::GetLastMessage(LOGLEVEL_ERROR)). "\n";
     }
 
     /**
