@@ -67,6 +67,7 @@ interface IStateMachine {
     const PINGDATA = "ping";
     const FAILSAVE = "fs";
     const HIERARCHY = "hc";
+    const BACKENDSTORAGE = "bs";
 
     /**
      * Gets a hash value indicating the latest dataset of the named
