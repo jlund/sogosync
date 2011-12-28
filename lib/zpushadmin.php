@@ -228,6 +228,9 @@ class ZPushAdmin {
             // remove hierarchcache
             StateManager::UnLinkState($device, false);
 
+            // remove backend storage permanent data
+            ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, false, 99999999999);
+
             // remove PING data
             ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::PINGDATA, false, 99999999999);
 

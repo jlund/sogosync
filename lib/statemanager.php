@@ -58,6 +58,11 @@
 
 class StateManager {
     const FIXEDHIERARCHYCOUNTER = 99999;
+
+    // backend storage types
+    const BACKENDSTORAGE_PERMANENT = 1;
+    const BACKENDSTORAGE_STATE = 2;
+
     private $statemachine;
     private $device;
     private $hierarchyOperation = false;
@@ -231,7 +236,7 @@ class StateManager {
     public function GetSyncFailState() {
         if (!$this->uuid)
             return false;
-        // TODO normally this state is not found - this results in an exception message in the log and should be prevented.
+
         try {
             return unserialize($this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::FAILSAVE, $this->uuid, $this->oldStateCounter));
         }
@@ -253,6 +258,49 @@ class StateManager {
             return false;
 
         return $this->statemachine->SetState(serialize($syncstate), $this->device->GetDeviceId(), IStateMachine::FAILSAVE, $this->uuid, $this->oldStateCounter);
+    }
+
+    /**
+     * Gets the backendstorage data
+     *
+     * @param int   $type       permanent or state related storage
+     *
+     * @access public
+     * @return mixed
+     * @throws StateNotYetAvailableException, StateNotFoundException
+     */
+    public function GetBackendStorage($type = self::BACKENDSTORAGE_PERMANENT) {
+        if ($type == self::BACKENDSTORAGE_STATE) {
+            if (!$this->uuid)
+                throw new StateNotYetAvailableException();
+
+            return unserialize($this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, $this->uuid, $this->oldStateCounter));
+        }
+        else {
+            return unserialize($this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, false, $this->device->GetFirstSyncTime()));
+        }
+    }
+
+   /**
+     * Writes the backendstorage data
+     *
+     * @param mixed $data
+     * @param int   $type       permanent or state related storage
+     *
+     * @access public
+     * @return int              amount of bytes saved
+     * @throws StateNotYetAvailableException, StateNotFoundException
+     */
+    public function SetBackendStorage($data, $type = self::BACKENDSTORAGE_PERMANENT) {
+        if ($type == self::BACKENDSTORAGE_STATE) {
+        if (!$this->uuid)
+            throw new StateNotYetAvailableException();
+
+            return $this->statemachine->SetState(serialize($data), $this->device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, $this->uuid, $this->newStateCounter);
+        }
+        else {
+            return $this->statemachine->SetState(serialize($data), $this->device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, false, $this->device->GetFirstSyncTime());
+        }
     }
 
     /**
@@ -356,6 +404,7 @@ class StateManager {
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("StateManager::UnLinkState('%s'): saved state '%s' will be deleted.", $folderid, $savedUuid));
             ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::DEFTYPE, $savedUuid, self::FIXEDHIERARCHYCOUNTER *2);
             ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::FAILSAVE, $savedUuid, self::FIXEDHIERARCHYCOUNTER *2);
+            ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, $savedUuid, self::FIXEDHIERARCHYCOUNTER *2);
 
             if ($folderid === false && $savedUuid !== false)
                 ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::HIERARCHY, $savedUuid, self::FIXEDHIERARCHYCOUNTER *2);
