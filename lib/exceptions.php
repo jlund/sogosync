@@ -121,5 +121,5 @@ class StatusException extends ZPushException {
 class StateNotFoundException extends StatusException {}
 class StateInvalidException extends StatusException {}
 class NoHierarchyCacheAvailableException extends StateNotFoundException {}
-
+class StateNotYetAvailableException extends StatusException {}
 ?>
