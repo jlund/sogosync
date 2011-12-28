@@ -56,6 +56,9 @@
 ************************************************/
 
 abstract class Backend implements IBackend {
+    protected $permanentStorage;
+    protected $stateStorage;
+
     /**
      * Constructor
      *
@@ -139,5 +142,93 @@ abstract class Backend implements IBackend {
             $settings->Status = SYNC_SETTINGSSTATUS_SUCCESS;
         return $settings;
     }
+
+
+    /**----------------------------------------------------------------------------------------------------------
+     * Protected methods for BackendStorage
+     *
+     * Backends can use a permanent and a state related storage to save additional data
+     * used during the synchronization.
+     *
+     * While permament storage is bound to the device and user, state related data works linked
+     * to the regular states (and its counters).
+     *
+     * Both consist of a simple array. The backend can decide what to save in it.
+     *
+     * Before using $this->permanentStorage and $this->stateStorage the initilize methods have to be
+     * called from the backend.
+     *
+     * Backend->LogOff() must call $this->SaveStorages() so the data is written to disk!
+     *
+     * These methods are an abstraction layer for StateManager->Get/SetBackendStorage()
+     * which can also be used independently.
+     */
+
+    /**
+     * Loads the permanent storage data of the user and device
+     *
+     * @access protected
+     * @return
+     */
+    protected function InitializePermanentStorage() {
+        if (!isset($this->permanentStorage)) {
+            try {
+                $this->permanentStorage = ZPush::GetDeviceManager()->GetStateManager()->GetBackendStorage(StateManager::BACKENDSTORAGE_PERMANENT);
+            }
+            catch (StateNotYetAvailableException $snyae) {
+                $this->permanentStorage = array();
+            }
+            catch(StateNotFoundException $snfe) {
+                $this->permanentStorage = array();
+            }
+        }
+    }
+
+   /**
+     * Loads the state related storage data of the user and device
+     * All data not necessary for the next state should be removed
+     *
+     * @access protected
+     * @return
+     */
+    protected function InitializeStateStorage() {
+        if (!isset($this->stateStorage)) {
+            try {
+                $this->stateStorage = ZPush::GetDeviceManager()->GetStateManager()->GetBackendStorage(StateManager::BACKENDSTORAGE_STATE);
+            }
+            catch (StateNotYetAvailableException $snyae) {
+                $this->stateStorage = array();
+            }
+            catch(StateNotFoundException $snfe) {
+                $this->stateStorage = array();
+            }
+        }
+    }
+
+   /**
+     * Saves the permanent and state related storage data of the user and device
+     * if they were loaded previousily
+     * If the backend storage is used this should be called
+     *
+     * @access protected
+     * @return
+     */
+    protected function SaveStorages() {
+        if (isset($this->permanentStorage)) {
+            try {
+                ZPush::GetDeviceManager()->GetStateManager()->SetBackendStorage($this->permanentStorage, StateManager::BACKENDSTORAGE_PERMANENT);
+            }
+            catch (StateNotYetAvailableException $snyae) { }
+            catch(StateNotFoundException $snfe) { }
+        }
+        if (isset($this->stateStorage)) {
+            try {
+                $this->storage_state = ZPush::GetDeviceManager()->GetStateManager()->SetBackendStorage($this->stateStorage, StateManager::BACKENDSTORAGE_STATE);
+            }
+            catch (StateNotYetAvailableException $snyae) { }
+            catch(StateNotFoundException $snfe) { }
+        }
+    }
+
 }
 ?>
