@@ -64,16 +64,16 @@ class StringStreamWrapper {
      */
     public function stream_open($path, $mode, $options, &$opened_path) {
         $contextOptions = stream_context_get_options($this->context);
-        if (!isset($contextOptions[self::PROTOCOL]['stream']))
+        if (!isset($contextOptions[self::PROTOCOL]['string']))
             return false;
 
         $this->position = 0;
 
         // this is our stream!
-        $this->stringstream = $contextOptions[self::PROTOCOL]['stream'];
+        $this->stringstream = $contextOptions[self::PROTOCOL]['string'];
 
         $this->stringlength = strlen($this->stringstream);
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("StringStreamWrapper::stream_open(): initialized stream length: %d", $this->streamlength));
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("StringStreamWrapper::stream_open(): initialized stream length: %d", $this->stringlength));
 
         return true;
     }
