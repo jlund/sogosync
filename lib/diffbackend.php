@@ -47,6 +47,8 @@
 * Consult LICENSE file for details
 ************************************************/
 
+include_once('lib/backend.php');
+
 /**
  * Differential engine
  */
