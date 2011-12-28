@@ -920,7 +920,6 @@ class BackendIMAP extends BackendDiff {
             $output->body = $body;
             $output->datereceived = isset($message->headers["date"]) ? $this->cleanupDate($message->headers["date"]) : null;
             $output->displayto = isset($message->headers["to"]) ? $message->headers["to"] : null;
-            $output->importance = isset($message->headers["x-priority"]) ? preg_replace("/\D+/", "", $message->headers["x-priority"]) : null;
             $output->messageclass = "IPM.Note";
             $output->subject = isset($message->headers["subject"]) ? $message->headers["subject"] : "";
             $output->read = $stat["flags"];
@@ -928,6 +927,17 @@ class BackendIMAP extends BackendDiff {
             $output->cc = isset($message->headers["cc"]) ? $message->headers["cc"] : null;
             $output->from = isset($message->headers["from"]) ? $message->headers["from"] : null;
             $output->reply_to = isset($message->headers["reply-to"]) ? $message->headers["reply-to"] : null;
+
+            // convert mime-importance to AS-importance
+            if (isset($message->headers["x-priority"])) {
+                $mimeImportance =  preg_replace("/\D+/", "", $message->headers["x-priority"]);
+                if ($mimeImportance > 3)
+                    $output->importance = 0;
+                if ($mimeImportance == 3)
+                    $output->importance = 1;
+                if ($mimeImportance < 3)
+                    $output->importance = 2;
+            }
 
             // Attachments are only searched in the top-level part
             if(isset($message->parts)) {
