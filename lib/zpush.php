@@ -683,11 +683,11 @@ END;
             throw new FatalNotImplementedException(sprintf("Command '%s' is not supported", Utils::GetCommandFromCode($commandCode)));
 
         $capa = self::$supportedCommands[$commandCode];
-        $defcapa = (is_array($capa))?in_array($option, $capa):false;
+        $defcapa = in_array($option, $capa, true);
 
         // if not looking for a default capability, check if the command is supported since a previous AS version
         if (!$defcapa) {
-            $verkey = array_search($option, self::$supportedASVersions);
+            $verkey = array_search($option, self::$supportedASVersions, true);
             if ($verkey !== false && ($verkey >= array_search($capa[0], self::$supportedASVersions))) {
                 $defcapa = true;
             }
