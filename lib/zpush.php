@@ -53,6 +53,15 @@ class ZPush {
     const CLASS_DEFAULTTYPE = 3;
     const CLASS_OTHERTYPES = 4;
 
+    // AS versions
+    const ASV_1 = "1.0";
+    const ASV_2 = "2.0";
+    const ASV_21 = "2.1";
+    const ASV_25 = "2.5";
+    const ASV_12 = "12.0";
+    const ASV_121 = "12.1";
+    const ASV_14 = "14.0";
+
     /**
      * Command codes for base64 encoded requests (AS >= 12.1)
      */
@@ -83,32 +92,39 @@ class ZPush {
     const COMMAND_MOVECOLLECTION = -4;
     const COMMAND_NOTIFY = -5;
 
-    static private $supportedASVersions = array("1.0","2.0","2.1","2.5","12.0","12.1","14.0");
+    static private $supportedASVersions = array(self::ASV_1,
+                                                self::ASV_2,
+                                                self::ASV_21,
+                                                self::ASV_25,
+                                                self::ASV_12,
+                                                self::ASV_121,
+                                                self::ASV_14);
+
     static private $supportedCommands = array(
-                                            self::COMMAND_SYNC              => false,
-                                            self::COMMAND_SENDMAIL          => false,
-                                            self::COMMAND_SMARTFORWARD      => false,
-                                            self::COMMAND_SMARTREPLY        => false,
-                                            self::COMMAND_GETATTACHMENT     => false,
-                                            self::COMMAND_GETHIERARCHY      => array(self::HIERARCHYCOMMAND),                       // deprecated but implemented
-                                            self::COMMAND_CREATECOLLECTION  => false,                                               // deprecated & not implemented
-                                            self::COMMAND_DELETECOLLECTION  => false,                                               // deprecated & not implemented
-                                            self::COMMAND_MOVECOLLECTION    => false,                                               // deprecated & not implemented
-                                            self::COMMAND_FOLDERSYNC        => array(self::HIERARCHYCOMMAND),
-                                            self::COMMAND_FOLDERCREATE      => array(self::HIERARCHYCOMMAND),
-                                            self::COMMAND_FOLDERDELETE      => array(self::HIERARCHYCOMMAND),
-                                            self::COMMAND_FOLDERUPDATE      => array(self::HIERARCHYCOMMAND),
-                                            self::COMMAND_MOVEITEMS         => false,
-                                            self::COMMAND_GETITEMESTIMATE   => false,
-                                            self::COMMAND_MEETINGRESPONSE   => false,
-                                            self::COMMAND_RESOLVERECIPIENTS => false,
-                                            self::COMMAND_VALIDATECERT      => false,
-                                            self::COMMAND_PROVISION         => array(self::UNAUTHENTICATED, self::UNPROVISIONED),
-                                            self::COMMAND_SEARCH            => false,
-                                            self::COMMAND_PING              => array(self::UNPROVISIONED),
-                                            self::COMMAND_NOTIFY            => false,                                               // deprecated & not implemented
-                                            self::COMMAND_ITEMOPERATIONS    => false,
-                                            self::COMMAND_SETTINGS          => false,
+                                            self::COMMAND_SYNC              => array(self::ASV_1),
+                                            self::COMMAND_SENDMAIL          => array(self::ASV_1),
+                                            self::COMMAND_SMARTFORWARD      => array(self::ASV_1),
+                                            self::COMMAND_SMARTREPLY        => array(self::ASV_1),
+                                            self::COMMAND_GETATTACHMENT     => array(self::ASV_1),
+                                            self::COMMAND_GETHIERARCHY      => array(self::ASV_1, self::HIERARCHYCOMMAND),                       // deprecated but implemented
+                                            self::COMMAND_CREATECOLLECTION  => array(self::ASV_1),                                               // deprecated & not implemented
+                                            self::COMMAND_DELETECOLLECTION  => array(self::ASV_1),                                               // deprecated & not implemented
+                                            self::COMMAND_MOVECOLLECTION    => array(self::ASV_1),                                               // deprecated & not implemented
+                                            self::COMMAND_FOLDERSYNC        => array(self::ASV_2, self::HIERARCHYCOMMAND),
+                                            self::COMMAND_FOLDERCREATE      => array(self::ASV_2, self::HIERARCHYCOMMAND),
+                                            self::COMMAND_FOLDERDELETE      => array(self::ASV_2, self::HIERARCHYCOMMAND),
+                                            self::COMMAND_FOLDERUPDATE      => array(self::ASV_2, self::HIERARCHYCOMMAND),
+                                            self::COMMAND_MOVEITEMS         => array(self::ASV_1),
+                                            self::COMMAND_GETITEMESTIMATE   => array(self::ASV_1),
+                                            self::COMMAND_MEETINGRESPONSE   => array(self::ASV_1),
+                                            self::COMMAND_RESOLVERECIPIENTS => array(self::ASV_1),
+                                            self::COMMAND_VALIDATECERT      => array(self::ASV_1),
+                                            self::COMMAND_PROVISION         => array(self::ASV_25, self::UNAUTHENTICATED, self::UNPROVISIONED),
+                                            self::COMMAND_SEARCH            => array(self::ASV_1),
+                                            self::COMMAND_PING              => array(self::ASV_2, self::UNPROVISIONED),
+                                            self::COMMAND_NOTIFY            => array(self::ASV_1),                                               // deprecated & not implemented
+                                            self::COMMAND_ITEMOPERATIONS    => array(self::ASV_12),
+                                            self::COMMAND_SETTINGS          => array(self::ASV_12),
                                             //'Autodiscover' => false,
                                           );
 
@@ -536,13 +552,28 @@ END;
     }
 
     /**
+     * Indicates which is the highest AS version supported by the backend
+     *
+     * @access public
+     * @return string
+     */
+    static public function GetSupportedASVersion() {
+        // TODO implement IBackend()->GetSupportedASVersion()
+        //return self::GetBackend()->GetSupportedASVersion();
+        return self::ASV_14;
+    }
+
+    /**
      * Returns AS server header
      *
      * @access public
      * @return string
      */
     static public function GetServerHeader() {
-        return "MS-Server-ActiveSync: 14.0";
+        if (self::GetSupportedASVersion() == self::ASV_25)
+            return "MS-Server-ActiveSync: 6.5.7638.1";
+        else
+            return "MS-Server-ActiveSync: ". self::GetSupportedASVersion();
     }
 
     /**
@@ -552,7 +583,9 @@ END;
      * @return string
      */
     static public function GetSupportedProtocolVersions() {
-        return "MS-ASProtocolVersions: ". implode(',', self::$supportedASVersions);
+        $versions = implode(',', array_slice(self::$supportedASVersions, 0, (array_search(self::GetSupportedASVersion(), self::$supportedASVersions)+1)));
+        ZLog::Write(LOGLEVEL_DEBUG, "ZPush::GetSupportedProtocolVersions(): " . $versions);
+        return "MS-ASProtocolVersions: " . $versions;
     }
 
     /**
@@ -565,10 +598,13 @@ END;
         $asCommands = array();
         // filter all non-activesync commands
         foreach (self::$supportedCommands as $c=>$v)
-            if ($v === false || (is_array($v) && !in_array(self::NOACTIVESYNCCOMMAND, $v)))
+            if (!self::checkCommandOptions($c, self::NOACTIVESYNCCOMMAND) &&
+                self::checkCommandOptions($c, self::GetSupportedASVersion()))
                 $asCommands[] = Utils::GetCommandFromCode($c);
 
-        return "MS-ASProtocolCommands: ". implode(',', $asCommands);
+        $commands = implode(',', $asCommands);
+        ZLog::Write(LOGLEVEL_DEBUG, "ZPush::GetSupportedCommands(): " . $commands);
+        return "MS-ASProtocolCommands: " . $commands;
     }
 
     /**
@@ -631,7 +667,7 @@ END;
      * Checks access types of a command
      *
      * @param string $commandCode   a commandCode
-     * @param string $option        e.g. UNAUTHENTICATED
+     * @param string $option        e.g. self::UNAUTHENTICATED
 
      * @access private
      * @throws FatalNotImplementedException
@@ -644,7 +680,17 @@ END;
             throw new FatalNotImplementedException(sprintf("Command '%s' is not supported", Utils::GetCommandFromCode($commandCode)));
 
         $capa = self::$supportedCommands[$commandCode];
-        return (is_array($capa))?in_array($option, $capa):false;
+        $defcapa = (is_array($capa))?in_array($option, $capa):false;
+
+        // if not looking for a default capability, check if the command is supported since a previous AS version
+        if (!$defcapa) {
+            $verkey = array_search($option, self::$supportedASVersions);
+            if ($verkey !== false && ($verkey >= array_search($capa[0], self::$supportedASVersions))) {
+                $defcapa = true;
+            }
+        }
+
+        return $defcapa;
     }
 
 }
