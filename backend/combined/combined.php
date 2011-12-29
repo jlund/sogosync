@@ -5,6 +5,12 @@
 * Descr     :   Combines several backends. Each type of message
 *               (Emails, Contacts, Calendar, Tasks) can be handled by
 *               a separate backend.
+*               As the CombinedBackend is a subclass of the default Backend
+*               class, it returns by that the supported AS version is 2.5.
+*               The method GetSupportedASVersion() could be implemented
+*               here, checking the version with all backends.
+*               But still, the lowest version in common must be
+*               returned, even if some backends support a higher version.
 *
 * Created   :   29.11.2010
 *
