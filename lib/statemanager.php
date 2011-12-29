@@ -135,7 +135,7 @@ class StateManager {
     public function GetPingState() {
         $collections = array();
         $lifetime = 60;
-        $policykey = 0;
+        $policykey = $this->device->GetPolicyKey();
 
         try {
             $data = $this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::PINGDATA, false, $this->device->GetFirstSyncTime());
