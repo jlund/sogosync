@@ -89,6 +89,18 @@ abstract class Backend implements IBackend {
         return new SearchProvider();
     }
 
+    /**
+     * Indicates which AS version is supported by the backend.
+     * By default AS version 2.5 (ASV_25) is returned (Z-Push 1 standard).
+     * Subclasses can overwrite this method to set another AS version
+     *
+     * @access public
+     * @return string       AS version constant
+     */
+    public function GetSupportedASVersion() {
+        return ZPush::ASV_25;
+    }
+
     /*********************************************************************
      * Methods to be implemented
      *

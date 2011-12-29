@@ -556,11 +556,14 @@ END;
      *
      * @access public
      * @return string
+     * @throws FatalNotImplementedException     if the backend returns an invalid version
      */
     static public function GetSupportedASVersion() {
-        // TODO implement IBackend()->GetSupportedASVersion()
-        //return self::GetBackend()->GetSupportedASVersion();
-        return self::ASV_14;
+        $version = self::GetBackend()->GetSupportedASVersion();
+        if (!in_array($version, self::$supportedASVersions))
+            throw new FatalNotImplementedException(sprintf("AS version '%s' reported by the backend is not supported", $version));
+
+        return $version;
     }
 
     /**

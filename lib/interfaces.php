@@ -192,6 +192,16 @@ interface IBackend {
     public function GetSearchProvider();
 
     /**
+     * Indicates which AS version is supported by the backend.
+     * Depending on this value the supported AS version announced to the
+     * mobile device is set.
+     *
+     * @access public
+     * @return string       AS version constant
+     */
+    public function GetSupportedASVersion();
+
+    /**
      * Authenticates the user
      *
      * @param string        $username

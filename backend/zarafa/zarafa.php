@@ -117,6 +117,16 @@ class BackendZarafa implements IBackend, ISearchProvider {
     }
 
     /**
+     * Indicates which AS version is supported by the backend.
+     *
+     * @access public
+     * @return string       AS version constant
+     */
+    public function GetSupportedASVersion() {
+        return ZPush::ASV_14;
+    }
+
+    /**
      * Authenticates the user with the configured Zarafa server
      *
      * @param string        $username
