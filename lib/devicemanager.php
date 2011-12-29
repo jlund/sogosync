@@ -83,6 +83,9 @@ class DeviceManager {
         // only continue if deviceid is set
         if ($this->devid) {
             $this->device = new ASDevice($this->devid, Request::GetDeviceType(), Request::GetGETUser(), Request::GetUserAgent());
+            if (Request::GetProtocolVersion())
+                $this->device->SetASVersion(Request::GetProtocolVersion());
+
             $this->loadDeviceData();
         }
         else

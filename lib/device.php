@@ -61,6 +61,7 @@ class ASDevice {
     const WIPEREQBY = 14;
     const WIPEREQON = 15;
     const WIPEACTIONON = 16;
+    const ASVERSION = 17;
 
     const FOLDERUUID = 1;
     const FOLDERTYPE = 2;
@@ -81,6 +82,7 @@ class ASDevice {
     private $lastupdatetime;
     private $useragent;
     private $useragentHistory;
+    private $asversion;
 
     private $wipeStatus;
     private $wipeReqBy;
@@ -148,6 +150,7 @@ class ASDevice {
             $this->wipeReqBy            = $data[$this->user][self::WIPEREQBY];
             $this->wipeReqOn            = $data[$this->user][self::WIPEREQON];
             $this->wipeActionOn         = $data[$this->user][self::WIPEACTIONON];
+            $this->asversion            = $data[$this->user][self::ASVERSION];
 
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("ASDevice data loaded for user: '%s'", $this->user));
         }
@@ -201,6 +204,8 @@ class ASDevice {
             if (isset($this->wipeReqBy))        $userdata[self::WIPEREQBY]          = $this->wipeReqBy;
             if (isset($this->wipeReqOn))        $userdata[self::WIPEREQON]          = $this->wipeReqOn;
             if (isset($this->wipeActionOn))     $userdata[self::WIPEACTIONON]       = $this->wipeActionOn;
+            if (isset($this->asversion))        $userdata[self::ASVERSION]          = $this->asversion;
+
 
             if (!isset($this->loadedData))
                 $this->loadedData = array();
@@ -415,6 +420,35 @@ class ASDevice {
             return false;
     }
 
+   /**
+     * Returns the AS version used for device
+     * if it was never set, it returns false
+     *
+     * @access public
+     * @return int
+     */
+    public function GetASVersion() {
+        if (isset($this->asversion))
+            return $this->asversion;
+        else
+            return false;
+    }
+
+   /**
+     * Sets the AS version used for device
+     *
+     * @param string    $asversion
+     *
+     * @access public
+     * @return
+     */
+    public function SetASVersion($asversion) {
+        if ($this->GetASVersion() !== $asversion) {
+            $this->asversion = $asversion;
+            $this->changed = true;
+        }
+        return true;
+    }
 
    /**
      * Returns the deployed policy key

@@ -445,6 +445,7 @@ class ZPushAdminCLI {
         echo "UserAgent:\t\t".($device->GetDeviceUserAgent()!== ASDevice::UNDEFINED ? $device->GetDeviceUserAgent() : "unknown") ."\n";
         // TODO implement $device->GetDeviceUserAgentHistory()
 
+        echo "ActiveSync version:\t".($device->GetASVersion() ? $device->GetASVersion() : "unknown") ."\n";
         echo "First sync:\t\t". strftime("%Y-%m-%d %H:%M", $device->GetFirstSyncTime()) ."\n";
         echo "Last sync:\t\t"."not implemented\n";
         echo "Total folders:\t\t". count($folders). "\n";
