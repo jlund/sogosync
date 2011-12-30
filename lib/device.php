@@ -232,6 +232,21 @@ class ASDevice {
     }
 
    /**
+     * Removes internal data from the object, so this data can not be exposed
+     *
+     * @access public
+     * @return boolean
+     */
+    public function StripData() {
+        unset($this->changed);
+        unset($this->loadedData);
+        unset($this->hierarchyCache);
+        unset($this->forceSave);
+
+        return true;
+    }
+
+   /**
      * Indicates if changed device should be saved even if user is not authenticated
      *
      * @access public
