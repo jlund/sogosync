@@ -490,6 +490,8 @@ class DeviceManager {
      * @return boolean
      */
     private function loadDeviceData() {
+        if (!Request::IsValidDeviceID())
+            return false;
         try {
             $deviceHash = $this->statemachine->GetStateHash($this->devid, IStateMachine::DEVICEDATA);
             if ($deviceHash != $this->deviceHash) {
@@ -507,6 +509,7 @@ class DeviceManager {
             //$this->device->SetPolicyKey(0);
             $this->hierarchySyncRequired = true;
         }
+        return true;
     }
 
 
