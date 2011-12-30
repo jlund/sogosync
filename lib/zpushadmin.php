@@ -90,6 +90,7 @@ class ZPushAdmin {
         try {
             $device = new ASDevice($devid, ASDevice::UNDEFINED, $user, ASDevice::UNDEFINED);
             $device->SetData(ZPush::GetStateMachine()->GetState($devid, IStateMachine::DEVICEDATA));
+            $device->StripData();
             return $device;
         }
         catch (StateNotFoundException $e) {
