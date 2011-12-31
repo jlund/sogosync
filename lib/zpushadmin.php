@@ -314,8 +314,15 @@ class ZPushAdmin {
         }
         else {
             // get devicedata
-            $devicedata = ZPush::GetStateMachine()->GetState($devid, IStateMachine::DEVICEDATA);
+            try {
+                $devicedata = ZPush::GetStateMachine()->GetState($devid, IStateMachine::DEVICEDATA);
+            }
+            catch (StateNotFoundException $e) {
+                ZLog::Write(LOGLEVEL_ERROR, sprintf("ZPushAdmin::ResyncDevice(): state for device '%s' can not be found", $devid));
+                return false;
 
+            }
+            
             // loop through all users which currently use this device
             if ($user === false && count($devicedata) > 1) {
                 foreach (array_keys($devicedata) as $aUser) {
@@ -345,10 +352,10 @@ class ZPushAdmin {
 
                 ZPush::GetStateMachine()->SetState($device->GetData(), $devid, IStateMachine::DEVICEDATA);
 
-                ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPushAdmin::ResyncFolder(): all folders synchronized to device '%s' of user '%s' marked to be re-synchronized.", $devid, $user));
+                ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZPushAdmin::ResyncDevice(): all folders synchronized to device '%s' of user '%s' marked to be re-synchronized.", $devid, $user));
             }
             catch (StateNotFoundException $e) {
-                ZLog::Write(LOGLEVEL_ERROR, sprintf("ZPushAdmin::ResyncFolder(): state for device '%s' of user '%s' can not be found or saved", $devid, $user));
+                ZLog::Write(LOGLEVEL_ERROR, sprintf("ZPushAdmin::ResyncDevice(): state for device '%s' of user '%s' can not be found or saved", $devid, $user));
                 return false;
             }
         }
