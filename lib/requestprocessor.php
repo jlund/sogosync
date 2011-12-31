@@ -179,6 +179,14 @@ class RequestProcessor {
             // TODO implement ResolveRecipients and ValidateCert
             case ZPush::COMMAND_RESOLVERECIPIENTS:
             case ZPush::COMMAND_VALIDATECERT:
+
+            // webservice commands
+            case ZPush::COMMAND_WEBSERVICE_DEVICE:
+                include("lib/webservice/webservice.php");
+
+                $status = Webservice::Handle(ZPush::COMMAND_WEBSERVICE_DEVICE);
+                break;
+
             // deprecated commands
             case ZPush::COMMAND_CREATECOLLECTION:
             case ZPush::COMMAND_DELETECOLLECTION:
