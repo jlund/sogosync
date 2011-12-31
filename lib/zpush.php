@@ -92,6 +92,9 @@ class ZPush {
     const COMMAND_MOVECOLLECTION = -4;
     const COMMAND_NOTIFY = -5;
 
+    // Webservice commands
+    const COMMAND_WEBSERVICE_DEVICE = -100;
+
     static private $supportedASVersions = array(self::ASV_1,
                                                 self::ASV_2,
                                                 self::ASV_21,
@@ -126,7 +129,10 @@ class ZPush {
                                             self::COMMAND_ITEMOPERATIONS    => array(self::ASV_12),
                                             self::COMMAND_SETTINGS          => array(self::ASV_12),
                                             //'Autodiscover' => false,
+                                            self::COMMAND_WEBSERVICE_DEVICE => array(self::PLAININPUT, self::NOACTIVESYNCCOMMAND, self::WEBSERVICECOMMAND),
                                           );
+
+
 
     static private $classes = array("Email"     => array(
                                                         self::CLASS_NAME => "SyncMail",
