@@ -58,6 +58,7 @@ class WebserviceDevice {
         $output = array();
 
         ZLog::Write(LOGLEVEL_INFO, sprintf("WebserviceDevice::ListDevicesDetails(): found %d devices of user '%s'", count($devices), $user));
+        ZPush::GetTopCollector()->AnnounceInformation(sprintf("Retrieved details of %d devices", count($devices)), true);
 
         foreach ($devices as $devid)
             $output[] = ZPushAdmin::GetDeviceDetails($devid, $user);
@@ -78,9 +79,12 @@ class WebserviceDevice {
         $deviceId = preg_replace("/[^A-Za-z0-9]/", "", $deviceId);
         ZLog::Write(LOGLEVEL_INFO, sprintf("WebserviceDevice::RemoveDevice('%s'): remove device state data of user '%s'", $deviceId, Request::GetGETUser()));
 
-        if (! ZPushAdmin::RemoveDevice(Request::GetGETUser(), $deviceId))
+        if (! ZPushAdmin::RemoveDevice(Request::GetGETUser(), $deviceId)) {
+            ZPush::GetTopCollector()->AnnounceInformation(ZLog::GetLastMessage(LOGLEVEL_ERROR), true);
             throw new SoapFault("ERROR", ZLog::GetLastMessage(LOGLEVEL_ERROR));
+        }
 
+        ZPush::GetTopCollector()->AnnounceInformation(sprintf("Removed device id '%s'", $deviceId), true);
         return true;
     }
 
@@ -97,9 +101,12 @@ class WebserviceDevice {
         $deviceId = preg_replace("/[^A-Za-z0-9]/", "", $deviceId);
         ZLog::Write(LOGLEVEL_INFO, sprintf("WebserviceDevice::WipeDevice('%s'): mark device of user '%s' for remote wipe", $deviceId, Request::GetGETUser()));
 
-        if (! ZPushAdmin::WipeDevice(Request::GetAuthUser(), Request::GetGETUser(), $deviceId))
+        if (! ZPushAdmin::WipeDevice(Request::GetAuthUser(), Request::GetGETUser(), $deviceId)) {
+            ZPush::GetTopCollector()->AnnounceInformation(ZLog::GetLastMessage(LOGLEVEL_ERROR), true);
             throw new SoapFault("ERROR", ZLog::GetLastMessage(LOGLEVEL_ERROR));
+        }
 
+        ZPush::GetTopCollector()->AnnounceInformation(sprintf("Wipe requested - device id '%s'", $deviceId), true);
         return true;
     }
 
@@ -116,9 +123,12 @@ class WebserviceDevice {
         $deviceId = preg_replace("/[^A-Za-z0-9]/", "", $deviceId);
         ZLog::Write(LOGLEVEL_INFO, sprintf("WebserviceDevice::ResyncDevice('%s'): mark device of user '%s' for resynchronization", $deviceId, Request::GetGETUser()));
 
-        if (! ZPushAdmin::ResyncDevice(Request::GetGETUser(), $deviceId))
+        if (! ZPushAdmin::ResyncDevice(Request::GetGETUser(), $deviceId)) {
+            ZPush::GetTopCollector()->AnnounceInformation(ZLog::GetLastMessage(LOGLEVEL_ERROR), true);
             throw new SoapFault("ERROR", ZLog::GetLastMessage(LOGLEVEL_ERROR));
+        }
 
+        ZPush::GetTopCollector()->AnnounceInformation(sprintf("Resync requested - device id '%s'", $deviceId), true);
         return true;
     }
 }
