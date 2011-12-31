@@ -89,7 +89,7 @@ class ZPushAdmin {
     static public function GetDeviceDetails($devid, $user) {
         try {
             $device = new ASDevice($devid, ASDevice::UNDEFINED, $user, ASDevice::UNDEFINED);
-            $device->SetData(ZPush::GetStateMachine()->GetState($devid, IStateMachine::DEVICEDATA));
+            $device->SetData(ZPush::GetStateMachine()->GetState($devid, IStateMachine::DEVICEDATA), false);
             $device->StripData();
             return $device;
         }
@@ -141,7 +141,7 @@ class ZPushAdmin {
             // load device data
             $device = new ASDevice($devid, ASDevice::UNDEFINED, $user, ASDevice::UNDEFINED);
             try {
-                $device->SetData(ZPush::GetStateMachine()->GetState($devid, IStateMachine::DEVICEDATA));
+                $device->SetData(ZPush::GetStateMachine()->GetState($devid, IStateMachine::DEVICEDATA), false);
             }
             catch (StateNotFoundException $e) {
                 ZLog::Write(LOGLEVEL_ERROR, sprintf("ZPushAdmin::WipeDevice(): device '%s' of user '%s' can not be found", $devid, $user));
@@ -215,7 +215,7 @@ class ZPushAdmin {
             $device = new ASDevice($devid, ASDevice::UNDEFINED, $user, ASDevice::UNDEFINED);
             try {
                 $devicedata = ZPush::GetStateMachine()->GetState($devid, IStateMachine::DEVICEDATA);
-                $device->SetData($devicedata);
+                $device->SetData($devicedata, false);
             }
             catch (StateNotFoundException $e) {
                 ZLog::Write(LOGLEVEL_ERROR, sprintf("ZPushAdmin::RemoveDevice(): device '%s' of user '%s' can not be found", $devid, $user));
@@ -267,7 +267,7 @@ class ZPushAdmin {
         // load device data
         $device = new ASDevice($devid, ASDevice::UNDEFINED, $user, ASDevice::UNDEFINED);
         try {
-            $device->SetData(ZPush::GetStateMachine()->GetState($devid, IStateMachine::DEVICEDATA));
+            $device->SetData(ZPush::GetStateMachine()->GetState($devid, IStateMachine::DEVICEDATA), false);
 
             if ($device->GetLastUpdateTime() == 0) {
                 ZLog::Write(LOGLEVEL_ERROR, sprintf("ZPushAdmin::ResyncFolder(): data of user '%s' not synchronized on device '%s'. Aborting.",$user, $devid));
@@ -329,7 +329,7 @@ class ZPushAdmin {
             // load device data
             $device = new ASDevice($devid, ASDevice::UNDEFINED, $user, ASDevice::UNDEFINED);
             try {
-                $device->SetData($devicedata);
+                $device->SetData($devicedata, false);
 
                 if ($device->GetLastUpdateTime() == 0) {
                     ZLog::Write(LOGLEVEL_ERROR, sprintf("ZPushAdmin::ResyncDevice(): data of user '%s' not synchronized on device '%s'. Aborting.",$user, $devid));

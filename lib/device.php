@@ -127,10 +127,13 @@ class ASDevice {
     /**
      * initializes the AS Device with it's data
      *
+     * @param mixed     $data               the device data
+     * @param boolean   $semanticUpdate     indicates if data relevant for all users should be cross checked (e.g. wipe requests)
+     *
      * @access public
      * @return
      */
-    public function SetData($data) {
+    public function SetData($data, $semanticUpdate = true) {
         // TODO trigger a full resync should be done if the device data is invalid ?!
         if (!is_array($data)) return;
 
@@ -156,7 +159,7 @@ class ASDevice {
         }
 
         // check if RWStatus from another user on same device may require action
-        if ($data > SYNC_PROVISION_RWSTATUS_OK) {
+        if ($semanticUpdate && $data > SYNC_PROVISION_RWSTATUS_OK) {
             foreach ($data as $user=>$userdata) {
                 if ($user == $this->user) continue;
 
