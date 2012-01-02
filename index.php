@@ -8,7 +8,7 @@
 *
 * Created   :   01.10.2007
 *
-* Copyright 2007 - 2011 Zarafa Deutschland GmbH
+* Copyright 2007 - 2012 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -56,7 +56,12 @@ include_once('lib/device.php');
 include_once('lib/statemanager.php');
 include_once('lib/devicemanager.php');
 include_once('lib/zpush.php');
-include_once('lib/interfaces.php');
+include_once('lib/interface/ibackend.php');
+include_once('lib/interface/ichanges.php');
+include_once('lib/interface/iexportchanges.php');
+include_once('lib/interface/iimportchanges.php');
+include_once('lib/interface/isearchprovider.php');
+include_once('lib/interface/istatemachine.php');
 include_once('lib/debug.php');
 include_once('lib/wbxmldefs.php');
 include_once('lib/wbxmldecoder.php');

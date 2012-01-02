@@ -9,7 +9,7 @@
 *
 * Created   :   14.05.2010
 *
-* Copyright 2007 - 2011 Zarafa Deutschland GmbH
+* Copyright 2007 - 2012 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -53,7 +53,12 @@ include ("lib/utils.php");
 include ("lib/zpushadmin.php");
 include ("lib/statemanager.php");
 include ("lib/exceptions.php");
-include ("lib/interfaces.php");
+include ("lib/interface/ibackend.php");
+include ("lib/interface/ichanges.php");
+include ("lib/interface/iexportchanges.php");
+include ("lib/interface/iimportchanges.php");
+include ("lib/interface/isearchprovider.php");
+include ("lib/interface/istatemachine.php");
 include ("lib/device.php");
 include ("config.php");
 include ("version.php");
