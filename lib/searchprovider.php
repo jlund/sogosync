@@ -65,7 +65,7 @@ class SearchProvider implements ISearchProvider{
 
     /**
      * Indicates if a search type is supported by this SearchProvider
-     * Currently only the type "GAL" (Global Address List) is implemented
+     * Currently only the type ISearchProvider::SEARCH_GAL (Global Address List) is implemented
      *
      * @param string        $searchtype
      *
@@ -73,7 +73,7 @@ class SearchProvider implements ISearchProvider{
      * @return boolean
      */
     public function SupportsType($searchtype) {
-        return ($searchtype == "GAL");
+        return ($searchtype == ISearchProvider::SEARCH_GAL);
     }
 
     /**

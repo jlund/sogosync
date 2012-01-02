@@ -43,7 +43,7 @@
 ************************************************/
 
 interface ISearchProvider {
-    const SEARCH_GAL = 1;
+    const SEARCH_GAL = "GAL";
 
     /**
      * Constructor

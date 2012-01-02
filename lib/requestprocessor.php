@@ -2393,7 +2393,7 @@ class RequestProcessor {
         if ($searchprovider->SupportsType($searchname)) {
             $storestatus = SYNC_SEARCHSTATUS_STORE_SUCCESS;
             try {
-                if ($searchname == "GAL") {
+                if ($searchname == ISearchProvider::SEARCH_GAL) {
                     //get search results from the searchprovider
                     $rows = $searchprovider->GetGALSearchResults($searchquery, $searchrange);
                 }
