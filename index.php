@@ -47,7 +47,8 @@ ob_start(false, 1048576);
 
 include_once('lib/zpushdefs.php');
 include_once('lib/exceptions.php');
-include_once('lib/utils.php');
+include_once('lib/utils/utils.php');
+include_once('lib/utils/compat.php');
 include_once('lib/interprocessdata.php');
 include_once('lib/pingtracking.php');
 include_once('lib/topcollector.php');
@@ -98,7 +99,7 @@ include_once('lib/requestprocessor.php');
 include_once('lib/hierarchycache.php');
 include_once('lib/changesmemorywrapper.php');
 include_once('lib/contentparameters.php');
-include_once('lib/compat.php');
+
 
 include_once('config.php');
 include_once('version.php');
