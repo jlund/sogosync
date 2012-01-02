@@ -40,7 +40,7 @@
 *
 * Consult LICENSE file for details
 ************************************************/
-include_once('lib/diffbackend.php');
+include_once('lib/default/diffbackend/diffbackend.php');
 
 class BackendVCardDir extends BackendDiff {
     /**----------------------------------------------------------------------------------------------------------

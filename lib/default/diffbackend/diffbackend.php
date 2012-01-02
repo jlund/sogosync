@@ -47,7 +47,7 @@
 * Consult LICENSE file for details
 ************************************************/
 
-include_once('lib/backend.php');
+include_once('lib/default/backend.php');
 
 /**
  * Differential engine
