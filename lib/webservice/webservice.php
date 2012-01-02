@@ -58,6 +58,9 @@ class Webservice {
         if (Request::GetDeviceType() !== "webservice" || Request::GetDeviceID() !== "webservice")
             throw new FatalException("Invalid device id and type for webservice execution");
 
+        if (Request::GetGETUser() != Request::GetAuthUser())
+            ZLog::Write(LOGLEVEL_INFO, sprintf("Webservice::HandleWebservice('%s'): user '%s' executing action for user '%s'", $command, Request::GetAuthUser(), Request::GetGETUser()));
+
         // initialize non-wsdl soap server
         self::$server = new SoapServer(null, array('uri' => "http://z-push.sf.net/webservice"));
 
