@@ -49,7 +49,7 @@ include ("lib/zpush.php");
 include ("lib/request.php");
 include ("lib/requestprocessor.php");
 include ("lib/debug.php");
-include ("lib/utils.php");
+include ("lib/utils/utils.php");
 include ("config.php");
 include ("version.php");
 include ("lib/interprocessdata.php");
