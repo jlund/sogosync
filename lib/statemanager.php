@@ -394,12 +394,18 @@ class StateManager {
      * @param string    $folderid
      * @param boolean   $removeFromDevice       indicates if the device should be
      *                                          notified that the state was removed
+     * @param boolean   $retrieveUUIDFromDevice indicates if the UUID should be retrieved from
+     *                                          device. If not true this parameter will be used as UUID.
      *
      * @access public
      * @return boolean
      */
-    static public function UnLinkState(&$device, $folderid, $removeFromDevice = true) {
-        $savedUuid = $device->GetFolderUUID($folderid);
+    static public function UnLinkState(&$device, $folderid, $removeFromDevice = true, $retrieveUUIDFromDevice = true) {
+        if ($retrieveUUIDFromDevice === true)
+            $savedUuid = $device->GetFolderUUID($folderid);
+        else
+            $savedUuid = $retrieveUUIDFromDevice;
+
         if ($savedUuid) {
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("StateManager::UnLinkState('%s'): saved state '%s' will be deleted.", $folderid, $savedUuid));
             ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::DEFTYPE, $savedUuid, self::FIXEDHIERARCHYCOUNTER *2);
@@ -434,6 +440,13 @@ class StateManager {
             return false;
 
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("StateManager->loadHierarchyCache(): '%s-%s-%s-%d'", $this->device->GetDeviceId(), $this->uuid, IStateMachine::HIERARCHY, $this->oldStateCounter));
+
+        // check if a full hierarchy sync might be necessary
+        if ($this->device->GetFolderUUID(false) === false) {
+            self::UnLinkState($this->device, false, false, $this->uuid);
+            throw new StateNotFoundException("No hierarchy UUID linked to device. Requesting folder resync.");
+        }
+
         $hierarchydata = $this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::HIERARCHY, $this->uuid , $this->oldStateCounter);
         $this->device->SetHierarchyCache($hierarchydata);
         return true;
