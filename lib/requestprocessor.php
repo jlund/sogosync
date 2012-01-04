@@ -985,10 +985,10 @@ class RequestProcessor {
 
                 array_push($collections, $collection);
             }
-        }
 
-        if(!self::$decoder->getElementEndTag()) // end collections
-            return false;
+            if(!self::$decoder->getElementEndTag()) // end collections
+                return false;
+        }
 
         //TODO heartbeatinterval
         if (self::$decoder->getElementStartTag(SYNC_HEARTBEATINTERVAL)) {
