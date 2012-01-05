@@ -42,6 +42,7 @@
 ************************************************/
 
 class StateObject {
+    private $SO_internalid;
     protected $data = array();
     protected $unsetdata = array();
     protected $changed = false;
@@ -53,10 +54,10 @@ class StateObject {
      * @return array
      */
     public function GetID() {
-        if (!isset($this->id))
-            $this->id = sprintf('%04x%04x%04x', mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff));
+        if (!isset($this->SO_internalid))
+            $this->SO_internalid = sprintf('%04x%04x%04x', mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff));
 
-        return $this->id;
+        return $this->SO_internalid;
     }
 
     /**
