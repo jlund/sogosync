@@ -111,7 +111,7 @@ class ZPushAdminCLI {
      */
     static public function UsageInstructions() {
         return  "Usage:\n\tz-push-admin.php [actions] [options]\n\n" .
-                "Parameters:\n\t[-a|--action] list/wipe/remove/resync\n\t[-u|--user] username\n\t[-d|--device] deviceid\n\n" .
+                "Parameters:\n\t[-a] list/wipe/remove/resync\n\t[-u] username\n\t[-d] deviceid\n\n" .
                 "Actions:\n\tlist\t\t\t Lists all devices and synchronized users\n" .
                 "\tlist -u USER\t\t Lists all devices of user USER\n" .
                 "\tlist -d DEVICE\t\t Lists all users of device DEVICE\n" .
@@ -149,7 +149,7 @@ class ZPushAdminCLI {
         if (self::$errormessage)
             return;
 
-        $options = getopt("u:d:a:", array("action:"));
+        $options = getopt("u:d:a:");
 
         // get 'user'
         if (isset($options['u']) && !empty($options['u']))
