@@ -46,6 +46,7 @@
 
 include ("lib/zpushdefs.php");
 include ("lib/zpush.php");
+include ("lib/stateobject.php");
 include ("lib/request.php");
 include ("lib/requestprocessor.php");
 include ("lib/debug.php");
@@ -477,7 +478,7 @@ class ZPushAdminCLI {
 
         echo "WipeRequest on:\t\t". ($device->GetWipeRequestedOn() !== false ? strftime("%Y-%m-%d %H:%M", $device->GetWipeRequestedOn()) : "not set")."\n";
         echo "WipeRequest by:\t\t". ($device->GetWipeRequestedBy() !== false ? $device->GetWipeRequestedBy() : "not set")."\n";
-        echo "Wiped on:\t\t". ($device->GetWipedOn() !== false ? strftime("%Y-%m-%d %H:%M", $device->GetWipedOn()) : "not set")."\n";
+        echo "Wiped on:\t\t". ($device->GetWipeActionOn() !== false ? strftime("%Y-%m-%d %H:%M", $device->GetWipeActionOn()) : "not set")."\n";
     }
 }
 

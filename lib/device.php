@@ -42,55 +42,33 @@
 * Consult LICENSE file for details
 ************************************************/
 
-
-class ASDevice {
+class ASDevice extends StateObject {
     const UNDEFINED = -1;
-    const DEVICETYPE = 1;
-    const USER = 2;
-    const DOMAIN = 3;
-    const HIERARCHYUUID = 4;
-    const CONTENTDATA = 5;
-    const FIRSTSYNCTIME = 6;
-    const LASTUPDATEDTIME = 7;
-    const DEPLOYEDPOLICYKEY = 8;
-    const DEPLOYEDPOLICIES = 9;
-    const USERAGENT = 10;
-    const USERAGENTHISTORY = 11;
-    const SUPPORTEDFIELDS = 12;
-    const WIPESTATUS = 13;
-    const WIPEREQBY = 14;
-    const WIPEREQON = 15;
-    const WIPEACTIONON = 16;
-    const ASVERSION = 17;
-
+    // content data
     const FOLDERUUID = 1;
     const FOLDERTYPE = 2;
     const FOLDERSUPPORTEDFIELDS = 3;
 
-    private $changed = false;
-    private $loadedData;
-    private $devid;
-    private $devicetype;
-    private $user;
-    private $domain;
-    private $policykey = self::UNDEFINED;
-    private $policies = self::UNDEFINED;
-    private $hierarchyUuid = self::UNDEFINED;
-    private $contentData;
-    private $hierarchyCache;
-    private $firstsynctime;
-    private $lastupdatetime;
-    private $useragent;
-    private $useragentHistory;
-    private $asversion;
+    // expected values for not set member variables
+    protected $unsetdata = array(
+                                    'useragenthistory' => array(),
+                                    'hierarchyuuid' => false,
+                                    'contentdata' => array(),
+                                    'wipestatus' => SYNC_PROVISION_RWSTATUS_NA,
+                                    'wiperequestedby' => false,
+                                    'wiperequestedon' => false,
+                                    'wipeactionon' => false,
+                                    'lastupdatetime' => 0,
+                                    'conversationmode' => false,
+                                    'policies' => array(),
+                                    'policykey' => self::UNDEFINED,
+                                    'forcesave' => false,
+                                    'asversion' => false,
+                                );
 
-    private $wipeStatus;
-    private $wipeReqBy;
-    private $wipeReqOn;
-    private $wipeActionOn;
-
-    // used to track changes in the WIPESTATUS even if user is not authenticated
-    private $forceSave;
+    static private $loadedData;
+    protected $newdevice;
+    protected $hierarchyCache;
 
     /**
      * AS Device constructor
@@ -101,137 +79,98 @@ class ASDevice {
      * @param string        $useragent
      *
      * @access public
-     * @return boolean
+     * @return
      */
     public function ASDevice($devid, $devicetype, $getuser, $useragent) {
-        $this->devid = $devid;
+        $this->deviceid = $devid;
         $this->devicetype = $devicetype;
-        list ($this->user, $this->domain) =  Utils::SplitDomainUser($getuser);
+        list ($this->deviceuser, $this->domain) =  Utils::SplitDomainUser($getuser);
         $this->useragent = $useragent;
-        $this->useragentHistory = array();
-        $this->contentData = array();
         $this->firstsynctime = time();
-        $this->lastupdatetime = 0;
-        $this->policies = array();
-        $this->changed = true;
-        $this->wipeStatus = SYNC_PROVISION_RWSTATUS_NA;
-        $this->wipeReqBy = false;
-        $this->wipeReqOn = false;
-        $this->wipeActionOn = false;
-
-        $this->forceSave = false;
-
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ASDevice initialized for DeviceID '%s'", $devid));
+        $this->newdevice = true;
     }
 
     /**
-     * initializes the AS Device with it's data
+     * initializes the ASDevice with previousily saved data
      *
-     * @param mixed     $data               the device data
+     * @param mixed     $stateObject        the StateObject containing the device data
      * @param boolean   $semanticUpdate     indicates if data relevant for all users should be cross checked (e.g. wipe requests)
      *
      * @access public
      * @return
      */
-    public function SetData($data, $semanticUpdate = true) {
-        // TODO trigger a full resync should be done if the device data is invalid ?!
-        if (!is_array($data)) return;
+    public function SetData($stateObject, $semanticUpdate = true) {
+        if (!($stateObject instanceof StateObject) || !isset($stateObject->devices) || !is_array($stateObject->devices)) return;
 
         // is information about this device & user available?
-        if (isset($data[$this->user])) {
-            $this->devicetype           = $data[$this->user][self::DEVICETYPE];
-            $this->domain               = $data[$this->user][self::DOMAIN];
-            $this->firstsynctime        = $data[$this->user][self::FIRSTSYNCTIME];
-            $this->lastupdatetime       = $data[$this->user][self::LASTUPDATEDTIME];
-            $this->policykey            = $data[$this->user][self::DEPLOYEDPOLICYKEY];
-            $this->policies             = $data[$this->user][self::DEPLOYEDPOLICIES];
-            $this->hierarchyUuid        = $data[$this->user][self::HIERARCHYUUID];
-            $this->contentData          = $data[$this->user][self::CONTENTDATA];
-            $this->useragent            = $data[$this->user][self::USERAGENT];
-            $this->useragentHistory     = $data[$this->user][self::USERAGENTHISTORY];
-            $this->wipeStatus           = $data[$this->user][self::WIPESTATUS];
-            $this->wipeReqBy            = $data[$this->user][self::WIPEREQBY];
-            $this->wipeReqOn            = $data[$this->user][self::WIPEREQON];
-            $this->wipeActionOn         = $data[$this->user][self::WIPEACTIONON];
-            $this->asversion            = $data[$this->user][self::ASVERSION];
-
-            ZLog::Write(LOGLEVEL_DEBUG, sprintf("ASDevice data loaded for user: '%s'", $this->user));
+        if (isset($stateObject->devices[$this->deviceuser]) && $stateObject->devices[$this->deviceuser] instanceof ASDevice) {
+            // overwrite local data with data from the saved object
+            $this->SetDataArray($stateObject->devices[$this->deviceuser]->GetDataArray());
+            $this->newdevice = false;
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("ASDevice data loaded for user: '%s'", $this->deviceuser));
         }
 
         // check if RWStatus from another user on same device may require action
-        if ($semanticUpdate && $data > SYNC_PROVISION_RWSTATUS_OK) {
-            foreach ($data as $user=>$userdata) {
+        if ($semanticUpdate && count($stateObject->devices) > 1) {
+            foreach ($stateObject->devices as $user=>$asuserdata) {
                 if ($user == $this->user) continue;
 
                 // another user has a required action on this device
-                if (isset($userdata[self::WIPESTATUS]) && $userdata[self::WIPESTATUS] > SYNC_PROVISION_RWSTATUS_OK) {
-                    ZLog::Write(LOGLEVEL_INFO, sprintf("User '%s' has requested a remote wipe for this device on %s. Request is still active and will be executed now!", $userdata[self::WIPEREQBY], strftime("%Y-%m-%d %H:%M", $userdata[self::WIPEREQON])));
+                if (isset($asuserdata->wipeStatus) && $asuserdata->wipeStatus > SYNC_PROVISION_RWSTATUS_OK) {
+                    ZLog::Write(LOGLEVEL_INFO, sprintf("User '%s' has requested a remote wipe for this device on '%s'", $asuserdata->wipeRequestBy, strftime("%Y-%m-%d %H:%M", $asuserdata->wipeRequstOn)));
 
                     // reset status to PENDING if wipe was executed before
-                    $this->wipeStatus =  ($userdata[self::WIPESTATUS] & SYNC_PROVISION_RWSTATUS_WIPED)?SYNC_PROVISION_RWSTATUS_PENDING:$userdata[self::WIPESTATUS];
-                    $this->wipeReqBy =  $userdata[self::WIPEREQBY];
-                    $this->wipeReqOn =  $userdata[self::WIPEREQON];
-                    $this->wipeActionOn = $userdata[self::WIPEACTIONON];
-
-                    $this->changed = true;
+                    $this->wipeStatus =  ($asuserdata->wipeStatus & SYNC_PROVISION_RWSTATUS_WIPED)?SYNC_PROVISION_RWSTATUS_PENDING:$asuserdata->wipeStatus;
+                    $this->wipeRequestBy =  $asuserdata->wipeRequestBy;
+                    $this->wipeRequestOn =  $asuserdata->wipeRequestOn;
+                    $this->wipeActionOn = $asuserdata->wipeActionOn;
                     break;
                 }
             }
         }
 
-        $this->loadedData = $data;
+        self::$loadedData = $stateObject;
         $this->changed = false;
     }
 
     /**
-     * Returns the current AS Device data
+     * Returns the current AS Device in it's StateObject
      * If the data was not changed, it returns false (no need to update any data)
      *
      * @access public
      * @return array/boolean
      */
     public function GetData() {
-        if ($this->changed) {
-            $userdata = array();
-            if (isset($this->devicetype))       $userdata[self::DEVICETYPE]         = $this->devicetype;
-            if (isset($this->domain))           $userdata[self::DOMAIN]             = $this->domain;
-            if (isset($this->firstsynctime))    $userdata[self::FIRSTSYNCTIME]      = $this->firstsynctime;
-            if (isset($this->lastupdatetime))   $userdata[self::LASTUPDATEDTIME]    = time();
-            if (isset($this->policykey))        $userdata[self::DEPLOYEDPOLICYKEY]  = $this->policykey;
-            if (isset($this->policies))         $userdata[self::DEPLOYEDPOLICIES]   = $this->policies;
-            if (isset($this->hierarchyUuid))    $userdata[self::HIERARCHYUUID]      = $this->hierarchyUuid;
-            if (isset($this->contentData))      $userdata[self::CONTENTDATA]        = $this->contentData;
-            if (isset($this->useragent))        $userdata[self::USERAGENT]          = $this->useragent;
-            if (isset($this->useragentHistory)) $userdata[self::USERAGENTHISTORY]   = $this->useragentHistory;
-            if (isset($this->wipeStatus))       $userdata[self::WIPESTATUS]         = $this->wipeStatus;
-            if (isset($this->wipeReqBy))        $userdata[self::WIPEREQBY]          = $this->wipeReqBy;
-            if (isset($this->wipeReqOn))        $userdata[self::WIPEREQON]          = $this->wipeReqOn;
-            if (isset($this->wipeActionOn))     $userdata[self::WIPEACTIONON]       = $this->wipeActionOn;
-            if (isset($this->asversion))        $userdata[self::ASVERSION]          = $this->asversion;
+        if (! $this->changed)
+            return false;
 
+        // device was updated
+        $this->lastupdatetime = time();
 
-            if (!isset($this->loadedData))
-                $this->loadedData = array();
-
-            $this->loadedData[$this->user] = $userdata;
-
-            // check if RWStatus has to be updated for other users on same device
-            if (isset($this->wipeStatus) && $this->wipeStatus > SYNC_PROVISION_RWSTATUS_OK) {
-                foreach ($this->loadedData as $user=>$userdata) {
-                    if ($user == $this->user) continue;
-                    if (isset($this->wipeStatus))       $userdata[self::WIPESTATUS]         = $this->wipeStatus;
-                    if (isset($this->wipeReqBy))        $userdata[self::WIPEREQBY]          = $this->wipeReqBy;
-                    if (isset($this->wipeReqOn))        $userdata[self::WIPEREQON]          = $this->wipeReqOn;
-                    if (isset($this->wipeActionOn))     $userdata[self::WIPEACTIONON]       = $this->wipeActionOn;
-                    $this->loadedData[$user] = $userdata;
-                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("Updated remote wipe status for user '%s' on the same device", $user));
-                }
-            }
-
-            return $this->loadedData;
+        if (!isset(self::$loadedData) || !isset(self::$loadedData->devices) || !is_array(self::$loadedData->devices)) {
+            self::$loadedData = new StateObject();
+            $devices = array();
         }
         else
-            return false;
+            $devices = self::$loadedData->devices;
+
+        $devices[$this->deviceuser] = $this;
+
+        // check if RWStatus has to be updated so it can be updated for other users on same device
+        if (isset($this->wipeStatus) && $this->wipeStatus > SYNC_PROVISION_RWSTATUS_OK) {
+            foreach ($devices as $user=>$asuserdata) {
+                if ($user == $this->deviceuser) continue;
+                if (isset($this->wipeStatus))       $asuserdata->wipeStatus     = $this->wipeStatus;
+                if (isset($this->wipeRequestBy))    $asuserdata->wipeRequestBy  = $this->wipeRequestBy;
+                if (isset($this->wipeRequestOn))    $asuserdata->wipeRequestOn  = $this->wipeRequestOn;
+                if (isset($this->wipeActionOn))     $asuserdata->wipeActionOn   = $this->wipeActionOn;
+                $devices[$user] = $asuserdata;
+
+                ZLog::Write(LOGLEVEL_DEBUG, sprintf("Updated remote wipe status for user '%s' on the same device", $user));
+            }
+        }
+        self::$loadedData->devices = $devices;
+        return self::$loadedData;
     }
 
    /**
@@ -242,62 +181,27 @@ class ASDevice {
      */
     public function StripData() {
         unset($this->changed);
-        unset($this->loadedData);
+        unset($this->unsetdata);
         unset($this->hierarchyCache);
         unset($this->forceSave);
-
+        unset($this->newdevice);
         return true;
     }
 
    /**
-     * Indicates if changed device should be saved even if user is not authenticated
+     * Indicates if the object was just created
      *
      * @access public
      * @return boolean
      */
-    public function ForceSave() {
-        return $this->forceSave;
+    public function IsNewDevice() {
+        return ($this->newdevice && $this->newdevice === true);
     }
 
-    /**
-     * Returns the timestamp of the first synchronization
-     *
-     * @access public
-     * @return long
-     */
-    public function GetFirstSyncTime() {
-        return $this->firstsynctime;
-    }
 
-    /**
-     * Returns the id of this device
-     *
-     * @access public
-     * @return string
+    /**----------------------------------------------------------------------------------------------------------
+     * Non-standard Getter and Setter
      */
-    public function GetDeviceId() {
-        return $this->devid;
-    }
-
-    /**
-     * Returns the user of this device
-     *
-     * @access public
-     * @return string
-     */
-    public function GetDeviceUser() {
-        return $this->user;
-    }
-
-    /**
-     * Returns the type of this device
-     *
-     * @access public
-     * @return string
-     */
-    public function GetDeviceType() {
-        return $this->devicetype;
-    }
 
     /**
      * Returns the user agent of this device
@@ -320,16 +224,6 @@ class ASDevice {
     }
 
     /**
-     * Returns the timestamp of the last device information update
-     *
-     * @access public
-     * @return long
-     */
-    public function GetLastUpdateTime() {
-        return $this->lastupdatetime;
-    }
-
-    /**
      * Sets the useragent of the current request
      * If this value is alreay available, no update is done
      *
@@ -345,26 +239,13 @@ class ASDevice {
         // save the old user agent, if available
         if ($this->useragent != "") {
             // [] = changedate, previous user agent
-            $this->useragentHistory[] = array(time(), $this->useragent);
+            $a = $this->useragentHistory;
+            $a[] = array(time(), $this->useragent);
+            $this->useragentHistory = $a;
         }
         $this->useragent = $useragent;
-        $this->changed = true;
         return true;
     }
-
-   /**
-     * Returns the current remote wipe status
-     *
-     * @access public
-     * @return int
-     */
-    public function GetWipeStatus() {
-        if (isset($this->wipeStatus))
-            return $this->wipeStatus;
-        else
-            return SYNC_PROVISION_RWSTATUS_NA;
-    }
-
 
    /**
      * Sets the current remote wipe status
@@ -380,106 +261,19 @@ class ASDevice {
             $this->forceSave = true;
 
         if ($requestedBy != false) {
-            $this->wipeReqBy = $requestedBy;
-            $this->wipeReqOn = time();
+            $this->wipeRequestedBy = $requestedBy;
+            $this->wipeRequestedOn = time();
         }
         else {
             $this->wipeActionOn = time();
         }
 
         $this->wipeStatus = $status;
-        $this->changed = true;
 
         if ($this->wipeStatus > SYNC_PROVISION_RWSTATUS_PENDING)
             ZLog::Write(LOGLEVEL_INFO, sprintf("ASDevice id '%s' was %s remote wiped on %s. Action requested by user '%s' on %s",
-                                        $this->devid, ($this->wipeStatus == SYNC_PROVISION_RWSTATUS_REQUESTED ? "requested to be": "sucessfully"),
-                                        strftime("%Y-%m-%d %H:%M", $this->wipeActionOn), $this->wipeReqBy, strftime("%Y-%m-%d %H:%M", $this->wipeReqOn)));
-    }
-
-
-   /**
-     * Returns the when the remote wipe was executed
-     *
-     * @access public
-     * @return int
-     */
-    public function GetWipedOn() {
-        if (isset($this->wipeActionOn))
-            return $this->wipeActionOn;
-        else
-            return false;
-    }
-
-
-   /**
-     * Returns by whom the remote wipe was requested
-     *
-     * @access public
-     * @return int
-     */
-    public function GetWipeRequestedBy() {
-        if (isset($this->wipeReqBy))
-            return $this->wipeReqBy;
-        else
-            return false;
-    }
-
-
-   /**
-     * Returns by whom the remote wipe was requested
-     *
-     * @access public
-     * @return int
-     */
-    public function GetWipeRequestedOn() {
-        if (isset($this->wipeReqOn))
-            return $this->wipeReqOn;
-        else
-            return false;
-    }
-
-   /**
-     * Returns the AS version used for device
-     * if it was never set, it returns false
-     *
-     * @access public
-     * @return int
-     */
-    public function GetASVersion() {
-        if (isset($this->asversion))
-            return $this->asversion;
-        else
-            return false;
-    }
-
-   /**
-     * Sets the AS version used for device
-     *
-     * @param string    $asversion
-     *
-     * @access public
-     * @return
-     */
-    public function SetASVersion($asversion) {
-        if ($this->GetASVersion() !== $asversion) {
-            $this->asversion = $asversion;
-            $this->changed = true;
-        }
-        return true;
-    }
-
-   /**
-     * Returns the deployed policy key
-     * if none is deployed, it returns 0
-     *
-     * @access public
-     * @return int
-     */
-    public function GetPolicyKey() {
-        if (isset($this->policykey))
-            return $this->policykey;
-        else
-            return 0;
+                                        $this->deviceid, ($this->wipeStatus == SYNC_PROVISION_RWSTATUS_REQUESTED ? "requested to be": "sucessfully"),
+                                        strftime("%Y-%m-%d %H:%M", $this->wipeActionOn), $this->wipeRequestedBy, strftime("%Y-%m-%d %H:%M", $this->wipeRequestedOn)));
     }
 
    /**
@@ -494,19 +288,8 @@ class ASDevice {
         $this->policykey = $policykey;
         if ($this->GetWipeStatus() == SYNC_PROVISION_RWSTATUS_NA)
             $this->wipeStatus = SYNC_PROVISION_RWSTATUS_OK;
-
-        $this->changed = true;
     }
 
-   /**
-     * Gets policies
-     *
-     * @access public
-     * @return array
-     */
-    public function GetPolicies() {
-        return $this->policies;
-    }
 
     /**----------------------------------------------------------------------------------------------------------
      * HierarchyCache and ContentData operations
@@ -574,7 +357,7 @@ class ASDevice {
     public function GetAllFolderIds() {
         if (isset($this->contentData) && is_array($this->contentData))
             return array_keys($this->contentData);
-        return false;
+        return array();
     }
 
    /**
@@ -587,7 +370,7 @@ class ASDevice {
      */
     public function GetFolderUUID($folderid = false) {
         if ($folderid === false)
-            return ($this->hierarchyUuid !== self::UNDEFINED)?$this->hierarchyUuid : false;
+            return (isset($this->hierarchyUuid) && $this->hierarchyUuid !== self::UNDEFINED) ? $this->hierarchyUuid : false;
         else if (isset($this->contentData) && isset($this->contentData[$folderid]) && isset($this->contentData[$folderid][self::FOLDERUUID]))
             return $this->contentData[$folderid][self::FOLDERUUID];
         return false;
@@ -601,23 +384,28 @@ class ASDevice {
      * @param string        $folderid       (opt) if not set Hierarchy UUID is linked
      *
      * @access public
-     * @return
+     * @return boolean
      */
     public function SetFolderUUID($uuid, $folderid = false) {
         if ($folderid === false)
             $this->hierarchyUuid = $uuid;
         else {
-            if ($uuid) {
-                // TODO check if the foldertype is set. This has to be available at this point, as generated during the first HierarchySync. Else full resync should be triggered.
-                if (!isset($this->contentData[$folderid]) || !is_array($this->contentData[$folderid]))
-                    $this->contentData[$folderid] = array();
-                $this->contentData[$folderid][self::FOLDERUUID] = $uuid;
-            }
-            else
-                $this->contentData[$folderid][self::FOLDERUUID] = false;
-        }
 
-        $this->changed = true;
+            $contentData = $this->contentData;
+            if (!isset($contentData[$folderid]) || !is_array($contentData[$folderid]))
+                $contentData[$folderid] = array();
+
+            // check if the foldertype is set. This has to be available at this point, as generated during the first HierarchySync
+            if (!isset($contentData[$folderid][self::FOLDERTYPE]))
+                return false;
+
+            if ($uuid)
+                $contentData[$folderid][self::FOLDERUUID] = $uuid;
+            else
+                $contentData[$folderid][self::FOLDERUUID] = false;
+
+            $this->contentData = $contentData;
+        }
     }
 
    /**
@@ -646,11 +434,13 @@ class ASDevice {
      * @return boolean      true if the type was set or updated
      */
     public function SetFolderType($folderid, $foldertype) {
-        if (!isset($this->contentData[$folderid]) || !is_array($this->contentData[$folderid]))
-            $this->contentData[$folderid] = array();
-        if (!isset($this->contentData[$folderid][self::FOLDERTYPE]) || $this->contentData[$folderid][self::FOLDERTYPE] != $foldertype ) {
-            $this->contentData[$folderid][self::FOLDERTYPE] = $foldertype;
-            $this->changed = true;
+        $contentData = $this->contentData;
+
+        if (!isset($contentData[$folderid]) || !is_array($contentData[$folderid]))
+            $contentData[$folderid] = array();
+        if (!isset($contentData[$folderid][self::FOLDERTYPE]) || $contentData[$folderid][self::FOLDERTYPE] != $foldertype ) {
+            $contentData[$folderid][self::FOLDERTYPE] = $foldertype;
+            $this->contentData = $contentData;
             return true;
         }
         return false;
@@ -685,11 +475,12 @@ class ASDevice {
      * @return boolean
      */
     public function SetSupportedFields($folderid, $fieldlist) {
-        if (!isset($this->contentData[$folderid]) || !is_array($this->contentData[$folderid]))
-            $this->contentData[$folderid] = array();
+        $contentData = $this->contentData;
+        if (!isset($contentData[$folderid]) || !is_array($contentData[$folderid]))
+            $contentData[$folderid] = array();
 
-        $this->contentData[$folderid][self::FOLDERSUPPORTEDFIELDS] = $fieldlist;
-        $this->changed = true;
+        $contentData[$folderid][self::FOLDERSUPPORTEDFIELDS] = $fieldlist;
+        $this->contentData = $contentData;
         return true;
     }
 }

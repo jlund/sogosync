@@ -83,9 +83,6 @@ class DeviceManager {
         // only continue if deviceid is set
         if ($this->devid) {
             $this->device = new ASDevice($this->devid, Request::GetDeviceType(), Request::GetGETUser(), Request::GetUserAgent());
-            if (Request::GetProtocolVersion())
-                $this->device->SetASVersion(Request::GetProtocolVersion());
-
             $this->loadDeviceData();
         }
         else
@@ -134,8 +131,9 @@ class DeviceManager {
     public function Save() {
         // TODO save other stuff
 
-        // update the user agent to the device
+        // update the user agent and AS version on the device
         $this->device->SetUserAgent(Request::GetUserAgent());
+        $this->device->SetASVersion(Request::GetProtocolVersion());
 
         // data to be saved
         $data = $this->device->GetData();
@@ -144,12 +142,12 @@ class DeviceManager {
 
             try {
                 // check if this is the first time the device data is saved and it is authenticated. If so, link the user to the device id
-                if ($this->device->GetLastUpdateTime() == 0 && RequestProcessor::isUserAuthenticated()) {
+                if ($this->device->IsNewDevice() && RequestProcessor::isUserAuthenticated()) {
                     ZLog::Write(LOGLEVEL_INFO, sprintf("Linking device ID '%s' to user '%s'", $this->devid, $this->device->GetDeviceUser()));
                     $this->statemachine->LinkUserDevice($this->device->GetDeviceUser(), $this->devid);
                 }
 
-                if (RequestProcessor::isUserAuthenticated() || $this->device->ForceSave() ) {
+                if (RequestProcessor::isUserAuthenticated() || $this->device->GetForceSave() ) {
                     $this->statemachine->SetState($data, $this->devid, IStateMachine::DEVICEDATA);
                     ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->Save(): Device data saved");
                 }
@@ -506,7 +504,6 @@ class DeviceManager {
             }
         }
         catch (StateNotFoundException $snfex) {
-            //$this->device->SetPolicyKey(0);
             $this->hierarchySyncRequired = true;
         }
         return true;
@@ -527,6 +524,7 @@ class DeviceManager {
      */
     private function announceIgnoredMessage($folderid, $id, SyncObject $message, $reason = self::MSG_BROKEN_UNKNOWN) {
         $class = get_class($message);
+
         // TODO message info should be saved for the users later attention
         ZLog::Write(LOGLEVEL_ERROR, sprintf("Ignored broken message (%s). Reason: '%s' Folderid: '%s' message id '%s'", $class, $reason, $folderid, $id));
     }
