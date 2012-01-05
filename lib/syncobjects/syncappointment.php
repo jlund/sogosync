@@ -184,13 +184,14 @@ class SyncAppointment extends SyncObject {
      * @return boolean
      */
     public function Check() {
-        $ret = parent::check();
+        $ret = parent::Check();
         if (!$ret)
             return false;
 
         // TODO verify if this check is good enough
         if ($this->meetingstatus > 0) {
             if (!isset($this->organizername) || !isset($this->organizeremail)) {
+                ZLog::Write(LOGLEVEL_WARN, "SyncAppointment->Check(): Unmet condition: parameter 'organizername' or 'organizeremail' is required but not set. Check failed!");
                 return false;
             }
         }
