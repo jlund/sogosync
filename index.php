@@ -49,6 +49,7 @@ include_once('lib/zpushdefs.php');
 include_once('lib/exceptions.php');
 include_once('lib/utils/utils.php');
 include_once('lib/utils/compat.php');
+include_once('lib/stateobject.php');
 include_once('lib/interprocessdata.php');
 include_once('lib/pingtracking.php');
 include_once('lib/topcollector.php');
