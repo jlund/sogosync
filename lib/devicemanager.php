@@ -525,7 +525,26 @@ class DeviceManager {
     private function announceIgnoredMessage($folderid, $id, SyncObject $message, $reason = self::MSG_BROKEN_UNKNOWN) {
         $class = get_class($message);
 
-        // TODO message info should be saved for the users later attention
+        $brokenMessage = new StateObject();
+        $brokenMessage->id = $id;
+        $brokenMessage->folderid = $folderid;
+        $brokenMessage->ASClass = $class;
+        $brokenMessage->folderid = $folderid;
+        $brokenMessage->reasonCode = $reason;
+        $brokenMessage->reasonString = 'not determined';
+        $brokenMessage->asobject = serialize($message);
+
+        // perform check again and try to catch a message
+        if (! $message->Check())
+            $brokenMessage->reasonString = ZLog::GetLastMessage(LOGLEVEL_WARN);
+
+        if (!isset($device->ignoredMessages) || !is_array($device->ignoredMessages))
+            $this->device->ignoredMessages = array();
+
+        $msges = $this->device->ignoredMessages;
+        $msges[] = $brokenMessage;
+        $this->device->ignoredMessages = $msges;
+
         ZLog::Write(LOGLEVEL_ERROR, sprintf("Ignored broken message (%s). Reason: '%s' Folderid: '%s' message id '%s'", $class, $reason, $folderid, $id));
     }
 }
