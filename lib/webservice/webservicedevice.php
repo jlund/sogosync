@@ -42,7 +42,7 @@
 *
 * Consult LICENSE file for details
 ************************************************/
-include ('lib/zpushadmin.php');
+include ('lib/utils/zpushadmin.php');
 
 class WebserviceDevice {
 
