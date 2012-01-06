@@ -64,11 +64,13 @@ class ASDevice extends StateObject {
                                     'policykey' => self::UNDEFINED,
                                     'forcesave' => false,
                                     'asversion' => false,
+                                    'ignoredmessages' => array(),
                                 );
 
     static private $loadedData;
     protected $newdevice;
     protected $hierarchyCache;
+    protected $ignoredMessageIds;
 
     /**
      * AS Device constructor
@@ -88,6 +90,7 @@ class ASDevice extends StateObject {
         $this->useragent = $useragent;
         $this->firstsynctime = time();
         $this->newdevice = true;
+        $this->ignoredMessageIds = array();
     }
 
     /**
@@ -146,6 +149,7 @@ class ASDevice extends StateObject {
 
         // device was updated
         $this->lastupdatetime = time();
+        unset($this->ignoredMessageIds);
 
         if (!isset(self::$loadedData) || !isset(self::$loadedData->devices) || !is_array(self::$loadedData->devices)) {
             self::$loadedData = new StateObject();
@@ -185,6 +189,7 @@ class ASDevice extends StateObject {
         unset($this->hierarchyCache);
         unset($this->forceSave);
         unset($this->newdevice);
+        unset($this->ignoredMessageIds);
         return true;
     }
 
@@ -290,6 +295,96 @@ class ASDevice extends StateObject {
             $this->wipeStatus = SYNC_PROVISION_RWSTATUS_OK;
     }
 
+    /**
+     * Adds a messages which was ignored to the device data
+     *
+     * @param StateObject   $ignoredMessage
+     *
+     * @access public
+     * @return string
+     */
+    public function AddIgnoredMessage($ignoredMessage) {
+        // we should have all previousily ignored messages in an id array
+        if (count($this->ignoredMessages) != count($this->ignoredMessageIds)) {
+            foreach($this->ignoredMessages as $oldMessage) {
+                if (!isset($this->ignoredMessageIds[$oldMessage->folderid]))
+                    $this->ignoredMessageIds[$oldMessage->folderid] = array();
+                $this->ignoredMessageIds[$oldMessage->folderid][] = $oldMessage->id;
+            }
+        }
+
+        // try not to add the same message several times
+        if (isset($ignoredMessage->folderid) && isset($ignoredMessage->id)) {
+            if (!isset($this->ignoredMessageIds[$ignoredMessage->folderid]))
+                $this->ignoredMessageIds[$ignoredMessage->folderid] = array();
+
+            if (in_array($ignoredMessage->id, $this->ignoredMessageIds[$ignoredMessage->folderid]))
+                $this->RemoveIgnoredMessage($ignoredMessage->folderid, $ignoredMessage->id);
+
+            $this->ignoredMessageIds[$ignoredMessage->folderid][] = $ignoredMessage->id;
+            $msges = $this->ignoredMessages;
+            $msges[] = $ignoredMessage;
+            $this->ignoredMessages = $msges;
+
+            return true;
+        }
+        else {
+            $msges = $this->ignoredMessages;
+            $msges[] = $ignoredMessage;
+            $this->ignoredMessages = $msges;
+            ZLog::Write(LOGLEVEL_WARN, "ASDevice->AddIgnoredMessage(): added message has no folder/id");
+            return true;
+        }
+    }
+
+    /**
+     * Removes message in the list of ignored messages
+     *
+     * @param string    $folderid       parent folder id of the message
+     * @param string    $id             message id
+     *
+     * @access public
+     * @return string
+     */
+    public function RemoveIgnoredMessage($folderid, $id) {
+        // we should have all previousily ignored messages in an id array
+        if (count($this->ignoredMessages) != count($this->ignoredMessageIds)) {
+            foreach($this->ignoredMessages as $oldMessage) {
+                if (!isset($this->ignoredMessageIds[$oldMessage->folderid]))
+                    $this->ignoredMessageIds[$oldMessage->folderid] = array();
+                $this->ignoredMessageIds[$oldMessage->folderid][] = $oldMessage->id;
+            }
+        }
+
+        $foundMessage = false;
+        // there are ignored messages in that folder
+        if (isset($this->ignoredMessageIds[$folderid])) {
+            // resync of a folder.. we should remove all previousily ignored messages
+            if ($id === false || in_array($id, $this->ignoredMessageIds[$folderid], true)) {
+                $ignored = $this->ignoredMessages;
+                $newMessages = array();
+                foreach ($ignored as $im) {
+                    if ($im->folderid = $folderid) {
+                        if ($id === false || $im->id === $id) {
+                            $foundMessage = true;
+                            if (count($this->ignoredMessageIds[$folderid]) == 1) {
+                                unset($this->ignoredMessageIds[$folderid]);
+                            }
+                            else {
+                                unset($this->ignoredMessageIds[$folderid][array_search($id, $this->ignoredMessageIds[$folderid])]);
+                            }
+                            continue;
+                        }
+                        else
+                            $newMessages[] = $im;
+                    }
+                }
+                $this->ignoredMessages = $newMessages;
+            }
+        }
+
+        return $foundMessage;
+    }
 
     /**----------------------------------------------------------------------------------------------------------
      * HierarchyCache and ContentData operations

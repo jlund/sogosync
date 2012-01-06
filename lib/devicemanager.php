@@ -375,6 +375,8 @@ class DeviceManager {
             return true;
         }
 
+        // all other messages are potentially synched now
+        $this->announceAcceptedMessage($folderid, $id);
         return false;
     }
 
@@ -514,13 +516,13 @@ class DeviceManager {
      * Called when a SyncObject is not being streamed to the mobile.
      * The user can be informed so he knows about this issue
      *
-     * @param string        $parentid   id of the parent folder
+     * @param string        $folderid   id of the parent folder
      * @param string        $id         message id
      * @param SyncObject    $message    the broken message
      * @param string        $reason     (self::MSG_BROKEN_UNKNOWN, self::MSG_BROKEN_CAUSINGLOOP, self::MSG_BROKEN_SEMANTICERR)
      *
      * @access public
-     * @return boolean          returns true if the message should NOT be send
+     * @return boolean
      */
     private function announceIgnoredMessage($folderid, $id, SyncObject $message, $reason = self::MSG_BROKEN_UNKNOWN) {
         $class = get_class($message);
@@ -532,20 +534,32 @@ class DeviceManager {
         $brokenMessage->folderid = $folderid;
         $brokenMessage->reasonCode = $reason;
         $brokenMessage->reasonString = 'not determined';
+        $brokenMessage->timestamp = time();
         $brokenMessage->asobject = serialize($message);
 
         // perform check again and try to catch a message
         if (! $message->Check())
             $brokenMessage->reasonString = ZLog::GetLastMessage(LOGLEVEL_WARN);
 
-        if (!isset($device->ignoredMessages) || !is_array($device->ignoredMessages))
-            $this->device->ignoredMessages = array();
-
-        $msges = $this->device->ignoredMessages;
-        $msges[] = $brokenMessage;
-        $this->device->ignoredMessages = $msges;
+        $this->device->AddIgnoredMessage($brokenMessage);
 
         ZLog::Write(LOGLEVEL_ERROR, sprintf("Ignored broken message (%s). Reason: '%s' Folderid: '%s' message id '%s'", $class, $reason, $folderid, $id));
+        return true;
+    }
+
+    /**
+     * Called when a SyncObject was streamed to the mobile.
+     * If the message could not be sent before this data is obsolete
+     *
+     * @param string        $folderid   id of the parent folder
+     * @param string        $id         message id
+     *
+     * @access public
+     * @return boolean          returns true if the message should NOT be send
+     */
+    private function announceAcceptedMessage($folderid, $id) {
+        if ($this->device->RemoveIgnoredMessage($folderid, $id))
+            ZLog::Write(LOGLEVEL_INFO, sprintf("DeviceManager->announceAcceptedMessage('%s', '%s'): cleared previosily ignored message as message was sucessfully streamed",$folderid, $id));
     }
 }
 
