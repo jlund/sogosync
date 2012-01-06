@@ -596,8 +596,12 @@ class RequestProcessor {
                         self::$deviceManager->ForceFullResync();
                     }
                 }
-                $collection["cpo"]->SetContentClass($collection["class"]);
-                self::$topCollector->AnnounceInformation(sprintf("%s",$collection["class"]), true);
+                if (isset($collection["class"])) {
+                    $collection["cpo"]->SetContentClass($collection["class"]);
+                    self::$topCollector->AnnounceInformation(sprintf("%s",$collection["class"]), true);
+                }
+                else
+                    ZLog::Write(LOGLEVEL_WARN, "Not possible to determine class of request. Request did not contain class and apparently there is an issue with the HierarchyCache.");
 
                 // SUPPORTED properties
                 if(self::$decoder->getElementStartTag(SYNC_SUPPORTED)) {
@@ -1172,7 +1176,7 @@ class RequestProcessor {
                             self::$encoder->endTag();
                         }
 
-                        if(isset($collection["getchanges"])) {
+                        if(isset($collection["getchanges"]) && isset($collection["collectionid"]) && isset($collection["class"])) {
                             $windowSize = self::$deviceManager->GetWindowSize($collection["collectionid"], $collection["class"], $changecount);
 
                             if($changecount > $windowSize) {
