@@ -41,7 +41,7 @@
 * Consult LICENSE file for details
 ************************************************/
 
-class StateObject {
+class StateObject implements Serializable {
     private $SO_internalid;
     protected $data = array();
     protected $unsetdata = array();
@@ -194,17 +194,26 @@ class StateObject {
     }
 
     /**
-     * Returns which member variables should be serialized
-     * called before serialization
+     * Method to serialize a StateObject
      *
      * @access public
      * @return array
      */
-    public function __sleep() {
-        unset($this->changed);
-        unset($this->unsetdata);
+    public function serialize() {
+        // make sure the object has an id before serialization
+        $this->GetID();
+        return serialize(array($this->SO_internalid,$this->data));
+    }
 
-        return array("data");
+        /**
+     * Method to unserialize a StateObject
+     *
+     * @access public
+     * @return array
+     */
+    public function unserialize($data) {
+        list($this->SO_internalid, $this->data) = unserialize($data);
+        return true;
     }
 
 }
