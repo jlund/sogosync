@@ -47,7 +47,7 @@
 * Consult LICENSE file for details
 ************************************************/
 
-class Streamer {
+class Streamer implements Serializable {
     const STREAMER_VAR = 1;
     const STREAMER_ARRAY = 2;
     const STREAMER_TYPE = 3;
@@ -311,6 +311,38 @@ class Streamer {
         // Output our own content
         if(isset($this->content))
             $encoder->content($this->content);
+    }
+
+    /**
+     * Method to serialize a Streamer and respective SyncObject
+     *
+     * @access public
+     * @return array
+     */
+    public function serialize() {
+        $values = array();
+        foreach ($this->mapping as $k=>$v) {
+            if (isset($this->$v[self::STREAMER_VAR]))
+                $values[$v[self::STREAMER_VAR]] = $this->$v[self::STREAMER_VAR];
+        }
+        ZLog::Write(LOGLEVEL_DEBUG, "SYNCOBJECT is being serialized::::". print_r($values,1));
+        return serialize($values);
+    }
+
+    /**
+     * Method to unserialize a Streamer and respective SyncObject
+     *
+     * @access public
+     * @return array
+     */
+    public function unserialize($data) {
+        $class = get_class($this);
+        $this->$class();
+        $values = unserialize($data);
+        foreach ($values as $k=>$v)
+            $this->$k = $v;
+
+        return true;
     }
 
     /**----------------------------------------------------------------------------------------------------------
