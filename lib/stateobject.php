@@ -123,7 +123,7 @@ class StateObject implements Serializable {
         if (array_key_exists($lname, $this->data))
             return $this->data[$lname];
 
-        if (array_key_exists($lname, $this->unsetdata))
+        if (isset($this->unsetdata) && is_array($this->unsetdata) && array_key_exists($lname, $this->unsetdata))
             return $this->unsetdata[$lname];
 
         return null;
