@@ -325,7 +325,7 @@ class Streamer implements Serializable {
             if (isset($this->$v[self::STREAMER_VAR]))
                 $values[$v[self::STREAMER_VAR]] = $this->$v[self::STREAMER_VAR];
         }
-        ZLog::Write(LOGLEVEL_DEBUG, "SYNCOBJECT is being serialized::::". print_r($values,1));
+
         return serialize($values);
     }
 
