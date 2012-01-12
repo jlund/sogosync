@@ -73,6 +73,7 @@ class TopCollector extends InterProcessData {
                                 "devagent"  => Request::GetUserAgent(),
                                 "command"   => Request::GetCommandCode(),
                                 "ended"     => 0,
+                                "push"      => false,
                         );
 
         $this->AnnounceInformation("initializing");
@@ -228,6 +229,30 @@ class TopCollector extends InterProcessData {
         // end exclusive block
 
         return $stat;
+    }
+
+    /**
+     * Sets a different UserAgent for this connection
+     *
+     * @param string    $agent
+     *
+     * @access public
+     * @return boolean
+     */
+    public function SetUserAgent($agent) {
+        $this->latest["devagent"] = $agent;
+    }
+
+    /**
+     * Marks this process as push connection
+     *
+     * @param string    $agent
+     *
+     * @access public
+     * @return boolean
+     */
+    public function SetAsPushConnection() {
+        $this->latest["push"] = true;
     }
 
     /**

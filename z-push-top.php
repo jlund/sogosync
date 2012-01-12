@@ -233,7 +233,7 @@ class ZPushTop {
                         $this->activeHosts[$line['ip']] = 1;
 
                         $line["time"] = $this->currenttime - $line['start'];
-                        if ($line['command'] == "Ping") $this->pushConn += 1;
+                        if ($line['push'] === true) $this->pushConn += 1;
 
                         if ($this->filter !== false) {
                             $f = $this->filter;
@@ -245,7 +245,7 @@ class ZPushTop {
                         $lastUpdate = $this->currenttime - $line["update"];
                         if ($this->currenttime - $line["update"] < 2)
                             $this->linesUpdate[$line["update"].$line["pid"]] = $line;
-                        else if (($line['command'] == "Ping"  && $lastUpdate > ($this->pingInterval+2)) || ($line['command'] != "Ping"  && $lastUpdate > 4))
+                        else if (($line['push'] === true  && $lastUpdate > ($this->pingInterval+2)) || ($line['push'] !== true  && $lastUpdate > 4))
                             $this->linesUnknown[$line["update"].$line["pid"]] = $line;
                         else
                             $this->linesActive[$line["update"].$line["pid"]] = $line;
@@ -333,7 +333,7 @@ class ZPushTop {
         $linesprinted = 0;
         foreach ($this->linesUnknown as $time=>$l) {
             $color = "0;31m";
-            if ($l['command'] != "Ping" && $time - $l["start"] > 30)
+            if ($l['push'] == false && $time - $l["start"] > 30)
                 $color = "1;31m";
             $this->scrPrintAt($lc,0, "\033[0". $color . $this->getLine($l)  ."\033[0m");
             $lc++;
