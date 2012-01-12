@@ -272,7 +272,7 @@ class Streamer implements Serializable {
                     }
 
                     // Simple type
-                    if(strlen($this->$map[self::STREAMER_VAR]) == 0) {
+                    if(!isset($map[self::STREAMER_TYPE]) && strlen($this->$map[self::STREAMER_VAR]) == 0) {
                         if ((isset($map[self::STREAMER_TYPE]) && $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_SEND_EMPTY)
                         || (isset($map[self::STREAMER_PROP]) &&  isset($map[self::STREAMER_PROP]) == self::STREAMER_TYPE_SEND_EMPTY)) {
                             $encoder->startTag($tag, false, true);
