@@ -92,10 +92,16 @@ class ZPushAdmin {
      * @access public
      */
     static public function GetDeviceDetails($devid, $user) {
+
         try {
             $device = new ASDevice($devid, ASDevice::UNDEFINED, $user, ASDevice::UNDEFINED);
             $device->SetData(ZPush::GetStateMachine()->GetState($devid, IStateMachine::DEVICEDATA), false);
             $device->StripData();
+
+            $lastsync = SyncCollections::GetLastSyncTimeOfDevice($device);
+            if ($lastsync)
+                $device->SetLastSyncTime($lastsync);
+
             return $device;
         }
         catch (StateNotFoundException $e) {
