@@ -1621,6 +1621,7 @@ class RequestProcessor {
     static private function HandlePing() {
         $interval = (defined('PING_INTERVAL') && PING_INTERVAL > 0) ? PING_INTERVAL : 30;
         $pingstatus = false;
+        $fakechanges = array();
 
         // Contains all requested folders (containers)
         $sc = new SyncCollections();
@@ -1675,7 +1676,10 @@ class RequestProcessor {
 
                     $cpo = $sc->GetCollection($folderid);
                     if (! $cpo) {
-                        $pingstatus = SYNC_PINGSTATUS_FOLDERHIERSYNCREQUIRED;
+                        // The requested collection is not synchronized.
+                        // Trigger a Sync request because then the device will be forced to resync this folder.
+                        $fakechanges[$folderid] = 1;
+                        $foundchanges = true;
                     }
                     else if ($class == $cpo->GetContentClass()) {
                         $cpo->SetPingableFlag(true);
@@ -1696,7 +1700,9 @@ class RequestProcessor {
 
         // Check for changes on the default LifeTime, set interval and ONLY on pingable collections
         try {
-            $foundchanges = $sc->CheckForChanges($sc->GetLifetime(), $interval, true);
+            if (empty($fakechanges)) {
+                $foundchanges = $sc->CheckForChanges($sc->GetLifetime(), $interval, true);
+            }
         }
         catch (StatusException $ste) {
             switch($ste->getCode()) {
@@ -1721,7 +1727,13 @@ class RequestProcessor {
             self::$encoder->endTag();
 
             self::$encoder->startTag(SYNC_PING_FOLDERS);
-            foreach ($sc->GetChangedFolderIds() as $folderid => $changecount) {
+
+            if (empty($fakechanges))
+                $changes = $sc->GetChangedFolderIds();
+            else
+                $changes = $fakechanges;
+
+            foreach ($changes as $folderid => $changecount) {
                 if ($changecount > 0) {
                     self::$encoder->startTag(SYNC_PING_FOLDER);
                     self::$encoder->content($folderid);
