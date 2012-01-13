@@ -1738,7 +1738,8 @@ class RequestProcessor {
                     self::$encoder->startTag(SYNC_PING_FOLDER);
                     self::$encoder->content($folderid);
                     self::$encoder->endTag();
-                    self::$topCollector->AnnounceInformation(sprintf("Found change in %s", $sc->GetCollection($folderid)->GetContentClass()), true);
+                    if (empty($fakechanges))
+                        self::$topCollector->AnnounceInformation(sprintf("Found change in %s", $sc->GetCollection($folderid)->GetContentClass()), true);
                 }
             }
             self::$encoder->endTag();
