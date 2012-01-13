@@ -323,7 +323,7 @@ class Streamer implements Serializable {
         $values = array();
         foreach ($this->mapping as $k=>$v) {
             if (isset($this->$v[self::STREAMER_VAR]))
-                $values[$v[self::STREAMER_VAR]] = $this->$v[self::STREAMER_VAR];
+                $values[$v[self::STREAMER_VAR]] = serialize($this->$v[self::STREAMER_VAR]);
         }
 
         return serialize($values);
@@ -339,9 +339,12 @@ class Streamer implements Serializable {
         $class = get_class($this);
         $this->$class();
         $values = unserialize($data);
-        foreach ($values as $k=>$v)
-            $this->$k = $v;
-
+        foreach ($values as $k=>$v) {
+            $this->$k = unserialize($v);
+            if ($this->$k instanceof Streamer)
+                unset($this->$k->mapping);
+        }
+        unset($this->mapping);
         return true;
     }
 
