@@ -47,6 +47,8 @@
 include ("lib/zpushdefs.php");
 include ("lib/zpush.php");
 include ("lib/stateobject.php");
+include ("lib/contentparameters.php");
+include ("lib/synccollections.php");
 include ("lib/request.php");
 include ("lib/requestprocessor.php");
 include ("lib/debug.php");
@@ -60,6 +62,30 @@ include ("lib/interface/iexportchanges.php");
 include ("lib/interface/iimportchanges.php");
 include ("lib/interface/isearchprovider.php");
 include ("lib/interface/istatemachine.php");
+include ("lib/streamer.php");
+include ("lib/syncobjects/syncobject.php");
+include ("lib/syncobjects/syncbasebody.php");
+include ("lib/syncobjects/syncbaseattachment.php");
+include ("lib/syncobjects/syncmailflags.php");
+include ("lib/syncobjects/syncrecurrence.php");
+include ("lib/syncobjects/syncappointment.php");
+include ("lib/syncobjects/syncappointmentexception.php");
+include ("lib/syncobjects/syncattachment.php");
+include ("lib/syncobjects/syncattendee.php");
+include ("lib/syncobjects/syncmeetingrequestrecurrence.php");
+include ("lib/syncobjects/syncmeetingrequest.php");
+include ("lib/syncobjects/syncmail.php");
+include ("lib/syncobjects/synccontact.php");
+include ("lib/syncobjects/syncfolder.php");
+include ("lib/syncobjects/syncprovisioning.php");
+include ("lib/syncobjects/synctaskrecurrence.php");
+include ("lib/syncobjects/synctask.php");
+include ("lib/syncobjects/syncoofmessage.php");
+include ("lib/syncobjects/syncoof.php");
+include ("lib/syncobjects/syncuserinformation.php");
+include ("lib/syncobjects/syncdeviceinformation.php");
+include ("lib/syncobjects/syncdevicepassword.php");
+include ("lib/syncobjects/syncitemoperationsattachment.php");
 include ("lib/device.php");
 include ("config.php");
 include ("version.php");
@@ -453,7 +479,7 @@ class ZPushAdminCLI {
 
         echo "ActiveSync version:\t".($device->GetASVersion() ? $device->GetASVersion() : "unknown") ."\n";
         echo "First sync:\t\t". strftime("%Y-%m-%d %H:%M", $device->GetFirstSyncTime()) ."\n";
-        echo "Last sync:\t\t"."not implemented\n";
+        echo "Last sync:\t\t". ($device->GetLastSyncTime() ? strftime("%Y-%m-%d %H:%M", $device->GetLastSyncTime()) : "never")."\n";
         echo "Total folders:\t\t". count($folders). "\n";
         echo "Synchronized folders:\t". $synchedFolders . "\n";
         echo "Synchronized data:\t$folderinfo\n";
@@ -479,7 +505,32 @@ class ZPushAdminCLI {
         echo "WipeRequest on:\t\t". ($device->GetWipeRequestedOn() ? strftime("%Y-%m-%d %H:%M", $device->GetWipeRequestedOn()) : "not set")."\n";
         echo "WipeRequest by:\t\t". ($device->GetWipeRequestedBy() ? $device->GetWipeRequestedBy() : "not set")."\n";
         echo "Wiped on:\t\t". ($device->GetWipeActionOn() ? strftime("%Y-%m-%d %H:%M", $device->GetWipeActionOn()) : "not set")."\n";
+
+        echo "Attention needed:\t";
+        if (!isset($device->ignoredmessages) || empty($device->ignoredmessages)) {
+            echo "No errors known\n";
+        }
+        else {
+            printf("%d messages need attention because they could not be synchronized\n", count($device->ignoredmessages));
+            foreach ($device->ignoredmessages as $im) {
+                $info = sprintf("Subject: '%s'", $im->asobject->subject);
+                if (isset($im->asobject->from))
+                    $info .= sprintf(" - From: '%s'", $im->asobject->from);
+                if (isset($im->asobject->starttime))
+                    $info .= sprintf(" - On: '%s'", strftime("%Y-%m-%d %H:%M", $im->asobject->starttime));
+                $reason = $im->reasonstring;
+                if ($im->reasoncode == 2)
+                    $reason = "Message was causing loop";
+                printf("\tBroken objekt:\t'%s' ignored on '%s'\n", $im->asclass,  strftime("%Y-%m-%d %H:%M", $im->timestamp));
+                printf("\tInformation:\t%s\n", $info);
+                printf("\tReason: \t%s (%s)\n", $reason, $im->reasoncode);
+                printf("\tItem/Parent id: %s/%s\n", $im->id, $im->folderid);
+                echo "\n";
+            }
+        }
+
     }
 }
+
 
 ?>
