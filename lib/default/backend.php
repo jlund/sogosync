@@ -188,10 +188,10 @@ abstract class Backend implements IBackend {
                 $this->permanentStorage = ZPush::GetDeviceManager()->GetStateManager()->GetBackendStorage(StateManager::BACKENDSTORAGE_PERMANENT);
             }
             catch (StateNotYetAvailableException $snyae) {
-                $this->permanentStorage = array();
+                $this->permanentStorage = new StateObject();
             }
             catch(StateNotFoundException $snfe) {
-                $this->permanentStorage = array();
+                $this->permanentStorage = new StateObject();
             }
         }
     }
@@ -209,10 +209,10 @@ abstract class Backend implements IBackend {
                 $this->stateStorage = ZPush::GetDeviceManager()->GetStateManager()->GetBackendStorage(StateManager::BACKENDSTORAGE_STATE);
             }
             catch (StateNotYetAvailableException $snyae) {
-                $this->stateStorage = array();
+                $this->stateStorage = new StateObject();
             }
             catch(StateNotFoundException $snfe) {
-                $this->stateStorage = array();
+                $this->stateStorage = new StateObject();
             }
         }
     }

@@ -1182,9 +1182,9 @@ class BackendIMAP extends BackendDiff {
     private function getImapIdFromFolderId($folderid) {
         $this->InitializePermanentStorage();
 
-        if (isset($this->permanentStorage['fm-fid-fimap'])) {
-            if (isset($this->permanentStorage['fm-fid-fimap'][$folderid])) {
-                $imapId = $this->permanentStorage['fm-fid-fimap'][$folderid];
+        if (isset($this->permanentStorage->fmFidFimap)) {
+            if (isset($this->permanentStorage->fmFidFimap[$folderid])) {
+                $imapId = $this->permanentStorage->fmFidFimap[$folderid];
                 ZLog::Write(LOGLEVEL_DEBUG, sprintf("BackendIMAP->getImapIdFromFolderId('%s') = %s", $folderid, $imapId));
                 return $imapId;
             }
@@ -1208,9 +1208,9 @@ class BackendIMAP extends BackendDiff {
     private function getFolderIdFromImapId($imapid) {
         $this->InitializePermanentStorage();
 
-        if (isset($this->permanentStorage['fm-fimap-fid'])) {
-            if (isset($this->permanentStorage['fm-fimap-fid'][$imapid])) {
-                $folderid = $this->permanentStorage['fm-fimap-fid'][$imapid];
+        if (isset($this->permanentStorage->fmFimapFid)) {
+            if (isset($this->permanentStorage->fmFimapFid[$imapid])) {
+                $folderid = $this->permanentStorage->fmFimapFid[$imapid];
                 ZLog::Write(LOGLEVEL_DEBUG, sprintf("BackendIMAP->getFolderIdFromImapId('%s') = %s", $imapid, $folderid));
                 return $folderid;
             }
@@ -1245,14 +1245,20 @@ class BackendIMAP extends BackendDiff {
             $folderid = sprintf('%04x%04x', mt_rand( 0, 0xffff ), mt_rand( 0, 0xffff ));
 
             // folderId to folderImap mapping
-            if (!isset($this->permanentStorage['fm-fid-fimap']))
-                $this->permanentStorage['fm-fid-fimap'] = array();
-            $this->permanentStorage['fm-fid-fimap'][$folderid] = $imapid;
+            if (!isset($this->permanentStorage->fmFidFimap))
+                $this->permanentStorage->fmFidFimap = array();
+
+            $a = $this->permanentStorage->fmFidFimap;
+            $a[$folderid] = $imapid;
+            $this->permanentStorage->fmFidFimap = $a;
 
             // folderImap to folderid mapping
-            if (!isset($this->permanentStorage['fm-fimap-fid']))
-                $this->permanentStorage['fm-fimap-fid'] = array();
-            $this->permanentStorage['fm-fimap-fid'][$imapid] = $folderid;
+            if (!isset($this->permanentStorage->fmFimapFid))
+                $this->permanentStorage->fmFimapFid = array();
+
+            $b = $this->permanentStorage->fmFimapFid;
+            $b[$imapid] = $folderid;
+            $this->permanentStorage->fmFimapFid = $b;
         }
 
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("BackendIMAP->convertImapId('%s') = %s", $imapid, $folderid));
