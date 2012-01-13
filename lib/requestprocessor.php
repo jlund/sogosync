@@ -1481,8 +1481,11 @@ class RequestProcessor {
                 if(!self::$decoder->getElementEndTag())
                     return false;
             }
+
             if(!self::$decoder->getElementEndTag())
                 return false; //SYNC_GETITEMESTIMATE_FOLDER
+
+            // Process folder data
 
             //In AS 14 request only collectionid is sent, without class
             if (! $cpo->HasContentClass() && $cpo->HasFolderId())
@@ -1511,9 +1514,13 @@ class RequestProcessor {
                 self::$topCollector->AnnounceInformation("StatusException SYNCSTATENOTPRIMED", true);
             }
         }
+        if(!self::$decoder->getElementEndTag())
+            return false; //SYNC_GETITEMESTIMATE_FOLDERS
+
+        if(!self::$decoder->getElementEndTag())
+            return false; //SYNC_GETITEMESTIMATE_GETITEMESTIMATE
 
         self::$encoder->startWBXML();
-
         self::$encoder->startTag(SYNC_GETITEMESTIMATE_GETITEMESTIMATE);
         {
             $status = SYNC_GETITEMESTSTATUS_SUCCESS;
