@@ -535,13 +535,10 @@ class DeviceManager {
         $brokenMessage->ASClass = $class;
         $brokenMessage->folderid = $folderid;
         $brokenMessage->reasonCode = $reason;
-        $brokenMessage->reasonString = 'not determined';
+        $brokenMessage->reasonString = 'unknown cause';
         $brokenMessage->timestamp = time();
         $brokenMessage->asobject = serialize($message);
-
-        // perform check again and try to catch a message
-        if (! $message->Check())
-            $brokenMessage->reasonString = ZLog::GetLastMessage(LOGLEVEL_WARN);
+        $brokenMessage->reasonString = ZLog::GetLastMessage(LOGLEVEL_WARN);
 
         $this->device->AddIgnoredMessage($brokenMessage);
 
