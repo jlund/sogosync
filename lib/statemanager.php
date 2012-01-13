@@ -71,6 +71,7 @@ class StateManager {
     private $uuid;
     private $oldStateCounter;
     private $newStateCounter;
+    private $synchedFolders;
 
 
     /**
@@ -81,6 +82,7 @@ class StateManager {
     public function StateManager() {
         $this->statemachine = ZPush::GetStateMachine();
         $this->hierarchyOperation = ZPush::HierarchyCommand(Request::GetCommandCode());
+        $this->synchedFolders = array();
     }
 
     /**
@@ -97,6 +99,72 @@ class StateManager {
     }
 
     /**
+     * Returns an array will all synchronized folderids
+     *
+     * @access public
+     * @return array
+     */
+    public function GetSynchedFolders() {
+        $synched = array();
+        foreach ($this->device->GetAllFolderIds() as $folderid) {
+            $uuid = $this->device->GetFolderUUID($folderid);
+            if ($uuid)
+                $synched[] = $folderid;
+        }
+        return $synched;
+    }
+
+    /**
+     * Returns a folder state (ContentParameters) for a folder id
+     *
+     * @param $folderid
+     *
+     * @access public
+     * @return ContentParameters
+     */
+    public function GetSynchedFolderState($folderid) {
+        // new CPOs are cached
+        if (isset($this->synchedFolders[$folderid]))
+            return $this->synchedFolders[$folderid];
+
+        $uuid = $this->device->GetFolderUUID($folderid);
+        if ($uuid) {
+            try {
+                $data = $this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::DEFTYPE, $uuid);
+                if ($data !== false) {
+                    // TODO data should be unserialized in the StateMachine
+                    $this->synchedFolders[$folderid] = unserialize($data);
+                }
+            }
+            catch (StateNotFoundException $ex) { }
+        }
+
+        if (!isset($this->synchedFolders[$folderid]))
+            $this->synchedFolders[$folderid] = new ContentParameters();
+
+        return $this->synchedFolders[$folderid];
+    }
+
+    /**
+     * Saves a folder state - ContentParameter object
+     *
+     * @param ContentParamerters    $cpo
+     *
+     * @access public
+     * @return boolean
+     */
+    public function SetSynchedFolderState($cpo) {
+        $suuid = $this->device->GetFolderUUID($cpo->GetFolderId());
+        if ($suuid === false || $suuid !== $cpo->GetUuid())
+            throw new StateInvalidException(sprintf("Folder '%s' terminated synchronization but has no or different UUID in devicedata", $cpo->GetFolderId()));
+
+        $cpo->SetReferencePolicyKey($this->device->GetPolicyKey());
+
+        // TODO the StateMachine should serialize the object
+        return $this->statemachine->SetState(serialize($cpo), $this->device->GetDeviceId(), IStateMachine::DEFTYPE, $suuid);
+    }
+
+    /**
      * Gets the new sync key for a specified sync key. The new sync state must be
      * associated to this sync key when calling SetSyncState()
      *
@@ -106,24 +174,17 @@ class StateManager {
      * @return string
      */
     function GetNewSyncKey($synckey) {
-        if(!isset($synckey) || $synckey == "0") {
+        if(!isset($synckey) || $synckey == "0" || $synckey == false) {
             $this->uuid = $this->getNewUuid();
             $this->newStateCounter = 1;
-            return "{" . $this->uuid . "}" . $this->newStateCounter;
         }
         else {
-            if(preg_match('/^{([a-fA-F0-9-]+)\}([0-9]+)$/', $synckey, $matches)) {
-                $n = $matches[2];
-                $n++;
-                if (isset($this->uuid) && $this->uuid == $matches[1])
-                    $this->newStateCounter = $n;
-                else
-                    throw new StateInvalidException("StateManager->GetNewSyncKey() for a different UUID requested");
-                return "{" . $matches[1] . "}" . $n;
-            }
-            else
-                return false;
+            list($uuid, $counter) = self::ParseStateKey($synckey);
+            $this->uuid = $uuid;
+            $this->newStateCounter = $counter + 1;
         }
+
+        return self::BuildStateKey($this->uuid, $this->newStateCounter);
     }
 
     /**
@@ -190,8 +251,8 @@ class StateManager {
             return "";
         }
 
-        // Check if synckey is allowed --> throws exception
-        $this->parseStateKey($synckey);
+        // Check if synckey is allowed and set uuid and counter
+        list($this->uuid, $this->oldStateCounter) = self::ParseStateKey($synckey);
 
         // make sure the hierarchy cache is in place
         if ($this->hierarchyOperation)
@@ -213,7 +274,7 @@ class StateManager {
      * @throws StateInvalidException
      */
     public function SetSyncState($synckey, $syncstate, $folderid = false) {
-        $internalkey = $this->buildStateKey($this->uuid, $this->newStateCounter);
+        $internalkey = self::BuildStateKey($this->uuid, $this->newStateCounter);
         if ($this->oldStateCounter != 0 && $synckey != $internalkey)
             throw new StateInvalidException(sprintf("Unexpected synckey value oldcounter: '%s' synckey: '%s' internal key: '%s'", $this->oldStateCounter, $synckey, $internalkey));
 
@@ -304,26 +365,6 @@ class StateManager {
     }
 
     /**
-     * Returns the current UUID used by the state
-     *
-     * @access public
-     * @return string
-     */
-    public function GetUUID() {
-        return $this->uuid;
-    }
-
-    /**
-     * Returns the current (last) counter of the current UUID used by the state
-     *
-     * @access public
-     * @return int
-     */
-    public function GetOldStateCounter() {
-        return $this->oldStateCounter;
-    }
-
-    /**
      * Initializes the HierarchyCache for legacy syncs
      * this is for AS 1.0 compatibility:
      * save folder information synched with GetHierarchy()
@@ -409,6 +450,7 @@ class StateManager {
         if ($savedUuid) {
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("StateManager::UnLinkState('%s'): saved state '%s' will be deleted.", $folderid, $savedUuid));
             ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::DEFTYPE, $savedUuid, self::FIXEDHIERARCHYCOUNTER *2);
+            ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::DEFTYPE, $savedUuid); // CPO
             ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::FAILSAVE, $savedUuid, self::FIXEDHIERARCHYCOUNTER *2);
             ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, $savedUuid, self::FIXEDHIERARCHYCOUNTER *2);
 
@@ -423,6 +465,40 @@ class StateManager {
             return $device->SetFolderUUID(false, $folderid);
         else
             return true;
+    }
+
+    /**
+     * Parses a SyncKey and returns UUID and counter
+     *
+     * @param string    $synckey
+     *
+     * @access public
+     * @return array            uuid, counter
+     * @throws StateInvalidException
+     */
+    static public function ParseStateKey($synckey) {
+        $matches = array();
+        if(!preg_match('/^\{([0-9A-Za-z-]+)\}([0-9]+)$/', $synckey, $matches))
+            throw new StateInvalidException(sprintf("SyncKey '%s' is invalid", $synckey));
+
+        return array($matches[1], (int)$matches[2]);
+    }
+
+    /**
+     * Builds a SyncKey from a UUID and counter
+     *
+     * @param string    $uuid
+     * @param int       $counter
+     *
+     * @access public
+     * @return string           syncKey
+     * @throws StateInvalidException
+     */
+    static public function BuildStateKey($uuid, $counter) {
+        if(!preg_match('/^([0-9A-Za-z-]+)$/', $uuid, $matches))
+            throw new StateInvalidException(sprintf("UUID '%s' is invalid", $uuid));
+
+        return "{" . $uuid . "}" . $counter;
     }
 
 
@@ -497,43 +573,6 @@ class StateManager {
                     mt_rand( 0, 0x0fff ) | 0x4000,
                     mt_rand( 0, 0x3fff ) | 0x8000,
                     mt_rand( 0, 0xffff ), mt_rand( 0, 0xffff ), mt_rand( 0, 0xffff ) );
-    }
-
-    /**
-     * Parses an incoming SyncKey from the device
-     *
-     * @param string    $synckey
-     *
-     * @access private
-     * @return boolean
-     * @throws StateInvalidException
-     */
-    private function parseStateKey($synckey) {
-        $matches = array();
-        if(!preg_match('/^\{([0-9A-Za-z-]+)\}([0-9]+)$/', $synckey, $matches))
-            throw new StateInvalidException(sprintf("SyncKey '%s' is invalid", $synckey));
-
-        // Remember synckey UUID and ID
-        $this->uuid = $matches[1];
-        $this->oldStateCounter = (int)$matches[2];
-        return true;
-    }
-
-    /**
-     * Builds a valid SyncKey from the key and counter
-     *
-     * @param string    $key
-     * @param int       $counter
-     *
-     * @access private
-     * @return string
-     * @throws StateInvalidException
-     */
-    private function buildStateKey($key, $counter) {
-        if(!preg_match('/^([0-9A-Za-z-]+)$/', $key, $matches))
-            throw new StateInvalidException(sprintf("SyncKey '%s' is invalid", $key));
-
-        return "{". $key ."}". ((is_int($counter))?$counter:"");
     }
 }
 ?>

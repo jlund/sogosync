@@ -3,7 +3,8 @@
 * File      :   contentparameters.php
 * Project   :   Z-Push
 * Descr     :   Simple transportation class for
-*               requested content parameters
+*               requested content parameters and information
+*               about the containing folder
 *
 * Created   :   11.04.2011
 *
@@ -43,168 +44,150 @@
 ************************************************/
 
 
-class ContentParameters {
-    private $contentclass = false;
-    private $filtertype = false;
-    private $truncation = false;
-    private $rtftruncation = false;
-    private $mimesupport = false;
-    private $mimetruncation = false;
-    private $conversationmode = false;
+class ContentParameters extends StateObject {
+    protected $unsetdata = array(   'contentclass' => false,
+                                    'folderid' => false,
+                                    'windowsize' => 10,
+                                    'conflict' => false,
+                                    'deletesasmoves' => true,
+                                    'filtertype' => false,
+                                    'truncation' => false,
+                                    'rtftruncation' => false,
+                                    'mimesupport' => false,
+                                    'conversationmode' => false
+                                );
 
+    private $synckeyChanged = false;
 
     /**
-     * Gets the contentclass
+     * Expected magic getters and setters
+     *
+     * GetContentClass() + SetContentClass()
+     * GetFolderId() + SetFolderId()
+     * GetWindowSize() + SetWindowSize()
+     * GetConflict() + SetConflict()
+     * GetDeletesAsMoves() + SetDeletesAsMoves()
+     * GetFilterType() + SetFilterType()
+     * GetTruncation() + SetTruncation
+     * GetRTFTruncation() + SetRTFTruncation()
+     * GetMimeSupport () + SetMimeSupport()
+     * GetMimeTruncation() + SetMimeTruncation()
+     * GetConversationMode() + SetConversationMode()
+     */
+
+    /**
+     * SyncKey methods
+     *
+     * The current and next synckey is saved as uuid and counter in the CPO
+     * so partial and ping can access the latest states.
+     */
+
+    /**
+     * Returns the latest SyncKey of this folder
      *
      * @access public
-     * @return string/boolean       returns false if value is not defined
+     * @return string/boolean       false if no uuid/counter available
      */
-    public function GetContentClass() {
-        return $this->contentclass;
+    public function GetSyncKey() {
+        if (isset($this->uuid) && isset($this->uuidCounter))
+            return StateManager::BuildStateKey($this->uuid, $this->uuidCounter);
+
+        return false;
     }
 
     /**
-     * Sets the contentclass
+     * Sets the the current synckey.
+     * This is done by parsing it and saving uuid and counter.
+     * By setting the current key, the "next" key is obsolete
      *
-     * @param string    $contentclass
+     * @param string    $synckey
      *
      * @access public
-     * @return
+     * @return boolean
      */
-    public function SetContentClass($contentclass) {
-        $this->contentclass = $contentclass;
+    public function SetSyncKey($synckey) {
+        list($this->uuid, $this->uuidCounter) = StateManager::ParseStateKey($synckey);
+
+        // remove newSyncKey
+        unset($this->uuidNewCounter);
+
+        return true;
     }
 
     /**
-     * Gets the filtertype
+     * Indicates if this folder has a synckey
      *
      * @access public
-     * @return int/boolean          returns false if value is not defined
+     * @return booleans
      */
-    public function GetFilterType() {
-        return $this->filtertype;
+    public function HasSyncKey() {
+        return (isset($this->uuid) && isset($this->uuidCounter));
     }
 
     /**
-     * Sets the filtertype
+     * Sets the the next synckey.
+     * This is done by parsing it and saving uuid and next counter.
+     * if the folder has no synckey until now (new sync), the next counter becomes current asl well.
      *
-     * @param int    $filtertype
+     * @param string    $synckey
      *
      * @access public
-     * @return
+     * @throws FatalException       if the uuids of current and next do not match
+     * @return boolean
      */
-    public function SetFilterType($filtertype) {
-        $this->filtertype = $filtertype;
+    public function SetNewSyncKey($synckey) {
+        list($uuid, $uuidNewCounter) = StateManager::ParseStateKey($synckey);
+        if (!$this->HasSyncKey()) {
+            $this->uuid = $uuid;
+            $this->uuidCounter = $uuidNewCounter;
+        }
+        else if ($uuid !== $this->uuid)
+            throw new FatalException("ContentParameters->SetNewSyncKey(): new SyncKey must have the same UUID as current SyncKey");
+
+        $this->uuidNewCounter = $uuidNewCounter;
+        $this->synckeyChanged = true;
     }
 
     /**
-     * Gets the truncation
+     * Returns the next synckey
      *
      * @access public
-     * @return int/boolean          returns false if value is not defined
+     * @return string/boolean       returns false if uuid or counter are not available
      */
-    public function GetTruncation() {
-        return $this->truncation;
+    public function GetNewSyncKey() {
+        if (isset($this->uuid) && isset($this->uuidNewCounter))
+            return StateManager::BuildStateKey($this->uuid, $this->uuidNewCounter);
+
+        return false;
     }
 
     /**
-     * Sets the truncation
-     *
-     * @param int    $truncation
+     * Indicates if the folder has a next synckey
      *
      * @access public
-     * @return
+     * @return boolean
      */
-    public function SetTruncation($truncation) {
-        $this->truncation = $truncation;
+    public function HasNewSyncKey() {
+        return (isset($this->uuid) && isset($this->uuidNewCounter));
     }
 
     /**
-     * Gets the RTF truncation
+     * Return the latest synckey.
+     * When this is called the new key becomes the current key (if a new key is available).
+     * The current key is then returned.
      *
      * @access public
-     * @return int/boolean          returns false if value is not defined
+     * @return string
      */
-    public function GetRTFTruncation() {
-        return $this->rtftruncation;
-    }
+    public function GetLatestSyncKey() {
+        // New becomes old
+        if ($this->HasUuidNewCounter()) {
+            $this->uuidCounter = $this->uuidNewCounter;
+            unset($this->uuidNewCounter);
+        }
 
-    /**
-     * Sets the RTF truncation
-     *
-     * @param int    $rtftruncation
-     *
-     * @access public
-     * @return
-     */
-    public function SetRTFTruncation($rtftruncation) {
-        $this->rtftruncation = $rtftruncation;
-    }
-
-    /**
-     * Gets the mime support flag
-     *
-     * @access public
-     * @return int/boolean          returns false if value is not defined
-     */
-    public function GetMimeSupport() {
-        return $this->mimesupport;
-    }
-
-    /**
-     * Sets the mime support flag
-     *
-     * @param int    $mimesupport
-     *
-     * @access public
-     * @return
-     */
-    public function SetMimeSupport($mimesupport) {
-        $this->mimesupport = $mimesupport;
-    }
-
-    /**
-     * Gets the mime truncation flag
-     *
-     * @access public
-     * @return int/boolean          returns false if value is not defined
-     */
-    public function GetMimeTruncation() {
-        return $this->mimetruncation;
-    }
-
-    /**
-     * Sets the mime truncation flag
-     *
-     * @param int    $mimetruncation
-     *
-     * @access public
-     * @return
-     */
-    public function SetMimeTruncation($mimetruncation) {
-        $this->mimetruncation = $mimetruncation;
-    }
-
-    /**
-     * Gets the conversation mode flag
-     *
-     * @access public
-     * @return int/boolean          returns false if value is not defined
-     */
-    public function GetConversationMode() {
-        return $this->conversationmode;
-    }
-
-    /**
-     * Sets the conversation mode flag
-     *
-     * @param boolean   $conversationmode
-     *
-     * @access public
-     * @return
-     */
-    public function SetConversationMode($conversationmode) {
-        $this->conversationmode = $conversationmode;
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ContentParameters->GetLastestSyncKey(): '%s'", $this->GetSyncKey()));
+        return $this->GetSyncKey();
     }
 
     /**
@@ -223,7 +206,9 @@ class ContentParameters {
             return $this->bodypref[$type];
         else {
             $asb = new BodyPreference();
-            $this->bodypref[$type] = $asb;
+            $arr = (array)$this->bodypref;
+            $arr[$type] = $asb;
+            $this->bodypref = $arr;
             return $asb;
         }
     }
@@ -241,14 +226,37 @@ class ContentParameters {
         }
         return array_keys($this->bodypref);
     }
+
+    /**
+     * Called before the StateObject is serialized
+     *
+     * @access protected
+     * @return boolean
+     */
+    protected function preSerialize() {
+        parent::preSerialize();
+
+        if ($this->changed === true && $this->synckeyChanged)
+            $this->lastsynctime = time();
+
+        return true;
+    }
 }
 
 
-class BodyPreference {
-    private $hasvalues = false;
-    private $truncationsize = false;
-    private $allornone = false;
-    private $preview = false;
+class BodyPreference extends StateObject {
+    protected $unsetdata = array(   'truncationsize' => false,
+                                    'allornone' => false,
+                                    'preview' => false,
+                                );
+
+    /**
+     * expected magic getters and setters
+     *
+     * GetTruncationSize() + SetTruncationSize()
+     * GetAllOrNone() + SetAllOrNone()
+     * GetPreview() + SetPreview()
+     */
 
     /**
      * Indicates if this object has values
@@ -257,76 +265,7 @@ class BodyPreference {
      * @return boolean
      */
     public function HasValues() {
-        return $this->hasvalues;
-    }
-
-    /**
-     * Gets the air sync body truncation size
-     *
-     * @access public
-     * @return int/boolean          returns false if value is not defined
-     */
-    public function GetTruncationSize() {
-        return $this->truncationsize;
-    }
-
-    /**
-     * Sets the air sync body truncation size
-     *
-     * @param int    $truncationsize
-     *
-     * @access public
-     * @return
-     */
-    public function SetTruncationSize($truncationsize) {
-        $this->truncationsize = $truncationsize;
-        $this->hasvalues = true;
-    }
-
-    /**
-     * Gets the air sync body all or none flag
-     *
-     * @access public
-     * @return int/boolean          returns false if value is not defined
-     */
-    public function GetAllOrNone() {
-        return $this->allornone;
-    }
-
-    /**
-     * Sets the air sync body all or none flag
-     *
-     * @param int    $asballornone
-     *
-     * @access public
-     * @return
-     */
-    public function SetAllOrNone($allornone) {
-        $this->allornone = $allornone;
-        $this->hasvalues = true;
-    }
-
-    /**
-     * Gets the air sync body preview flag
-     *
-     * @access public
-     * @return int/boolean          returns false if value is not defined
-     */
-    public function GetPreview() {
-        return $this->preview;
-    }
-
-    /**
-     * Sets the air sync body preview flag
-     *
-     * @param int    $asbpreview
-     *
-     * @access public
-     * @return
-     */
-    public function SetPreview($preview) {
-        $this->preview = $preview;
-        $this->hasvalues = true;
+        return (count($this->data) > 0);
     }
 }
 ?>

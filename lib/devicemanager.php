@@ -84,6 +84,8 @@ class DeviceManager {
         if ($this->devid) {
             $this->device = new ASDevice($this->devid, Request::GetDeviceType(), Request::GetGETUser(), Request::GetUserAgent());
             $this->loadDeviceData();
+
+            ZPush::GetTopCollector()->SetUserAgent($this->device->GetDeviceUserAgent());
         }
         else
             throw new FatalNotImplementedException("Can not proceed without a device id.");
@@ -332,7 +334,7 @@ class DeviceManager {
      * @return int
      * @throws NoHierarchyCacheAvailableException, NotImplementedException
      */
-    function GetFolderClassFromCacheByID($folderid) {
+    public function GetFolderClassFromCacheByID($folderid) {
         //TODO check if the parent folder exists and is also beeing synchronized
         $typeFromCache = $this->device->GetFolderType($folderid);
         if ($typeFromCache === false)
@@ -389,7 +391,7 @@ class DeviceManager {
      * @access public
      * @return int
      */
-    public function GetWindowSize($folderid, $type, $queuedmessages) {
+    public function GetWindowSize($folderid, $type, $uuid, $statecounter, $queuedmessages) {
         if (isset($this->windowSize[$folderid]))
             $items = $this->windowSize[$folderid];
         else
@@ -398,7 +400,7 @@ class DeviceManager {
         $this->latestFolder = $folderid;
 
         // detect if this is a loop condition
-        if ($this->loopdetection->Detect($folderid, $type, $this->stateManager->GetUUID(), $this->stateManager->GetOldStateCounter(), $items, $queuedmessages))
+        if ($this->loopdetection->Detect($folderid, $type, $uuid, $statecounter, $items, $queuedmessages))
             $items = ($items == 0) ? 0: 1+($this->loopdetection->IgnoreNextMessage(false)?1:0) ;
 
         if ($items >= 0 && $items <= 2)
@@ -475,6 +477,10 @@ class DeviceManager {
      * @return boolean
      */
     public function IsHierarchySyncRequired() {
+        // check if a hierarchy sync might be necessary
+        if ($this->device->GetFolderUUID(false) === false)
+            $this->hierarchySyncRequired = true;
+
         return $this->hierarchySyncRequired;
     }
 
@@ -499,10 +505,6 @@ class DeviceManager {
                     ZLog::Write(LOGLEVEL_DEBUG, "DeviceManager->loadDeviceData(): Device data was changed, reloading");
                 $this->device->SetData($this->statemachine->GetState($this->devid, IStateMachine::DEVICEDATA));
                 $this->deviceHash = $deviceHash;
-
-                // check if a hierarchy sync might be necessary
-                if ($this->device->GetFolderUUID(false) === false)
-                    $this->hierarchySyncRequired = true;
             }
         }
         catch (StateNotFoundException $snfex) {
