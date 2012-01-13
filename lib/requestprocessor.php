@@ -1769,71 +1769,80 @@ class RequestProcessor {
             if(!$sendmail && !$smartreply && !$smartforward)
                 return false;
 
-            $saveInSent = false;
-            if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_CLIENTID)) {
-                $clientid = self::$decoder->getElementContent();
-                if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_CLIENTID
-                    return false;
-            }
-
-            if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_SAVEINSENTITEMS)) {
-                $saveInSent = true;
-            }
-
-            //TODO replaceMime
-            //the client modified the contents of the original message and will attach it itself
-            $replaceMime = false;
-            if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_REPLACEMIME)) {
-                $replaceMime = true;
-            }
-
-            //TODO longid
-            if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_LONGID)) {
-                $longid = self::$decoder->getElementContent();
-                if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_LONGID
-                    return false;
-            }
-
-            //The format of the InstanceId element is a dateTime value that includes the punctuation separators. For example, 2010-03-20T22:40:00.000Z.
-            //TODO instanceid
-            if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_INSTANCEID)) {
-                $instanceid = self::$decoder->getElementContent();
-                if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_INSTANCEID
-                    return false;
-            }
-
-            //TODO accountid
-            if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_ACCOUNTID)) {
-                $accountid = self::$decoder->getElementContent();
-                if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_ACCOUNTID
-                return false;
-            }
-
-            if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_SOURCE)) {
-                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_FOLDERID)) {
-                    $parent = self::$decoder->getElementContent();
-                    if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_FOLDERID
+            // WP and iPhone have different sequence of tags, so process it independent of it
+            while (1) {
+                $saveInSent = false;
+                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_CLIENTID)) {
+                    $clientid = self::$decoder->getElementContent();
+                    if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_CLIENTID
                         return false;
                 }
 
-                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_ITEMID)) {
-                    $replyid = self::$decoder->getElementContent();
-                    if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_ITEMID
+                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_SAVEINSENTITEMS)) {
+                    $saveInSent = true;
+                }
+
+                //TODO replaceMime
+                //the client modified the contents of the original message and will attach it itself
+                $replaceMime = false;
+                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_REPLACEMIME)) {
+                    $replaceMime = true;
+                }
+
+                //TODO longid
+                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_LONGID)) {
+                    $longid = self::$decoder->getElementContent();
+                    if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_LONGID
                         return false;
                 }
 
-                if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_SOURCE
+                //The format of the InstanceId element is a dateTime value that includes the punctuation separators. For example, 2010-03-20T22:40:00.000Z.
+                //TODO instanceid
+                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_INSTANCEID)) {
+                    $instanceid = self::$decoder->getElementContent();
+                    if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_INSTANCEID
+                        return false;
+                }
+
+                //TODO accountid
+                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_ACCOUNTID)) {
+                    $accountid = self::$decoder->getElementContent();
+                    if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_ACCOUNTID
                     return false;
+                }
+
+                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_SOURCE)) {
+                    if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_FOLDERID)) {
+                        $parent = self::$decoder->getElementContent();
+                        if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_FOLDERID
+                            return false;
+                    }
+
+                    if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_ITEMID)) {
+                        $replyid = self::$decoder->getElementContent();
+                        if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_ITEMID
+                            return false;
+                    }
+
+                    if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_SOURCE
+                        return false;
+                }
+
+                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_MIME)) {
+                    $rfc822 = self::$decoder->getElementContent();
+                    if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_MIME
+                        return false;
+                }
+
+                $e = self::$decoder->peek();
+                if($e[EN_TYPE] == EN_TYPE_ENDTAG) {
+                    self::$decoder->getElementEndTag(); //SYNC_COMPOSEMAIL_SENDMAIL, SYNC_COMPOSEMAIL_SMARTREPLY or SYNC_COMPOSEMAIL_SMARTFORWARD
+                    break;
+                }
+//                 if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_SENDMAIL, SYNC_COMPOSEMAIL_SMARTREPLY or SYNC_COMPOSEMAIL_SMARTFORWARD
+//                     break;
             }
 
-            if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_MIME)) {
-                $rfc822 = self::$decoder->getElementContent();
-                if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_MIME
-                    return false;
-            }
-
-            if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_SENDMAIL, SYNC_COMPOSEMAIL_SMARTREPLY or SYNC_COMPOSEMAIL_SMARTFORWARD
-                return false;
         }
         else {
             $rfc822 = self::$decoder->GetPlainInputStream();
