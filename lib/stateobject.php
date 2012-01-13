@@ -146,7 +146,10 @@ class StateObject implements Serializable {
      * @return
      */
     public function __unset($name) {
-        unset($this->data[strtolower($name)]);
+        if (isset($this->$name)) {
+            unset($this->data[strtolower($name)]);
+            $this->changed = true;
+        }
     }
 
     /**
@@ -167,6 +170,10 @@ class StateObject implements Serializable {
             return true;
         }
 
+        if ($operator == "set" && count($arguments) == 2 && $arguments[1] === false){
+            $this->data[$var] = $arguments[0];
+            return true;
+        }
 
         // getter without argument = return variable, null if not set
         if ($operator == "get" && count($arguments) == 0) {
@@ -200,12 +207,13 @@ class StateObject implements Serializable {
      * @return array
      */
     public function serialize() {
-        // make sure the object has an id before serialization
-        $this->GetID();
+        // perform tasks just before serialization
+        $this->preSerialize();
+
         return serialize(array($this->SO_internalid,$this->data));
     }
 
-        /**
+    /**
      * Method to unserialize a StateObject
      *
      * @access public
@@ -216,6 +224,18 @@ class StateObject implements Serializable {
         return true;
     }
 
+    /**
+     * Called before the StateObject is serialized
+     *
+     * @access protected
+     * @return boolean
+     */
+    protected function preSerialize() {
+        // make sure the object has an id before serialization
+        $this->GetID();
+
+        return true;
+    }
 }
 
 ?>
