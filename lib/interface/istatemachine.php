@@ -56,7 +56,7 @@
 interface IStateMachine {
     const DEFTYPE = "";
     const DEVICEDATA = "devicedata";
-    const PINGDATA = "ping";
+    const FOLDERDATA = "fd";
     const FAILSAVE = "fs";
     const HIERARCHY = "hc";
     const BACKENDSTORAGE = "bs";

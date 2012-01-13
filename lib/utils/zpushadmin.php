@@ -248,9 +248,6 @@ class ZPushAdmin {
             // remove backend storage permanent data
             ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, false, 99999999999);
 
-            // remove PING data
-            ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::PINGDATA, false, 99999999999);
-
             // remove devicedata and unlink user from device
             unset($devices[$user]);
             if (isset($devicedata->devices))

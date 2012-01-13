@@ -130,7 +130,7 @@ class StateManager {
         $uuid = $this->device->GetFolderUUID($folderid);
         if ($uuid) {
             try {
-                $data = $this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::DEFTYPE, $uuid);
+                $data = $this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::FOLDERDATA, $uuid);
                 if ($data !== false) {
                     // TODO data should be unserialized in the StateMachine
                     $this->synchedFolders[$folderid] = unserialize($data);
@@ -161,7 +161,7 @@ class StateManager {
         $cpo->SetReferencePolicyKey($this->device->GetPolicyKey());
 
         // TODO the StateMachine should serialize the object
-        return $this->statemachine->SetState(serialize($cpo), $this->device->GetDeviceId(), IStateMachine::DEFTYPE, $suuid);
+        return $this->statemachine->SetState(serialize($cpo), $this->device->GetDeviceId(), IStateMachine::FOLDERDATA, $suuid);
     }
 
     /**
@@ -185,54 +185,6 @@ class StateManager {
         }
 
         return self::BuildStateKey($this->uuid, $this->newStateCounter);
-    }
-
-    /**
-     * Returns the pingstate for a device
-     *
-     * @access public
-     * @return array        array keys: "lifetime", "collections", "policykey"
-     */
-    public function GetPingState() {
-        $collections = array();
-        $lifetime = 60;
-        $policykey = $this->device->GetPolicyKey();
-
-        try {
-            $data = $this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::PINGDATA, false, $this->device->GetFirstSyncTime());
-            if ($data !== false) {
-                $ping = unserialize($data);
-                $lifetime = $ping["lifetime"];
-                $collections = $ping["collections"];
-                $policykey = $ping["policykey"];
-            }
-        }
-        catch (StateNotFoundException $ex) {}
-
-        return array($collections, $lifetime, $policykey);
-    }
-
-    /**
-     * Saves the pingstate data for a device
-     *
-     * @param array     $collections        Information about the ping'ed folders
-     * @param int       $lifetime           Lifetime of the ping transmitted by the device
-     *
-     * @access public
-     * @return boolean
-     */
-    public function SetPingState($collections, $lifetime) {
-        // TODO: PINGdata should be un/serialized in the state machine
-
-        // if a HierarchySync is required something major happened
-        // we should remove this current ping state because it's potentially obsolete
-        if (ZPush::GetDeviceManager()->IsHierarchySyncRequired()) {
-            ZPush::GetStateMachine()->CleanStates($this->device->GetDeviceId(), IStateMachine::PINGDATA, false, 99999999999);
-            return false;
-        }
-        else
-            return $this->statemachine->SetState(serialize(array("lifetime" => $lifetime, "collections" => $collections, "policykey" => $this->device->GetPolicyKey())),
-                                                 $this->device->GetDeviceId(), IStateMachine::PINGDATA, false, $this->device->GetFirstSyncTime());
     }
 
     /**
@@ -335,6 +287,7 @@ class StateManager {
             if (!$this->uuid)
                 throw new StateNotYetAvailableException();
 
+            // TODO unserialization should be done in the StateMachine
             return unserialize($this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, $this->uuid, $this->oldStateCounter));
         }
         else {
@@ -357,6 +310,7 @@ class StateManager {
         if (!$this->uuid)
             throw new StateNotYetAvailableException();
 
+            // TODO serialization should be done in the StateMachine
             return $this->statemachine->SetState(serialize($data), $this->device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, $this->uuid, $this->newStateCounter);
         }
         else {
@@ -450,7 +404,7 @@ class StateManager {
         if ($savedUuid) {
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("StateManager::UnLinkState('%s'): saved state '%s' will be deleted.", $folderid, $savedUuid));
             ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::DEFTYPE, $savedUuid, self::FIXEDHIERARCHYCOUNTER *2);
-            ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::DEFTYPE, $savedUuid); // CPO
+            ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::FOLDERDATA, $savedUuid); // CPO
             ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::FAILSAVE, $savedUuid, self::FIXEDHIERARCHYCOUNTER *2);
             ZPush::GetStateMachine()->CleanStates($device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, $savedUuid, self::FIXEDHIERARCHYCOUNTER *2);
 
