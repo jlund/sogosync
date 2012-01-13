@@ -1674,10 +1674,10 @@ class RequestProcessor {
                     }
 
                     $cpo = $sc->GetCollection($folderid);
-                    if (! $cpo)
+                    if (! $cpo) {
                         $pingstatus = SYNC_PINGSTATUS_FOLDERHIERSYNCREQUIRED;
-
-                    if ($class == $cpo->GetContentClass()) {
+                    }
+                    else if ($class == $cpo->GetContentClass()) {
                         $cpo->SetPingableFlag(true);
                         ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandlePing(): using saved sync state for '%s' id '%s'", $cpo->GetContentClass(), $folderid));
                     }
