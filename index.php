@@ -95,6 +95,7 @@ include_once('lib/syncobjects/syncdevicepassword.php');
 include_once('lib/syncobjects/syncitemoperationsattachment.php');
 include_once('lib/default/backend.php');
 include_once('lib/default/searchprovider.php');
+include_once('lib/synccollections.php');
 include_once('lib/request.php');
 include_once('lib/requestprocessor.php');
 include_once('lib/hierarchycache.php');
