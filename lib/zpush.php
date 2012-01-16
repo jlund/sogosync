@@ -558,6 +558,16 @@ END;
     }
 
     /**
+     * Indicates the lastest AS version supported by Z-Push
+     *
+     * @access public
+     * @return string
+     */
+    static public function GetLastestSupportedASVersion() {
+        return end(self::$supportedASVersions);
+    }
+
+    /**
      * Indicates which is the highest AS version supported by the backend
      *
      * @access public
