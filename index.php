@@ -82,6 +82,7 @@ include_once('lib/syncobjects/syncattendee.php');
 include_once('lib/syncobjects/syncmeetingrequestrecurrence.php');
 include_once('lib/syncobjects/syncmeetingrequest.php');
 include_once('lib/syncobjects/syncmail.php');
+include_once('lib/syncobjects/syncnote.php');
 include_once('lib/syncobjects/synccontact.php');
 include_once('lib/syncobjects/syncfolder.php');
 include_once('lib/syncobjects/syncprovisioning.php');

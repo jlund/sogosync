@@ -41,6 +41,7 @@
 * Consult LICENSE file for details
 ************************************************/
 
+
 class ZPush {
     const UNAUTHENTICATED = 1;
     const UNPROVISIONED = 2;
@@ -160,14 +161,14 @@ class ZPush {
                                                         self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_TASK,
                                                         self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_USER_TASK),
                                                    ),
-                                    // TODO Note support - invalid classname to trigger FatalNotImplementedException for Note objs
-                                    "NoteFIXME" => array(
+                                    "Notes" => array(
                                                         self::CLASS_NAME => "SyncNote",
                                                         self::CLASS_REQUIRESPROTOCOLVERSION => false,
                                                         self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_NOTE,
                                                         self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_USER_NOTE),
                                                    ),
                                     );
+
 
     static private $stateMachine;
     static private $searchProvider;

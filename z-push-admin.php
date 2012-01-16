@@ -75,6 +75,7 @@ include ("lib/syncobjects/syncattendee.php");
 include ("lib/syncobjects/syncmeetingrequestrecurrence.php");
 include ("lib/syncobjects/syncmeetingrequest.php");
 include ("lib/syncobjects/syncmail.php");
+include ("lib/syncobjects/syncnote.php");
 include ("lib/syncobjects/synccontact.php");
 include ("lib/syncobjects/syncfolder.php");
 include ("lib/syncobjects/syncprovisioning.php");
@@ -453,6 +454,10 @@ class ZPushAdminCLI {
                     case SYNC_FOLDER_TYPE_TASK:
                     case SYNC_FOLDER_TYPE_USER_TASK:
                         $gentype = "Tasks";
+                        break;
+                    case SYNC_FOLDER_TYPE_NOTE:
+                    case SYNC_FOLDER_TYPE_USER_NOTE:
+                        $gentype = "Notes";
                         break;
                     default:
                         $gentype = "Emails";
