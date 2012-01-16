@@ -558,12 +558,12 @@ END;
     }
 
     /**
-     * Indicates the lastest AS version supported by Z-Push
+     * Indicates the latest AS version supported by Z-Push
      *
      * @access public
      * @return string
      */
-    static public function GetLastestSupportedASVersion() {
+    static public function GetLatestSupportedASVersion() {
         return end(self::$supportedASVersions);
     }
 

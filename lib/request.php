@@ -153,7 +153,7 @@ class Request {
         self::$headers = array_change_key_case(apache_request_headers(), CASE_LOWER);
         self::$useragent = (isset(self::$headers["user-agent"]))? self::$headers["user-agent"] : "unknown";
         if (!isset(self::$asProtocolVersion))
-            self::$asProtocolVersion = (isset(self::$headers["ms-asprotocolversion"]))? self::filterEvilInput(self::$headers["ms-asprotocolversion"], self::NUMBERSDOT_ONLY) : ZPush::GetLastestSupportedASVersion();
+            self::$asProtocolVersion = (isset(self::$headers["ms-asprotocolversion"]))? self::filterEvilInput(self::$headers["ms-asprotocolversion"], self::NUMBERSDOT_ONLY) : ZPush::GetLatestSupportedASVersion();
 
         //if policykey is not yet set, try to set it from the header
         //the policy key might be set in Request::Initialize from the base64 encoded query
