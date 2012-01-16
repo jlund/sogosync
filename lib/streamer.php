@@ -314,6 +314,32 @@ class Streamer implements Serializable {
     }
 
     /**
+     * Removes not necessary data from the object
+     *
+     * @access public
+     * @return boolean
+     */
+    public function StripData() {
+        foreach ($this->mapping as $k=>$v) {
+            if (isset($this->$v[self::STREAMER_VAR])) {
+                if (is_object($this->$v[self::STREAMER_VAR]) && method_exists($this->$v[self::STREAMER_VAR], "StripData") ) {
+                    $this->$v[self::STREAMER_VAR]->StripData();
+                }
+                else if (isset($v[self::STREAMER_ARRAY]) && !empty($this->$v[self::STREAMER_VAR])) {
+                    foreach ($this->$v[self::STREAMER_VAR] as $element) {
+                        if (is_object($element) && method_exists($element, "StripData") ) {
+                            $element->StripData();
+                        }
+                    }
+                }
+            }
+        }
+        unset($this->mapping);
+
+        return true;
+    }
+
+    /**
      * Method to serialize a Streamer and respective SyncObject
      *
      * @access public
@@ -339,12 +365,9 @@ class Streamer implements Serializable {
         $class = get_class($this);
         $this->$class();
         $values = unserialize($data);
-        foreach ($values as $k=>$v) {
+        foreach ($values as $k=>$v)
             $this->$k = unserialize($v);
-            if ($this->$k instanceof Streamer)
-                unset($this->$k->mapping);
-        }
-        unset($this->mapping);
+
         return true;
     }
 
