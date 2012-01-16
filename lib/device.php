@@ -209,7 +209,7 @@ class ASDevice extends StateObject {
      * @return boolean
      */
     public function IsNewDevice() {
-        return ($this->newdevice && $this->newdevice === true);
+        return (isset($this->newdevice) && $this->newdevice === true);
     }
 
 
