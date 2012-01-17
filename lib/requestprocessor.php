@@ -944,6 +944,7 @@ class RequestProcessor {
                                     case SYNC_ADD:
                                         try {
                                             if (!$message->Check()) {
+                                                $actiondata["clientids"][$clientid] = false;
                                                 $actiondata["statusids"][$clientid] = SYNC_STATUS_CLIENTSERVERCONVERSATIONERROR;
                                             }
                                             else {
