@@ -188,11 +188,9 @@ class SyncAppointment extends SyncObject {
         if (!$ret)
             return false;
 
-        // TODO verify if this check is good enough
         if ($this->meetingstatus > 0) {
             if (!isset($this->organizername) || !isset($this->organizeremail)) {
-                ZLog::Write(LOGLEVEL_WARN, "SyncAppointment->Check(): Unmet condition: parameter 'organizername' or 'organizeremail' is required but not set. Check failed!");
-                return false;
+                ZLog::Write(LOGLEVEL_WARN, "SyncAppointment->Check(): Parameter 'organizername' and 'organizeremail' should be set for a meeting request");
             }
         }
         return true;
