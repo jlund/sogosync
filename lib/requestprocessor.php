@@ -1266,6 +1266,7 @@ class RequestProcessor {
                                 self::$topCollector->AnnounceInformation(sprintf("Fetching %d objects ", count($actiondata["fetchids"])), true);
 
                             foreach($actiondata["fetchids"] as $id) {
+                                $data = false;
                                 try {
                                     $fetchstatus = SYNC_STATUS_SUCCESS;
                                     $data = self::$backend->Fetch($cpo->GetFolderId(), $id, $cpo);
