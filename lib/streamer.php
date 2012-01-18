@@ -59,6 +59,8 @@ class Streamer implements Serializable {
     const STREAMER_TYPE_IGNORE = 5;
     const STREAMER_TYPE_SEND_EMPTY = 6;
     const STREAMER_TYPE_NO_CONTAINER = 7;
+    const STREAMER_TYPE_COMMA_SEPARATED = 8;
+    const STREAMER_TYPE_SEMICOLON_SEPARATED = 9;
 
     protected $mapping;
     public $flags;
@@ -300,6 +302,12 @@ class Streamer implements Serializable {
                         }
                         $encoder->content($d);
                         stream_filter_remove($base64filter);
+                    }
+                    // implode comma or semicolon arrays into a string
+                    else if(isset($map[self::STREAMER_TYPE]) && is_array($this->$map[self::STREAMER_VAR]) &&
+                        ($map[self::STREAMER_TYPE] == self::STREAMER_TYPE_COMMA_SEPARATED || $map[self::STREAMER_TYPE] == self::STREAMER_TYPE_SEMICOLON_SEPARATED)) {
+                        $glue = ($map[self::STREAMER_TYPE] == self::STREAMER_TYPE_COMMA_SEPARATED)?", ":"; ";
+                        $encoder->content(implode($glue, $this->$map[self::STREAMER_VAR]));
                     }
                     else {
                         $encoder->content($this->$map[self::STREAMER_VAR]);

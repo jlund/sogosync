@@ -919,14 +919,45 @@ class BackendIMAP extends BackendDiff {
 
             $output->body = $body;
             $output->datereceived = isset($message->headers["date"]) ? $this->cleanupDate($message->headers["date"]) : null;
-            $output->displayto = isset($message->headers["to"]) ? $message->headers["to"] : null;
             $output->messageclass = "IPM.Note";
             $output->subject = isset($message->headers["subject"]) ? $message->headers["subject"] : "";
             $output->read = $stat["flags"];
-            $output->to = isset($message->headers["to"]) ? $message->headers["to"] : null;
-            $output->cc = isset($message->headers["cc"]) ? $message->headers["cc"] : null;
             $output->from = isset($message->headers["from"]) ? $message->headers["from"] : null;
-            $output->reply_to = isset($message->headers["reply-to"]) ? $message->headers["reply-to"] : null;
+
+            $Mail_RFC822 = new Mail_RFC822();
+            $toaddr = $ccaddr = $replytoaddr = array();
+            if(isset($message->headers["to"]))
+                $toaddr = $Mail_RFC822->parseAddressList($message->headers["to"]);
+            if(isset($message->headers["cc"]))
+                $ccaddr = $Mail_RFC822->parseAddressList($message->headers["cc"]);
+            if(isset($message->headers["reply_to"]))
+                $replytoaddr = $Mail_RFC822->parseAddressList($message->headers["reply_to"]);
+
+            $output->to = array();
+            $output->cc = array();
+            $output->reply_to = array();
+            foreach(array("to" => $toaddr, "cc" => $ccaddr, "reply_to" => $replytoaddr) as $type => $addrlist) {
+                foreach($addrlist as $addr) {
+                    $address = $addr->mailbox . "@" . $addr->host;
+                    $name = $addr->personal;
+
+                    if (!isset($output->displayto) && $name != "")
+                        $output->displayto = $name;
+
+                    if($name == "" || $name == $address)
+                        $fulladdr = w2u($address);
+                    else {
+                        if (substr($name, 0, 1) != '"' && substr($name, -1) != '"') {
+                            $fulladdr = "\"" . w2u($name) ."\" <" . w2u($address) . ">";
+                        }
+                        else {
+                            $fulladdr = w2u($name) ." <" . w2u($address) . ">";
+                        }
+                    }
+
+                    array_push($output->$type, $fulladdr);
+                }
+            }
 
             // convert mime-importance to AS-importance
             if (isset($message->headers["x-priority"])) {

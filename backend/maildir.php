@@ -55,7 +55,7 @@
 
 include_once('lib/default/diffbackend/diffbackend.php');
 include_once('include/mimeDecode.php');
-
+require_once('include/z_RFC822.php');
 
 class BackendMaildir extends BackendDiff {
     /**----------------------------------------------------------------------------------------------------------
@@ -365,15 +365,56 @@ class BackendMaildir extends BackendDiff {
         $output->bodysize = strlen($output->body);
         $output->bodytruncated = 0; // We don't implement truncation in this backend
         $output->datereceived = $this->parseReceivedDate($message->headers["received"][0]);
-        $output->displayto = $message->headers["to"];
-        $output->importance = $message->headers["x-priority"];
         $output->messageclass = "IPM.Note";
         $output->subject = $message->headers["subject"];
         $output->read = $stat["flags"];
-        $output->to = $message->headers["to"];
-        $output->cc = $message->headers["cc"];
         $output->from = $message->headers["from"];
-        $output->reply_to = isset($message->headers["reply-to"]) ? $message->headers["reply-to"] : null;
+
+        $Mail_RFC822 = new Mail_RFC822();
+        $toaddr = $ccaddr = $replytoaddr = array();
+        if(isset($message->headers["to"]))
+            $toaddr = $Mail_RFC822->parseAddressList($message->headers["to"]);
+        if(isset($message->headers["cc"]))
+            $ccaddr = $Mail_RFC822->parseAddressList($message->headers["cc"]);
+        if(isset($message->headers["reply_to"]))
+            $replytoaddr = $Mail_RFC822->parseAddressList($message->headers["reply_to"]);
+
+        $output->to = array();
+        $output->cc = array();
+        $output->reply_to = array();
+        foreach(array("to" => $toaddr, "cc" => $ccaddr, "reply_to" => $replytoaddr) as $type => $addrlist) {
+            foreach($addrlist as $addr) {
+                $address = $addr->mailbox . "@" . $addr->host;
+                $name = $addr->personal;
+
+                if (!isset($output->displayto) && $name != "")
+                    $output->displayto = $name;
+
+                if($name == "" || $name == $address)
+                    $fulladdr = w2u($address);
+                else {
+                    if (substr($name, 0, 1) != '"' && substr($name, -1) != '"') {
+                        $fulladdr = "\"" . w2u($name) ."\" <" . w2u($address) . ">";
+                    }
+                    else {
+                        $fulladdr = w2u($name) ." <" . w2u($address) . ">";
+                    }
+                }
+
+                array_push($output->$type, $fulladdr);
+            }
+        }
+
+        // convert mime-importance to AS-importance
+        if (isset($message->headers["x-priority"])) {
+            $mimeImportance =  preg_replace("/\D+/", "", $message->headers["x-priority"]);
+            if ($mimeImportance > 3)
+                $output->importance = 0;
+            if ($mimeImportance == 3)
+                $output->importance = 1;
+            if ($mimeImportance < 3)
+                $output->importance = 2;
+        }
 
         // Attachments are only searched in the top-level part
         $n = 0;

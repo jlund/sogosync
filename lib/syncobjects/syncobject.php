@@ -60,8 +60,7 @@ abstract class SyncObject extends Streamer {
     const STREAMER_CHECK_CMPLOWER = 13;
     const STREAMER_CHECK_CMPHIGHER = 14;
     const STREAMER_CHECK_LENGTHMAX = 15;
-    const STREAMER_CHECK_CSEMAIL   = 16;                // comma separated email addresses
-    const STREAMER_CHECK_SSEMAIL   = 17;                // semicolon separated email addresses
+    const STREAMER_CHECK_EMAIL   = 16;
 
     protected $unsetVars;
 
@@ -334,21 +333,37 @@ abstract class SyncObject extends Streamer {
 
                     // check STREAMER_CHECK_LENGTHMAX
                     if ($rule === self::STREAMER_CHECK_LENGTHMAX && isset($this->$v[self::STREAMER_VAR])) {
-                        if (strlen($this->$v[self::STREAMER_VAR]) > $condition) {
+
+                        if (is_array($this->$v[self::STREAMER_VAR])) {
+                            // implosion takes 2bytes, so we just assume ", " here
+                            $chkstr = implode(", ", $this->$v[self::STREAMER_VAR]);
+                        }
+                        else
+                            $chkstr = $this->$v[self::STREAMER_VAR];
+
+                        if (strlen($chkstr) > $condition) {
                             ZLog::Write(LOGLEVEL_WARN, sprintf("SyncObject->Check(): object from type %s: parameter '%s' is longer than %d. Check failed", $objClass, $v[self::STREAMER_VAR], $condition));
                             return false;
                         }
                     }// end STREAMER_CHECK_LENGTHMAX
 
 
-                    // check STREAMER_CHECK_*SEMAIL
+                    // check STREAMER_CHECK_EMAIL
                     // if $condition is false then the check really fails. Otherwise invalid emails are removed.
                     // if nothing is left (all emails were false), the parameter is set to condition
-                    if (($rule === self::STREAMER_CHECK_CSEMAIL || $rule === self::STREAMER_CHECK_SSEMAIL) && isset($this->$v[self::STREAMER_VAR])) {
-                        if (strlen($this->$v[self::STREAMER_VAR]) == 0)
+                    if ($rule === self::STREAMER_CHECK_EMAIL && isset($this->$v[self::STREAMER_VAR])) {
+                        if ($condition === false && ( (is_array($this->$v[self::STREAMER_VAR]) && empty($this->$v[self::STREAMER_VAR])) || strlen($this->$v[self::STREAMER_VAR]) == 0) )
                             continue;
 
-                        $mails = explode((($rule === self::STREAMER_CHECK_CSEMAIL)?",":";"), $this->$v[self::STREAMER_VAR]);
+                        $as_array = false;
+
+                        if (is_array($this->$v[self::STREAMER_VAR])) {
+                            $mails = $this->$v[self::STREAMER_VAR];
+                            $as_array = true;
+                        }
+                        else {
+                            $mails = array( $this->$v[self::STREAMER_VAR] );
+                        }
 
                         $output = array();
                         foreach ($mails as $mail) {
@@ -362,14 +377,17 @@ abstract class SyncObject extends Streamer {
                             if ($condition === false)
                                 return false;
 
-                            // if we are allowed to rewrite the attribute, we do that
-                            $this->$v[self::STREAMER_VAR] = implode((($rule === self::STREAMER_CHECK_CSEMAIL)?",":";"), $output);
+                            // nothing left, use $condition as new value
+                            if (count($output) == 0)
+                                $output[] = $condition;
 
-                            // if there is "nothing left"..
-                            if (strlen($this->$v[self::STREAMER_VAR]) == 0)
-                                $this->$v[self::STREAMER_VAR] = $condition;
+                            // if we are allowed to rewrite the attribute, we do that
+                            if ($as_array)
+                                $this->$v[self::STREAMER_VAR] = $output;
+                            else
+                                $this->$v[self::STREAMER_VAR] = $output[0];
                         }
-                    }// end STREAMER_CHECK_*SEMAIL
+                    }// end STREAMER_CHECK_EMAIL
 
 
                 } // foreach CHECKS

@@ -90,16 +90,18 @@ class SyncMail extends SyncObject {
     function SyncMail() {
         $mapping = array (
                     SYNC_POOMMAIL_TO                                    => array (  self::STREAMER_VAR      => "to",
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_COMMA_SEPARATED,
                                                                                     self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_LENGTHMAX      => 32768,
-                                                                                                                        self::STREAMER_CHECK_CSEMAIL        => "" )),
+                                                                                                                        self::STREAMER_CHECK_EMAIL        => "" )),
 
                     SYNC_POOMMAIL_CC                                    => array (  self::STREAMER_VAR      => "cc",
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_COMMA_SEPARATED,
                                                                                     self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_LENGTHMAX      => 32768,
-                                                                                                                        self::STREAMER_CHECK_CSEMAIL        => "" )),
+                                                                                                                        self::STREAMER_CHECK_EMAIL        => "" )),
 
                     SYNC_POOMMAIL_FROM                                  => array (  self::STREAMER_VAR      => "from",
                                                                                     self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_LENGTHMAX      => 32768,
-                                                                                                                        self::STREAMER_CHECK_CSEMAIL        => "" )),
+                                                                                                                        self::STREAMER_CHECK_EMAIL        => "broken-from@z-push.local" )),
 
                     SYNC_POOMMAIL_SUBJECT                               => array (  self::STREAMER_VAR      => "subject"),
                     SYNC_POOMMAIL_THREADTOPIC                           => array (  self::STREAMER_VAR      => "threadtopic"),
@@ -144,7 +146,8 @@ class SyncMail extends SyncObject {
                                                                                     self::STREAMER_TYPE     => "SyncMeetingRequest"),
 
                     SYNC_POOMMAIL_REPLY_TO                              => array (  self::STREAMER_VAR      => "reply_to",
-                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_SSEMAIL        => "" )),
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_SEMICOLON_SEPARATED,
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_EMAIL        => "" )),
 
                 );
 

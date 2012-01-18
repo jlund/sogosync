@@ -616,8 +616,8 @@ class MAPIProvider {
 
         // Get To/Cc as SMTP addresses (this is different from displayto and displaycc because we are putting
         // in the SMTP addresses as well, while displayto and displaycc could just contain the display names
-        $to = array();
-        $cc = array();
+        $message->to = array();
+        $message->cc = array();
 
         $reciptable = mapi_message_getrecipienttable($mapimessage);
         $rows = mapi_table_queryallrows($reciptable, array(PR_RECIPIENT_TYPE, PR_DISPLAY_NAME, PR_ADDRTYPE, PR_EMAIL_ADDRESS, PR_SMTP_ADDRESS));
@@ -647,14 +647,11 @@ class MAPIProvider {
             }
 
             if($row[PR_RECIPIENT_TYPE] == MAPI_TO) {
-                array_push($to, $fulladdr);
+                array_push($message->to, $fulladdr);
             } else if($row[PR_RECIPIENT_TYPE] == MAPI_CC) {
-                array_push($cc, $fulladdr);
+                array_push($message->cc, $fulladdr);
             }
         }
-
-        $message->to = implode(", ", $to);
-        $message->cc = implode(", ", $cc);
 
         // without importance some mobiles assume "0" (low) - Mantis #439
         if (!isset($message->importance))
