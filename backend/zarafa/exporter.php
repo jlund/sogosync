@@ -145,11 +145,13 @@ class ExportChangesICS implements IExportChanges{
 
         // Put the state information in a stream that can be used by ICS
         $stream = mapi_stream_create();
-        if(strlen($state) > 0)
-            mapi_stream_write($stream, $state);
-        else
-            mapi_stream_write($stream, hex2bin("0000000000000000"));
+        if(strlen($state) == 0)
+            $state = hex2bin("0000000000000000");
 
+        if (!($this->flags & BACKEND_DISCARD_DATA))
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("ExportChangesICS->Config() initialized with state: 0x%s", bin2hex($state)));
+
+        mapi_stream_write($stream, $state);
         $this->statestream = $stream;
     }
 

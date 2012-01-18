@@ -136,6 +136,8 @@ class ImportChangesICS implements IImportChanges {
         if(strlen($state) == 0)
             $state = hex2bin("0000000000000000");
 
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ImportChangesICS->Config(): initializing importer with state: 0x%s", bin2hex($state)));
+
         mapi_stream_write($stream, $state);
         $this->statestream = $stream;
 
