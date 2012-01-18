@@ -186,6 +186,7 @@ class LoopDetection extends InterProcessData {
                     else if ($queuedMessages == 0) {
                         // case 3.2) there was a loop before but now the changes are GONE
                         ZLog::Write(LOGLEVEL_DEBUG, "LoopDetection->Detect(): case 3.2 detected - changes gone - clearing loop data");
+                        $current['queued'] = 0;
                         unset($current['loopcount']);
                         unset($current['ignored']);
                         unset($current['maxCount']);
