@@ -478,7 +478,7 @@ class SyncCollections implements Iterator {
 
             try {
                 $exporter = ZPush::GetBackend()->GetExporter($folderid);
-                if ($exporter !== false) {
+                if ($exporter !== false && isset($this->addparms[$folderid]["state"])) {
                     $importer = false;
                     $exporter->Config($this->addparms[$folderid]["state"], BACKEND_DISCARD_DATA);
                     $exporter->ConfigContentParameters($cpo);
