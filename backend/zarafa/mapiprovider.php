@@ -1051,7 +1051,7 @@ class MAPIProvider {
                 }
                 else {
                     $recip[PR_DISPLAY_NAME] = u2w($attendee->name);
-                    $recip[PR_SEARCH_KEY] = $recip[PR_EMAIL_ADDRESS];
+                    $recip[PR_SEARCH_KEY] = "SMTP:".$recip[PR_EMAIL_ADDRESS]."\0";
                     $recip[PR_ADDRTYPE] = "SMTP";
                     $recip[PR_RECIPIENT_TYPE] = MAPI_TO;
                     $recip[PR_ENTRYID] = mapi_createoneoff($recip[PR_DISPLAY_NAME], $recip[PR_ADDRTYPE], $recip[PR_EMAIL_ADDRESS]);
