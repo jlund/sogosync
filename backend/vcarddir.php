@@ -531,7 +531,7 @@ class BackendVCardDir extends BackendDiff {
         $data = "BEGIN:VCARD\nVERSION:2.1\nPRODID:Z-Push\n";
         foreach($mapping as $k => $v){
             $val = '';
-            $ks = split(';', $k);
+            $ks = explode(';', $k);
             foreach($ks as $i){
                 if(!empty($message->$i))
                     $val .= $this->escape($message->$i);

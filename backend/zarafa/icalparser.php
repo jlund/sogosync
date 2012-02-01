@@ -101,7 +101,7 @@ class ICalParser{
                     break;
                 default:
                     unset ($field, $data, $prop_pos, $property);
-                    if (ereg ("([^:]+):(.*)", $line, $line)){
+                    if (preg_match ("/([^:]+):(.*)/", $line, $line)){
                         $field = $line[1];
                         $data = $line[2];
                         $property = $field;
