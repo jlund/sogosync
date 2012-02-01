@@ -81,6 +81,10 @@ class BackendZarafa implements IBackend, ISearchProvider {
     private $storeName;
     private $storeCache;
     private $importedFolders;
+    private $notifications;
+    private $changesSink;
+    private $changesSinkFolders;
+    private $changesSinkStores;
 
     /**
      * Constructor of the Zarafa Backend
@@ -93,6 +97,10 @@ class BackendZarafa implements IBackend, ISearchProvider {
         $this->storeName = false;
         $this->storeCache = array();
         $this->importedFolders = array();
+        $this->notifications = false;
+        $this->changesSink = false;
+        $this->changesSinkFolders = array();
+        $this->changesSinkStores = array();
     }
 
     /**
@@ -142,7 +150,16 @@ class BackendZarafa implements IBackend, ISearchProvider {
         $this->mainUser = $user;
 
         try {
-            $this->session = @mapi_logon_zarafa($user, $pass, MAPI_SERVER);
+            // check if notifications are available in php-mapi
+            if(function_exists('mapi_feature') && mapi_feature('LOGONFLAGS')) {
+                $this->session = @mapi_logon_zarafa($user, $pass, MAPI_SERVER, null, null, 0);
+                $this->notifications = true;
+            }
+            // old fashioned session
+            else {
+                $this->session = @mapi_logon_zarafa($user, $pass, MAPI_SERVER);
+                $this->notifications = true;
+            }
         }
         catch (MAPIException $ex) {
             throw new AuthenticationRequiredException($ex->getDisplayMessage());
@@ -874,6 +891,84 @@ class BackendZarafa implements IBackend, ISearchProvider {
      */
     public function AlterPingChanges($folderid, &$syncstate) {
         return array();
+    }
+
+    /**
+     * Indicates if the backend has a ChangesSink.
+     * A sink is an active notification mechanism which does not need polling.
+     * Since Zarafa 7.0.5 such a sink is available.
+     * The Zarafa backend uses this method to initialize the sink with mapi.
+     *
+     * @access public
+     * @return boolean
+     */
+    public function HasChangesSink() {
+        if (!$this->notifications) {
+            ZLog::Write(LOGLEVEL_DEBUG, "ZarafaBackend->HasChangesSink(): sink is not available");
+            return false;
+        }
+
+        $this->changesSink = @mapi_sink_create();
+
+        if (! $this->changesSink) {
+            ZLog::Write(LOGLEVEL_DEBUG, "ZarafaBackend->HasChangesSink(): sink could not be created");
+            return false;
+        }
+
+        ZLog::Write(LOGLEVEL_DEBUG, "ZarafaBackend->HasChangesSink(): created");
+        return true;
+    }
+
+    /**
+     * The folder should be considered by the sink.
+     * Folders which were not initialized should not result in a notification
+     * of IBacken->ChangesSink().
+     *
+     * @param string        $folderid
+     *
+     * @access public
+     * @return boolean      false if entryid can not be found for that folder
+     */
+    public function ChangesSinkInitialize($folderid) {
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->ChangesSinkInitialize(): folderid '%s'", $folderid));
+
+        $entryid = mapi_msgstore_entryidfromsourcekey($this->store, hex2bin($folderid));
+        if (!$entryid)
+            return false;
+
+        // add entryid to the monitored folders
+        $this->changesSinkFolders[$entryid] = $folderid;
+
+        // check if this store is already monitores, else advise it
+        if (!in_array($this->store, $this->changesSinkStores)) {
+            mapi_msgstore_advise($this->store, null, fnevObjectModified | fnevObjectCreated | fnevObjectMoved | fnevObjectDeleted, $this->changesSink);
+            $this->changesSinkStores[] = $this->store;
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->ChangesSinkInitialize(): advised store '%s'", $this->store));
+        }
+        return true;
+    }
+
+    /**
+     * The actual ChangesSink.
+     * For max. the $timeout value this method should block and if no changes
+     * are available return an empty array.
+     * If changes are available a list of folderids is expected.
+     *
+     * @param int           $timeout        max. amount of seconds to block
+     *
+     * @access public
+     * @return array
+     */
+    public function ChangesSink($timeout = 30) {
+        $notifications = array();
+        $sinkresult = @mapi_sink_timedwait($this->changesSink, $timeout * 1000);
+        foreach ($sinkresult as $sinknotif) {
+            // check if something in the monitored folders changed
+            if (isset($sinknotif['parentid']) && array_key_exists($sinknotif['parentid'], $this->changesSinkFolders)) {
+                $notifications[] = $this->changesSinkFolders[$sinknotif['parentid']];
+            }
+        }
+        return $notifications;
     }
 
     /**

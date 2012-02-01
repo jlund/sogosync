@@ -628,4 +628,12 @@ define('mtgDelegatorCopy',                      0x00100000);        // This is s
 define('MAPI_ONE_OFF_UNICODE',                  0x8000);                // the flag that defines whether the embedded strings are Unicode in one off entryids.
 define('MAPI_ONE_OFF_NO_RICH_INFO',             0x0001);                // the flag that specifies whether the recipient gets TNEF or not.
 
+// MAPI notifications
+define('fnevObjectCreated',                     0x00000004);
+define('fnevObjectDeleted',                     0x00000008);
+define('fnevObjectModified',                    0x00000010);
+define('fnevObjectMoved',                       0x00000020);
+define('fnevObjectCopied',                      0x00000040);
+
+
 ?>

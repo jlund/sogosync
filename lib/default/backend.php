@@ -142,6 +142,46 @@ abstract class Backend implements IBackend {
     }
 
     /**
+     * Indicates if the backend has a ChangesSink.
+     * A sink is an active notification mechanism which does not need polling.
+     *
+     * @access public
+     * @return boolean
+     */
+    public function HasChangesSink() {
+        return false;
+    }
+
+    /**
+     * The folder should be considered by the sink.
+     * Folders which were not initialized should not result in a notification
+     * of IBacken->ChangesSink().
+     *
+     * @param string        $folderid
+     *
+     * @access public
+     * @return boolean      false if there is any problem with that folder
+     */
+     public function ChangesSinkInitialize($folderid) {
+         return false;
+     }
+
+    /**
+     * The actual ChangesSink.
+     * For max. the $timeout value this method should block and if no changes
+     * are available return an empty array.
+     * If changes are available a list of folderids is expected.
+     *
+     * @param int           $timeout        max. amount of seconds to block
+     *
+     * @access public
+     * @return array
+     */
+    public function ChangesSink($timeout = 30) {
+        return array();
+    }
+
+    /**
      * Applies settings to and gets informations from the device
      *
      * @param SyncObject    $settings (SyncOOF or SyncUserInformation possible)
