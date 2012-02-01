@@ -526,7 +526,7 @@ class ZPushAdminCLI {
                 $reason = $im->reasonstring;
                 if ($im->reasoncode == 2)
                     $reason = "Message was causing loop";
-                printf("\tBroken objekt:\t'%s' ignored on '%s'\n", $im->asclass,  strftime("%Y-%m-%d %H:%M", $im->timestamp));
+                printf("\tBroken object:\t'%s' ignored on '%s'\n", $im->asclass,  strftime("%Y-%m-%d %H:%M", $im->timestamp));
                 printf("\tInformation:\t%s\n", $info);
                 printf("\tReason: \t%s (%s)\n", $reason, $im->reasoncode);
                 printf("\tItem/Parent id: %s/%s\n", $im->id, $im->folderid);
