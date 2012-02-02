@@ -603,7 +603,10 @@ class RequestProcessor {
                     if ($class !== false)
                         $cpo->SetContentClass($class);
 
-                    if ($synckey !== false && $synckey !== "0")
+                    // new/resync requested
+                    if ($synckey == "0")
+                        $cpo->RemoveSyncKey();
+                    else if ($synckey !== false)
                         $cpo->SetSyncKey($synckey);
 
                     // Get class for as versions >= 12.0
