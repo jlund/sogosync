@@ -158,7 +158,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
             // old fashioned session
             else {
                 $this->session = @mapi_logon_zarafa($user, $pass, MAPI_SERVER);
-                $this->notifications = true;
+                $this->notifications = false;
             }
         }
         catch (MAPIException $ex) {
