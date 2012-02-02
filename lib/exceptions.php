@@ -115,6 +115,35 @@ class ProvisioningRequiredException extends HTTPReturnCodeException {
 class NotImplementedException extends ZPushException {
     protected $defaultLogLevel = LOGLEVEL_ERROR;
 }
+
+class SyncObjectBrokenException extends ZPushException {
+    protected $defaultLogLevel = LOGLEVEL_WARN;
+    private $syncObject;
+
+    /**
+     * Returns the SyncObject which caused this Exception (if set)
+     *
+     * @access public
+     * @return SyncObject
+     */
+    public function GetSyncObject() {
+        return isset($this->syncObject) ? $this->syncObject : false;
+    }
+
+    /**
+     * Sets the SyncObject which caused the exception so it can be later retrieved
+     *
+     * @param SyncObject    $syncobject
+     *
+     * @access public
+     * @return boolean
+     */
+    public function SetSyncObject($syncobject) {
+        $this->syncObject = $syncobject;
+        return true;
+    }
+}
+
 class StatusException extends ZPushException {
     protected $defaultLogLevel = LOGLEVEL_INFO;
 }
