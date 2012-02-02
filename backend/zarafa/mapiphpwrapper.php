@@ -116,7 +116,25 @@ class PHPWrapper {
             return SYNC_E_IGNORE;
 
         $mapimessage = mapi_msgstore_openentry($this->store, $entryid);
-        $message = $this->mapiprovider->GetMessage($mapimessage, $this->contentparameters);
+        try {
+            $message = $this->mapiprovider->GetMessage($mapimessage, $this->contentparameters);
+        }
+        catch (SyncObjectBrokenException $mbe) {
+            $brokenSO = $mbe->GetSyncObject();
+            if (!$brokenSO) {
+                ZLog::Write(LOGLEVEL_ERROR, sprintf("PHPWrapper->ImportMessageChange(): Catched SyncObjectBrokenException but broken SyncObject available"));
+            }
+            else {
+                if (!isset($brokenSO->id)) {
+                    $brokenSO->id = "Unknown ID";
+                    ZLog::Write(LOGLEVEL_ERROR, sprintf("PHPWrapper->ImportMessageChange(): Catched SyncObjectBrokenException but no ID of object set"));
+                }
+                ZPush::GetDeviceManager()->AnnounceIgnoredMessage(false, $brokenSO->id, $brokenSO);
+            }
+            // tell MAPI to ignore the message
+            return SYNC_E_IGNORE;
+        }
+
 
         // substitute the MAPI SYNC_NEW_MESSAGE flag by a z-push proprietary flag
         if ($flags == SYNC_NEW_MESSAGE) $message->flags = SYNC_NEWMESSAGE;
