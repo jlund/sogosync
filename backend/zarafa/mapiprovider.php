@@ -242,6 +242,14 @@ class MAPIProvider {
         // Only get first 256 recipients, to prevent possible load issues.
         $rows = mapi_table_queryrows($reciptable, array(PR_DISPLAY_NAME, PR_EMAIL_ADDRESS, PR_SMTP_ADDRESS, PR_ADDRTYPE), 0, 256);
 
+        // Exception: we do not synchronize appointments with more than 250 attendees
+        if (count($rows) > 250) {
+            $message->id = bin2hex($messageprops[$appointmentprops["sourcekey"]]);
+            $mbe = new SyncObjectBrokenException("Appointment has too many attendees");
+            $mbe->SetSyncObject($message);
+            throw $mbe;
+        }
+
         if(count($rows) > 0)
             $message->attendees = array();
 
