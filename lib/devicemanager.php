@@ -367,13 +367,13 @@ class DeviceManager {
 
         // message was identified to be causing a loop
         if ($this->loopdetection->IgnoreNextMessage()) {
-            $this->announceIgnoredMessage($folderid, $id, $message, self::MSG_BROKEN_CAUSINGLOOP);
+            $this->AnnounceIgnoredMessage($folderid, $id, $message, self::MSG_BROKEN_CAUSINGLOOP);
             return true;
         }
 
         // message is semantically incorrect
         if (!$message->Check()) {
-            $this->announceIgnoredMessage($folderid, $id, $message, self::MSG_BROKEN_SEMANTICERR);
+            $this->AnnounceIgnoredMessage($folderid, $id, $message, self::MSG_BROKEN_SEMANTICERR);
             return true;
         }
 
@@ -518,7 +518,7 @@ class DeviceManager {
      * Called when a SyncObject is not being streamed to the mobile.
      * The user can be informed so he knows about this issue
      *
-     * @param string        $folderid   id of the parent folder
+     * @param string        $folderid   id of the parent folder (may be false if unknown)
      * @param string        $id         message id
      * @param SyncObject    $message    the broken message
      * @param string        $reason     (self::MSG_BROKEN_UNKNOWN, self::MSG_BROKEN_CAUSINGLOOP, self::MSG_BROKEN_SEMANTICERR)
@@ -526,7 +526,10 @@ class DeviceManager {
      * @access public
      * @return boolean
      */
-    private function announceIgnoredMessage($folderid, $id, SyncObject $message, $reason = self::MSG_BROKEN_UNKNOWN) {
+    public function AnnounceIgnoredMessage($folderid, $id, SyncObject $message, $reason = self::MSG_BROKEN_UNKNOWN) {
+        if ($folderid === false)
+            $folderid = $this->latestFolder;
+
         $class = get_class($message);
 
         $brokenMessage = new StateObject();
