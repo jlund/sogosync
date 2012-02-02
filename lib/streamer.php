@@ -230,9 +230,13 @@ class Streamer implements Serializable {
                 // Variable is available
                 if(is_object($this->$map[self::STREAMER_VAR])) {
                     // Subobjects can do their own encoding
-                    $encoder->startTag($tag);
-                    $this->$map[self::STREAMER_VAR]->Encode($encoder);
-                    $encoder->endTag();
+                    if ($this->$map[self::STREAMER_VAR] instanceof Streamer) {
+                        $encoder->startTag($tag);
+                        $this->$map[self::STREAMER_VAR]->Encode($encoder);
+                        $encoder->endTag();
+                    }
+                    else
+                        ZLog::Write(LOGLEVEL_ERROR, sprintf("Streamer->Encode(): parameter '%s' of object %s is not of type Streamer", $map[self::STREAMER_VAR], get_class($this)));
                 }
                 // Array of objects
                 else if(isset($map[self::STREAMER_ARRAY])) {
