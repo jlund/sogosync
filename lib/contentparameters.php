@@ -191,6 +191,26 @@ class ContentParameters extends StateObject {
     }
 
     /**
+     * Removes the saved SyncKey of this folder
+     *
+     * @access public
+     * @return boolean
+     */
+    public function RemoveSyncKey() {
+        if (isset($this->uuid))
+            unset($this->uuid);
+
+        if (isset($this->uuidCounter))
+            unset($this->uuidCounter);
+
+        if (isset($this->uuidNewCounter))
+            unset($this->uuidNewCounter);
+
+        ZLog::Write(LOGLEVEL_DEBUG, "ContentParameters->RemoveSyncKey(): saved sync key removed");
+        return true;
+    }
+
+    /**
      * Instantiates/returns the bodypreference object for a type
      *
      * @param int   $type
