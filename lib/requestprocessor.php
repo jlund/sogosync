@@ -1320,10 +1320,25 @@ class RequestProcessor {
 
                             $n = 0;
                             while(1) {
-                                $progress = $exporter->Synchronize();
-                                if(!is_array($progress))
-                                    break;
-                                $n++;
+                                try {
+                                    $progress = $exporter->Synchronize();
+                                    if(!is_array($progress))
+                                        break;
+                                    $n++;
+                                }
+                                catch (SyncObjectBrokenException $mbe) {
+                                    $brokenSO = $mbe->GetSyncObject();
+                                    if (!$brokenSO) {
+                                        ZLog::Write(LOGLEVEL_ERROR, sprintf("HandleSync(): Catched SyncObjectBrokenException but broken SyncObject available. This should be fixed in the backend."));
+                                    }
+                                    else {
+                                        if (!isset($brokenSO->id)) {
+                                            $brokenSO->id = "Unknown ID";
+                                            ZLog::Write(LOGLEVEL_ERROR, sprintf("HandleSync(): Catched SyncObjectBrokenException but no ID of object set. This should be fixed in the backend."));
+                                        }
+                                        self::$deviceManager->AnnounceIgnoredMessage($cpo->GetFolderId(), $brokenSO->id, $brokenSO);
+                                    }
+                                }
 
                                 if($n >= $windowSize) {
                                     ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandleSync(): Exported maxItems of messages: %d / %d", $n, $changecount));
