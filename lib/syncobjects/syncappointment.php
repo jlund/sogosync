@@ -79,8 +79,7 @@ class SyncAppointment extends SyncObject {
 
     function SyncAppointment() {
         $mapping = array(
-                    SYNC_POOMCAL_TIMEZONE                               => array (  self::STREAMER_VAR      => "timezone",
-                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED       => base64_encode(pack("la64vvvvvvvv"."la64vvvvvvvv"."l",0,"",0,0,0,0,0,0,0,0,0,"",0,0,0,0,0,0,0,0,0)) )),
+                    SYNC_POOMCAL_TIMEZONE                               => array (  self::STREAMER_VAR      => "timezone"),
 
                     SYNC_POOMCAL_DTSTAMP                                => array (  self::STREAMER_VAR      => "dtstamp",
                                                                                     self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE,
@@ -193,6 +192,13 @@ class SyncAppointment extends SyncObject {
                 ZLog::Write(LOGLEVEL_WARN, "SyncAppointment->Check(): Parameter 'organizername' and 'organizeremail' should be set for a meeting request");
             }
         }
+
+        // do not sync a recurrent appointment without a timezone
+        if (isset($this->recurrence) && !isset($this->timezone)) {
+            ZLog::Write(LOGLEVEL_ERROR, "SyncAppointment->Check(): timezone for a recurring appointment is not set.");
+            return false;
+        }
+
         return true;
     }
 }

@@ -226,17 +226,24 @@ class MAPIProvider {
             $message->organizername = w2u($messageprops[$appointmentprops["representingname"]]);
         }
 
-        if(isset($messageprops[$appointmentprops["timezonetag"]]))
-            $tz = $this->getTZFromMAPIBlob($messageprops[$appointmentprops["timezonetag"]]);
-        else
-            $tz = $this->getGMTTZ();
-
-        $message->timezone = base64_encode($this->getSyncBlobFromTZ($tz));
-
+        // Only set timezone if the timezone tag is set which is usually for recurring appointments only.
+        // For non-recurring appointments it doesn't matter anyway
+        if(isset($messageprops[$appointmentprops["timezonetag"]])) {
+            $message->timezone = base64_encode($messageprops[$appointmentprops["timezonetag"]]);
+        }
         if(isset($messageprops[$appointmentprops["isrecurring"]]) && $messageprops[$appointmentprops["isrecurring"]]) {
-            // Process recurrence
-            $message->recurrence = new SyncRecurrence();
-            $this->getRecurrence($mapimessage, $messageprops, $message, $message->recurrence, $tz);
+            if (isset($messageprops[$appointmentprops["timezonetag"]])) {
+                // Process recurrence
+                $message->recurrence = new SyncRecurrence();
+                $tz = $this->getTZFromMAPIBlob($messageprops[$appointmentprops["timezonetag"]]);
+                $this->getRecurrence($mapimessage, $messageprops, $message, $message->recurrence, $tz);
+            }
+            else {
+                $message->id = bin2hex($messageprops[$appointmentprops["sourcekey"]]);
+                $mbe = new SyncObjectBrokenException("Recurring appointment does not have a timezone");
+                $mbe->SetSyncObject($message);
+                throw $mbe;
+            }
         }
 
         // Do attendees
@@ -1294,12 +1301,12 @@ class MAPIProvider {
         // Touchdown does not send categories if all are unset or there is none.
         // Setting it to an empty array will unset the property in Zarafa as well
         if (!isset($note->categories)) $note->categories = array();
-        
+
         $this->setPropsInMAPI($mapimessage, $note, MAPIMapping::GetNoteMapping());
-        
+
         $noteprops = MAPIMapping::GetNoteProperties();
         $noteprops = $this->getPropIdsFromStrings($noteprops);
-        
+
         // task specific properties to be set
         $props = array();
         $props[$noteprops["messageclass"]] = "IPM.StickyNote";
