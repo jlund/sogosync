@@ -90,6 +90,8 @@ class MAPIProvider {
             return $this->getAppointment($mapimessage, $contentparameters);
         else if(strpos($messageclass,"IPM.Task") === 0)
             return $this->getTask($mapimessage, $contentparameters);
+        else if(strpos($messageclass,"IPM.StickyNote") === 0)
+            return $this->getNote($mapimessage, $contentparameters);
         else
             return $this->getEmail($mapimessage, $contentparameters);
     }
@@ -677,6 +679,27 @@ class MAPIProvider {
     }
 
     /**
+    * Reads a note object from MAPI
+    *
+    * @param mixed             $mapimessage
+    * @param ContentParameters $contentparameters
+    *
+    * @access private
+    * @return SyncNote
+    */
+    private function getNote($mapimessage, $contentparameters) {
+        $message = new SyncNote();
+
+        // Standard one-to-one mappings first
+        $this->getPropsFromMAPI($message, $mapimessage, MAPIMapping::GetNoteMapping());
+
+        //set the body according to contentparameters and supported AS version
+        $this->setMessageBody($mapimessage, $contentparameters, $message);
+
+        return $message;
+    }
+
+    /**
      * Reads a folder object from MAPI
      *
      * @param mixed             $mapimessage
@@ -788,6 +811,8 @@ class MAPIProvider {
                 return $this->setAppointment($mapimessage, $message);
             case "synctask":
                 return $this->setTask($mapimessage, $message);
+            case "syncnote":
+                return $this->setNote($mapimessage, $message);
             default:
                 //for emails only flag (read and todo) changes are possible
                 return $this->setEmail($mapimessage, $message);
@@ -1256,6 +1281,32 @@ class MAPIProvider {
         mapi_setprops($mapimessage, $props);
     }
 
+    /**
+    * Writes a SyncTask to MAPI
+    *
+    * @param mixed             $mapimessage
+    * @param SyncNote          $note
+    *
+    * @access private
+    * @return boolean
+    */
+    private function setNote($mapimessage, $note) {
+        // Touchdown does not send categories if all are unset or there is none.
+        // Setting it to an empty array will unset the property in Zarafa as well
+        if (!isset($note->categories)) $note->categories = array();
+        
+        $this->setPropsInMAPI($mapimessage, $note, MAPIMapping::GetNoteMapping());
+        
+        $noteprops = MAPIMapping::GetNoteProperties();
+        $noteprops = $this->getPropIdsFromStrings($noteprops);
+        
+        // task specific properties to be set
+        $props = array();
+        $props[$noteprops["messageclass"]] = "IPM.StickyNote";
+        // set body otherwise the note will be "broken" when editing it in outlook
+        $props[$noteprops["body"]] = $note->subject;
+        mapi_setprops($mapimessage, $props);
+    }
 
     /**----------------------------------------------------------------------------------------------------------
      * HELPER

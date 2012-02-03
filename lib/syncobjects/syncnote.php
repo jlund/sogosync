@@ -47,9 +47,26 @@
 
 
 class SyncNote extends SyncObject {
+    public $asbody;
+    public $categories;
+    public $lastmodified;
+    public $messageclass;
+    public $subject;
 
     function SyncNote() {
         $mapping = array(
+                    SYNC_AIRSYNCBASE_BODY                               => array (  self::STREAMER_VAR      => "asbody",
+                                                                                    self::STREAMER_TYPE     => "SyncBaseBody"),
+
+                    SYNC_NOTES_CATEGORIES                               => array (  self::STREAMER_VAR      => "categories",
+                                                                                    self::STREAMER_ARRAY    => SYNC_NOTES_CATEGORY),
+
+                    SYNC_NOTES_LASTMODIFIEDDATE                         => array (  self::STREAMER_VAR      => "lastmodified",
+                                                                                    self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE),
+
+                    SYNC_NOTES_MESSAGECLASS                             => array (  self::STREAMER_VAR      => "messageclass"),
+
+                    SYNC_NOTES_SUBJECT                                  => array (  self::STREAMER_VAR      => "subject"),
                 );
 
         parent::SyncObject($mapping);

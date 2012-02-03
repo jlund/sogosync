@@ -441,5 +441,37 @@ class MAPIMapping {
             "complete"              => "PT_BOOLEAN:PSETID_Task:0x811C",
         );
     }
+
+
+    /**
+    * Returns the MAPI to AS mapping for notes
+    *
+    * @access public
+    *
+    * @return array
+    */
+    public static function GetNoteMapping() {
+        return array(
+            "categories"            => "PT_MV_STRING8:PS_PUBLIC_STRINGS:Keywords",
+            "lastmodificationtime"  => PR_LAST_MODIFICATION_TIME,
+            "messageclass"          => PR_MESSAGE_CLASS,
+            "subject"               => PR_SUBJECT,
+        );
+    }
+
+
+    /**
+    * Returns note specific MAPI properties
+    *
+    * @access public
+    *
+    * @return array
+    */
+    public static function GetNoteProperties() {
+        return array(
+            "body"                  => PR_BODY,
+            "messageclass"          => PR_MESSAGE_CLASS,
+        );
+    }
 }
 ?>
