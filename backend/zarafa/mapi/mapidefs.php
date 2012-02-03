@@ -430,6 +430,11 @@ define('olMeetingTentative'                      ,2);
 define('olMeetingAccepted'                       ,3);
 define('olMeetingDeclined'                       ,4);
 
+/* OL Attendee type */
+define('olAttendeeRequired'                      ,1);
+define('olAttendeeOptional'                      ,2);
+define('olAttendeeResource'                      ,3);
+
 /* task status */
 define('olTaskNotStarted'                        ,0);
 define('olTaskInProgress'                        ,1);
