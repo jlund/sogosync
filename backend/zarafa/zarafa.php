@@ -683,9 +683,9 @@ class BackendZarafa implements IBackend, ISearchProvider {
         }
 
         //set PR_INTERNET_CPID to 65001 (utf-8) if store supports it and to 1252 otherwise
-        $internetcpid = 1252;
+        $internetcpid = INTERNET_CPID_WINDOWS1252;
         if (defined('STORE_SUPPORTS_UNICODE') && STORE_SUPPORTS_UNICODE == true) {
-            $internetcpid = 65001;
+            $internetcpid = INTERNET_CPID_UTF8;
         }
 
         mapi_setprops($mapimessage, array(PR_BODY => $body, PR_INTERNET_CPID => $internetcpid));
