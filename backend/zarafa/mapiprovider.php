@@ -1963,6 +1963,8 @@ class MAPIProvider {
         $body = mapi_message_openproperty($mapimessage, $property);
         //set the properties according to supported AS version
         if (Request::GetProtocolVersion() >= 12.0) {
+            $message->asbody = new SyncBaseBody();
+            $message->asbody->type = $bpReturnType;
             $message->asbody->data = ($bpReturnType == SYNC_BODYPREFERENCE_RTF) ? base64_encode($body) : w2u($body);
             $message->asbody->estimatedDataSize = strlen($message->asbody->data);
             $message->asbody->truncated = 0;
@@ -2033,8 +2035,7 @@ class MAPIProvider {
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("getBodyPreferenceBestMatch: %d", $bpReturnType));
             $bpo = $contentparameters->BodyPreference($bpReturnType);
             ZLog::Write(LOGLEVEL_DEBUG, sprintf("bpo: truncation size:'%d', allornone:'%d', preview:'%d'", $bpo->GetTruncationSize(), $bpo->GetAllOrNone(), $bpo->GetPreview()));
-            $message->asbody = new SyncBaseBody();
-            $message->asbody->type = $bpReturnType;
+
             $this->setMessageBodyForType($mapimessage, $bpReturnType, $message);
             //only set the truncation size data if device set it in request
             if ($bpo->GetTruncationSize() != false && $bpReturnType != SYNC_BODYPREFERENCE_MIME && $message->asbody->estimatedDataSize > $bpo->GetTruncationSize()) {
