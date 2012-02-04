@@ -1679,7 +1679,7 @@ class RequestProcessor {
                 self::$decoder->getElementEndTag();
             }
 
-            if(self::$decoder->getElementStartTag(SYNC_PING_FOLDERS)) {
+            if(($el = self::$decoder->getElementStartTag(SYNC_PING_FOLDERS)) && $el[EN_FLAGS] & EN_FLAGS_CONTENT) {
                 // remove PingableFlag from all collections
                 foreach ($sc as $folderid => $cpo)
                     $cpo->DelPingableFlag();
