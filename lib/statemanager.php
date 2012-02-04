@@ -154,14 +154,14 @@ class StateManager {
      * @return boolean
      */
     public function SetSynchedFolderState($cpo) {
-        $suuid = $this->device->GetFolderUUID($cpo->GetFolderId());
-        if ($suuid === false || $suuid !== $cpo->GetUuid())
-            throw new StateInvalidException(sprintf("Folder '%s' terminated synchronization but has no or different UUID in devicedata", $cpo->GetFolderId()));
+        // make sure the current uuid is linked on the device for the folder.
+        // if not, old states will be automatically removed and the new ones linked
+        self::LinkState($this->device, $cpo->GetUuid(), $cpo->GetFolderId());
 
         $cpo->SetReferencePolicyKey($this->device->GetPolicyKey());
 
         // TODO the StateMachine should serialize the object
-        return $this->statemachine->SetState(serialize($cpo), $this->device->GetDeviceId(), IStateMachine::FOLDERDATA, $suuid);
+        return $this->statemachine->SetState(serialize($cpo), $this->device->GetDeviceId(), IStateMachine::FOLDERDATA, $cpo->GetUuid());
     }
 
     /**
