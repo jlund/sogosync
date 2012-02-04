@@ -1116,8 +1116,8 @@ class RequestProcessor {
 
             // wait for changes
             try {
-                $foundchanges = $sc->CheckForChanges($sc->GetLifetime(), $interval);
-            }
+                    $foundchanges = $sc->CheckForChanges($sc->GetLifetime(), $interval);
+                }
             catch (StatusException $stex) {
                $status = SYNC_STATUS_FOLDERHIERARCHYCHANGED;
                self::$topCollector->AnnounceInformation(sprintf("StatusException code: %d", $status), true);
@@ -1160,7 +1160,12 @@ class RequestProcessor {
 
                                 if ($exporter === false)
                                     throw new StatusException(sprintf("HandleSync() could not get an exporter for folder id '%s'", $cpo->GetFolderId()), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
+                            }
+                            catch (StatusException $stex) {
+                               $status = $stex->getCode();
+                            }
 
+                            try {
                                 // Stream the messages directly to the PDA
                                 $streamimporter = new ImportChangesStream(self::$encoder, ZPush::getSyncObjectFromFolderClass($cpo->GetContentClass()));
 
@@ -1171,7 +1176,10 @@ class RequestProcessor {
                                 $changecount = $exporter->GetChangeCount();
                             }
                             catch (StatusException $stex) {
-                               $status = $stex->getCode();
+                                if ($stex->getCode() === SYNC_FSSTATUS_CODEUNKNOWN)
+                                    $status = SYNC_STATUS_INVALIDSYNCKEY;
+                                else
+                                    $status = $stex->getCode();
                             }
                             if (! $cpo->HasSyncKey())
                                 self::$topCollector->AnnounceInformation(sprintf("Exporter registered. %d objects queued.", $changecount), true);
