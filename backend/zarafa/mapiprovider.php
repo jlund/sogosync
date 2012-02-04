@@ -2002,7 +2002,7 @@ class MAPIProvider {
      * @param SyncObject        $message
      *
      * @access private
-     * @return string
+     * @return boolean
      */
     private function setMessageBodyForType($mapimessage, $bpReturnType, &$message) {
         //default value is PR_BODY
@@ -2015,8 +2015,11 @@ class MAPIProvider {
                 $property = PR_RTF_COMPRESSED;
                 break;
             case SYNC_BODYPREFERENCE_MIME:
-                return $this->imtoinet($mapimessage, $message);
-        }
+                $stat = $this->imtoinet($mapimessage, $message);
+                if (isset($message->asbody))
+                    $message->asbody->type = $bpReturnType;
+                return $stat;
+       }
 
         $body = mapi_message_openproperty($mapimessage, $property);
         //set the properties according to supported AS version
@@ -2043,7 +2046,7 @@ class MAPIProvider {
      * @param SyncObject        $message
      *
      * @access private
-     * @return string or false on error
+     * @return boolean
      */
     private function imtoinet($mapimessage, &$message) {
         if (function_exists("mapi_inetmapi_imtoinet")) {
@@ -2053,6 +2056,8 @@ class MAPIProvider {
             $mstreamstat = mapi_stream_stat($mstream);
             if ($mstreamstat['cb'] < MAX_EMBEDDED_SIZE) {
                 if (Request::GetProtocolVersion() >= 12.0) {
+                    if (!isset($message->asbody))
+                        $message->asbody = new SyncBaseBody();
                     //TODO data should be wrapped in a MapiStreamWrapper
                     $message->asbody->data = mapi_stream_read($mstream, MAX_EMBEDDED_SIZE);
                     $message->asbody->estimatedDataSize = $mstreamstat["cb"];
@@ -2124,7 +2129,7 @@ class MAPIProvider {
     /**
      * Calculates the native body type of a message using available properties. Refer to oxbbody
      *
-     * @param array             $mapimessage
+     * @param array             $messageprops
      *
      * @access private
      * @return int
