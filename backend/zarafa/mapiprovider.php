@@ -1289,7 +1289,7 @@ class MAPIProvider {
     }
 
     /**
-    * Writes a SyncTask to MAPI
+    * Writes a SyncNote to MAPI
     *
     * @param mixed             $mapimessage
     * @param SyncNote          $note
@@ -1307,7 +1307,7 @@ class MAPIProvider {
         $noteprops = MAPIMapping::GetNoteProperties();
         $noteprops = $this->getPropIdsFromStrings($noteprops);
 
-        // task specific properties to be set
+        // note specific properties to be set
         $props = array();
         $props[$noteprops["messageclass"]] = "IPM.StickyNote";
         // set body otherwise the note will be "broken" when editing it in outlook
