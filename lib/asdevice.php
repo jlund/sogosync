@@ -225,6 +225,9 @@ class ASDevice extends StateObject {
      * @return string
      */
     public function GetDeviceUserAgent() {
+        if (!isset($this->useragent) || !$this->useragent)
+            return "unknown";
+            
         return $this->useragent;
     }
 
@@ -248,7 +251,7 @@ class ASDevice extends StateObject {
      * @return boolean
      */
     public function SetUserAgent($useragent) {
-        if ($useragent == $this->useragent)
+        if ($useragent == $this->useragent || $useragent === false || $useragent === Request::UNKNOWN)
             return true;
 
         // save the old user agent, if available
