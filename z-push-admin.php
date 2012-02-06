@@ -55,7 +55,7 @@ include ("lib/zlog.php");
 include ("lib/utils/utils.php");
 include ("lib/utils/zpushadmin.php");
 include ("lib/statemanager.php");
-include ("lib/exceptions.php");
+include ("lib/exceptions/exceptions.php");
 include ("lib/interface/ibackend.php");
 include ("lib/interface/ichanges.php");
 include ("lib/interface/iexportchanges.php");

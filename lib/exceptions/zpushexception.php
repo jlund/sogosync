@@ -1,12 +1,12 @@
 <?php
 /***********************************************
-* File      :   exceptions.php
+* File      :   zpushexceptions.php
 * Project   :   Z-Push
-* Descr     :   Defines all exceptions used in Z-Push
+* Descr     :   Main Z-Push exception
 *
-* Created   :   12.04.2011
+* Created   :   06.02.2012
 *
-* Copyright 2007 - 2011 Zarafa Deutschland GmbH
+* Copyright 2007 - 2012 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -41,7 +41,6 @@
 * Consult LICENSE file for details
 ************************************************/
 
-// Main Z-Push exception
 class ZPushException extends Exception {
     protected $defaultLogLevel = LOGLEVEL_FATAL;
     protected $httpReturnCode = HTTP_CODE_500;
@@ -72,83 +71,4 @@ class ZPushException extends Exception {
         return $this->showLegal;
     }
 }
-
-// Fatal exceptions (execution stops)
-class FatalException extends ZPushException {}
-class FatalMisconfigurationException extends FatalException {}
-class FatalNotImplementedException extends FatalException {}
-class WBXMLException extends FatalNotImplementedException {}
-
-class NoPostRequestException extends FatalException {
-    const OPTIONS_REQUEST = 1;
-    const GET_REQUEST = 2;
-    protected $defaultLogLevel = LOGLEVEL_DEBUG;
-}
-
-// HTTP return code exceptions
-class HTTPReturnCodeException extends FatalException {
-    protected $defaultLogLevel = LOGLEVEL_ERROR;
-    protected $showLegal = false;
-
-    public function HTTPReturnCodeException($message = "", $code = 0, $previous = NULL, $logLevel = false) {
-        if ($code)
-            $this->httpReturnCode = $code;
-        parent::__construct($message, (int) $code, $previous, $logLevel);
-    }
-}
-
-class AuthenticationRequiredException extends HTTPReturnCodeException {
-    protected $defaultLogLevel = LOGLEVEL_INFO;
-    protected $httpReturnCode = HTTP_CODE_401;
-    protected $httpReturnMessage = "Unauthorized";
-    protected $httpHeaders = array('WWW-Authenticate: Basic realm="ZPush"');
-    protected $showLegal = true;
-}
-
-class ProvisioningRequiredException extends HTTPReturnCodeException {
-    protected $defaultLogLevel = LOGLEVEL_INFO;
-    protected $httpReturnCode = HTTP_CODE_449;
-    protected $httpReturnMessage = "Retry after sending a PROVISION command";
-}
-
-// Non fatal exceptions
-class NotImplementedException extends ZPushException {
-    protected $defaultLogLevel = LOGLEVEL_ERROR;
-}
-
-class SyncObjectBrokenException extends ZPushException {
-    protected $defaultLogLevel = LOGLEVEL_WARN;
-    private $syncObject;
-
-    /**
-     * Returns the SyncObject which caused this Exception (if set)
-     *
-     * @access public
-     * @return SyncObject
-     */
-    public function GetSyncObject() {
-        return isset($this->syncObject) ? $this->syncObject : false;
-    }
-
-    /**
-     * Sets the SyncObject which caused the exception so it can be later retrieved
-     *
-     * @param SyncObject    $syncobject
-     *
-     * @access public
-     * @return boolean
-     */
-    public function SetSyncObject($syncobject) {
-        $this->syncObject = $syncobject;
-        return true;
-    }
-}
-
-class StatusException extends ZPushException {
-    protected $defaultLogLevel = LOGLEVEL_INFO;
-}
-class StateNotFoundException extends StatusException {}
-class StateInvalidException extends StatusException {}
-class NoHierarchyCacheAvailableException extends StateNotFoundException {}
-class StateNotYetAvailableException extends StatusException {}
 ?>

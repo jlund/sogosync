@@ -46,7 +46,7 @@
 ob_start(false, 1048576);
 
 include_once('lib/zpushdefs.php');
-include_once('lib/exceptions.php');
+include_once('lib/exceptions/exceptions.php');
 include_once('lib/utils/utils.php');
 include_once('lib/utils/compat.php');
 include_once('lib/stateobject.php');
