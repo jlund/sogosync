@@ -43,6 +43,8 @@
 ************************************************/
 
 class Request {
+    const UNKNOWN = "unkown";
+
     /**
      * self::filterEvilInput() options
      */
@@ -151,7 +153,7 @@ class Request {
      */
     static public function ProcessHeaders() {
         self::$headers = array_change_key_case(apache_request_headers(), CASE_LOWER);
-        self::$useragent = (isset(self::$headers["user-agent"]))? self::$headers["user-agent"] : "unknown";
+        self::$useragent = (isset(self::$headers["user-agent"]))? self::$headers["user-agent"] : self::UNKNOWN;
         if (!isset(self::$asProtocolVersion))
             self::$asProtocolVersion = (isset(self::$headers["ms-asprotocolversion"]))? self::filterEvilInput(self::$headers["ms-asprotocolversion"], self::NUMBERSDOT_ONLY) : ZPush::GetLatestSupportedASVersion();
 
@@ -232,7 +234,7 @@ class Request {
         if (isset(self::$method))
             return self::$method;
         else
-            return "UNKNOWN";
+            return self::UNKNOWN;
     }
 
     /**
@@ -245,7 +247,7 @@ class Request {
         if (isset(self::$getUser))
             return self::$getUser;
         else
-            return "UNKNOWN";
+            return self::UNKNOWN;
     }
 
     /**
@@ -415,7 +417,7 @@ class Request {
         if (isset(self::$useragent))
             return self::$useragent;
         else
-            return false;
+            return self::UNKNOWN;
     }
 
     /**
