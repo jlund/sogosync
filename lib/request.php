@@ -245,7 +245,7 @@ class Request {
         if (isset(self::$getUser))
             return self::$getUser;
         else
-            return false;
+            return "UNKNOWN";
     }
 
     /**
