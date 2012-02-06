@@ -1,6 +1,6 @@
 <?php
 /***********************************************
-* File      :   debug.php
+* File      :   zlog.php
 * Project   :   Z-Push
 * Descr     :   Debug and logging
 *

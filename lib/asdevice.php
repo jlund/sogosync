@@ -1,6 +1,6 @@
 <?php
 /***********************************************
-* File      :   device.php
+* File      :   asdevice.php
 * Project   :   Z-Push
 * Descr     :   The ASDevice holds basic data about a device,
 *               its users and the linked states

@@ -51,7 +51,7 @@ include ("lib/contentparameters.php");
 include ("lib/synccollections.php");
 include ("lib/request.php");
 include ("lib/requestprocessor.php");
-include ("lib/debug.php");
+include ("lib/zlog.php");
 include ("lib/utils/utils.php");
 include ("lib/utils/zpushadmin.php");
 include ("lib/statemanager.php");
@@ -87,7 +87,7 @@ include ("lib/syncobjects/syncuserinformation.php");
 include ("lib/syncobjects/syncdeviceinformation.php");
 include ("lib/syncobjects/syncdevicepassword.php");
 include ("lib/syncobjects/syncitemoperationsattachment.php");
-include ("lib/device.php");
+include ("lib/asdevice.php");
 include ("config.php");
 include ("version.php");
 
