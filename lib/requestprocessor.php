@@ -1104,6 +1104,8 @@ class RequestProcessor {
                 // announce WindowSize to DeviceManager
                 self::$deviceManager->SetWindowSize($folderid, $cpo->GetWindowSize());
             }
+            if (!$sc->HasCollections())
+                $status = SYNC_STATUS_SYNCREQUESTINCOMPLETE;
         }
 
         // HEARTBEAT
@@ -1136,8 +1138,13 @@ class RequestProcessor {
         self::$encoder->startWBXML();
         self::$encoder->startTag(SYNC_SYNCHRONIZE);
         {
-            // TODO check alternatives -- global status?
-            if (true) { //isset($foldersync)) {
+            // global status
+            if ($status != SYNC_STATUS_SUCCESS) {
+                self::$encoder->startTag(SYNC_STATUS);
+                    self::$encoder->content($status);
+                self::$encoder->endTag();
+            }
+            else {
                 self::$encoder->startTag(SYNC_FOLDERS);
                 {
                     foreach($sc as $folderid => $cpo) {
