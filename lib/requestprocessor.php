@@ -1108,21 +1108,36 @@ class RequestProcessor {
                 $status = SYNC_STATUS_SYNCREQUESTINCOMPLETE;
         }
 
-        // HEARTBEAT
+        // HEARTBEAT & Empty sync
         if ($status == SYNC_STATUS_SUCCESS && (isset($hbinterval) || $emtpysync == true)) {
-            ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandleSync(): Entering Heartbeat mode"));
             $interval = (defined('PING_INTERVAL') && PING_INTERVAL > 0) ? PING_INTERVAL : 30;
 
             if (isset($hbinterval))
                 $sc->SetLifetime($hbinterval);
 
+            $foundchanges = false;
+
             // wait for changes
             try {
+                // if doing an empty sync, check only once for changes
+                if ($emtpysync) {
+                    $foundchanges = $sc->CountChanges();
+                }
+                // wait for changes
+                else {
+                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandleSync(): Entering Heartbeat mode"));
                     $foundchanges = $sc->CheckForChanges($sc->GetLifetime(), $interval);
                 }
+            }
             catch (StatusException $stex) {
                $status = SYNC_STATUS_FOLDERHIERARCHYCHANGED;
                self::$topCollector->AnnounceInformation(sprintf("StatusException code: %d", $status), true);
+            }
+
+            // in case of an empty sync with no changes, we can reply with an empty response
+            if ($emtpysync && !$foundchanges){
+                ZLog::Write(LOGLEVEL_DEBUG, "No changes found for empty sync. Replying with empty response");
+                return true;
             }
 
             if ($foundchanges) {
