@@ -2832,7 +2832,7 @@ class RequestProcessor {
                     case SYNC_SETTINGS_DEVICEINFORMATION:
                         $deviceinformation = new SyncDeviceInformation();
                         $deviceinformation->Decode(self::$decoder);
-                        //TODO handle deviceinformation
+                        self::$deviceManager->SaveDeviceInformation($deviceinformation);
                         break;
 
                     default:

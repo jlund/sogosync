@@ -482,6 +482,24 @@ class ZPushAdminCLI {
         echo "UserAgent:\t\t".($device->GetDeviceUserAgent()!== ASDevice::UNDEFINED ? $device->GetDeviceUserAgent() : "unknown") ."\n";
         // TODO implement $device->GetDeviceUserAgentHistory()
 
+        // device information transmitted during Settings command
+        if ($device->GetDeviceModel())
+            echo "Device Model:\t\t". $device->GetDeviceModel(). "\n";
+        if ($device->GetDeviceIMEI())
+            echo "Device IMEI:\t\t". $device->GetDeviceIMEI(). "\n";
+        if ($device->GetDeviceFriendlyName())
+            echo "Device friendly name:\t". $device->GetDeviceFriendlyName(). "\n";
+        if ($device->GetDeviceOS())
+            echo "Device OS:\t\t". $device->GetDeviceOS(). "\n";
+        if ($device->GetDeviceOSLanguage())
+            echo "Device OS Language:\t". $device->GetDeviceOSLanguage(). "\n";
+        if ($device->GetDevicePhoneNumber())
+            echo "Device Phone nr:\t\t". $device->GetDevicePhoneNumber(). "\n";
+        if ($device->GetDeviceMobileOperator())
+            echo "Device Operator:\t\t". $device->GetDeviceMobileOperator(). "\n";
+        if ($device->GetDeviceEnableOutboundSMS())
+            echo "Device Outbound SMS:\t". $device->GetDeviceEnableOutboundSMS(). "\n";
+
         echo "ActiveSync version:\t".($device->GetASVersion() ? $device->GetASVersion() : "unknown") ."\n";
         echo "First sync:\t\t". strftime("%Y-%m-%d %H:%M", $device->GetFirstSyncTime()) ."\n";
         echo "Last sync:\t\t". ($device->GetLastSyncTime() ? strftime("%Y-%m-%d %H:%M", $device->GetLastSyncTime()) : "never")."\n";

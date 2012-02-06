@@ -162,6 +162,31 @@ class DeviceManager {
         return true;
     }
 
+    /**
+     * Newer mobiles send extensive device informations with the Settings command
+     * These informations are saved in the ASDevice
+     *
+     * @param SyncDeviceInformation     $deviceinformation
+     *
+     * @access public
+     * @return boolean
+     */
+    public function SaveDeviceInformation($deviceinformation) {
+        ZLog::Write(LOGLEVEL_DEBUG, "Saving submitted device information");
+
+        // set the user agent
+        if (isset($deviceinformation->useragent))
+            $this->device->SetUserAgent($deviceinformation->useragent);
+
+        // save other informations
+        foreach (array("model", "imei", "friendlyname", "os", "oslanguage", "phonenumber", "mobileoperator", "enableoutboundsms") as $info) {
+            if (isset($deviceinformation->$info) && $deviceinformation->$info != "") {
+                $this->device->__set("device".$info, $deviceinformation->$info);
+            }
+        }
+        return true;
+    }
+
     /**----------------------------------------------------------------------------------------------------------
      * Provisioning operations
      */
