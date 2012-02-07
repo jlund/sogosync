@@ -43,7 +43,7 @@
 ************************************************/
 
 class Request {
-    const UNKNOWN = "unkown";
+    const UNKNOWN = "unknown";
 
     /**
      * self::filterEvilInput() options
