@@ -148,7 +148,7 @@ class BackendIMAP extends BackendDiff {
             $parent = $sm->source->folderid;
         }
 
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->SendMail1(): RFC822: %d bytes  forward-id: '%s' reply-id: '%s' parent-id: '%s' SaveInSent: '%s' ReplaceMIME: '%s'",
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("IMAPBackend->SendMail(): RFC822: %d bytes  forward-id: '%s' reply-id: '%s' parent-id: '%s' SaveInSent: '%s' ReplaceMIME: '%s'",
                                             strlen($sm->mime), Utils::PrintAsString($forward), Utils::PrintAsString($reply), Utils::PrintAsString($parent),
                                             Utils::PrintAsString(isset($sm->saveinsent)), Utils::PrintAsString(isset($sm->replacemime)) ));
 
