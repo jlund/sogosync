@@ -191,14 +191,16 @@ class ASDevice extends StateObject {
         unset($this->newdevice);
         unset($this->ignoredMessageIds);
 
-        $imessages = $this->ignoredmessages;
-        $unserializedMessage = array();
-        foreach ($imessages as $im) {
-            $im->asobject = unserialize($im->asobject);
-            $im->asobject->StripData();
-            $unserializedMessage[] = $im;
+        if (isset($this->ignoredmessages) && is_array($this->ignoredmessages)) {
+            $imessages = $this->ignoredmessages;
+            $unserializedMessage = array();
+            foreach ($imessages as $im) {
+                $im->asobject = unserialize($im->asobject);
+                $im->asobject->StripData();
+                $unserializedMessage[] = $im;
+            }
+            $this->ignoredmessages = $unserializedMessage;
         }
-        $this->ignoredmessages = $unserializedMessage;
 
         return true;
     }
