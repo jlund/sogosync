@@ -565,7 +565,7 @@ class DeviceManager {
         $brokenMessage->reasonCode = $reason;
         $brokenMessage->reasonString = 'unknown cause';
         $brokenMessage->timestamp = time();
-        $brokenMessage->asobject = serialize($message);
+        $brokenMessage->asobject = $message;
         $brokenMessage->reasonString = ZLog::GetLastMessage(LOGLEVEL_WARN);
 
         $this->device->AddIgnoredMessage($brokenMessage);

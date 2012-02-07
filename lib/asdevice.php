@@ -227,7 +227,7 @@ class ASDevice extends StateObject {
     public function GetDeviceUserAgent() {
         if (!isset($this->useragent) || !$this->useragent)
             return "unknown";
-            
+
         return $this->useragent;
     }
 
@@ -325,6 +325,10 @@ class ASDevice extends StateObject {
                 $this->ignoredMessageIds[$oldMessage->folderid][] = $oldMessage->id;
             }
         }
+
+        // serialize the AS object - if available
+        if (isset($ignoredMessage->asobject))
+            $ignoredMessage->asobject = serialize($ignoredMessage->asobject);
 
         // try not to add the same message several times
         if (isset($ignoredMessage->folderid) && isset($ignoredMessage->id)) {
