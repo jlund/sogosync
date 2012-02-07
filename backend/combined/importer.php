@@ -263,7 +263,7 @@ class ImportChangesCombined implements IImportChanges {
      */
     public function Config($state, $flags = 0) {
         ZLog::Write(LOGLEVEL_DEBUG, 'ImportChangesCombined->Config(...)');
-        $this->syncstates = unserialize($state);
+        $this->syncstates = $state;
         if(!is_array($this->syncstates))
             $this->syncstates = array();
         ZLog::Write(LOGLEVEL_DEBUG, 'ImportChangesCombined->Config() success');
@@ -276,7 +276,7 @@ class ImportChangesCombined implements IImportChanges {
      * @return string
      */
     public function GetState() {
-        return serialize($this->syncstates);
+        return $this->syncstates;
     }
 }
 

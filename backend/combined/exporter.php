@@ -70,7 +70,7 @@ class ExportChangesCombined implements IExportChanges {
      */
     public function Config($syncstate, $flags = 0) {
         ZLog::Write(LOGLEVEL_DEBUG, "ExportChangesCombined->Config(...)");
-        $this->syncstates = unserialize($syncstate);
+        $this->syncstates = $syncstate;
         if(!is_array($this->syncstates)){
             $this->syncstates = array();
         }
@@ -140,7 +140,7 @@ class ExportChangesCombined implements IExportChanges {
             $this->syncstates[$i] = $this->exporters[$i]->GetState();
         }
         ZLog::Write(LOGLEVEL_DEBUG, "ExportChangesCombined->GetState() success");
-        return serialize($this->syncstates);
+        return $this->syncstates;
     }
 
     /**

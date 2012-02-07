@@ -132,8 +132,7 @@ class StateManager {
             try {
                 $data = $this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::FOLDERDATA, $uuid);
                 if ($data !== false) {
-                    // TODO data should be unserialized in the StateMachine
-                    $this->synchedFolders[$folderid] = unserialize($data);
+                    $this->synchedFolders[$folderid] = $data;
                 }
             }
             catch (StateNotFoundException $ex) { }
@@ -160,8 +159,7 @@ class StateManager {
 
         $cpo->SetReferencePolicyKey($this->device->GetPolicyKey());
 
-        // TODO the StateMachine should serialize the object
-        return $this->statemachine->SetState(serialize($cpo), $this->device->GetDeviceId(), IStateMachine::FOLDERDATA, $cpo->GetUuid());
+        return $this->statemachine->SetState($cpo, $this->device->GetDeviceId(), IStateMachine::FOLDERDATA, $cpo->GetUuid());
     }
 
     /**
@@ -251,7 +249,7 @@ class StateManager {
             return false;
 
         try {
-            return unserialize($this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::FAILSAVE, $this->uuid, $this->oldStateCounter));
+            return $this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::FAILSAVE, $this->uuid, $this->oldStateCounter);
         }
         catch (StateNotFoundException $snfex) {
             return false;
@@ -270,7 +268,7 @@ class StateManager {
         if ($this->oldStateCounter == 0)
             return false;
 
-        return $this->statemachine->SetState(serialize($syncstate), $this->device->GetDeviceId(), IStateMachine::FAILSAVE, $this->uuid, $this->oldStateCounter);
+        return $this->statemachine->SetState($syncstate, $this->device->GetDeviceId(), IStateMachine::FAILSAVE, $this->uuid, $this->oldStateCounter);
     }
 
     /**
@@ -287,11 +285,10 @@ class StateManager {
             if (!$this->uuid)
                 throw new StateNotYetAvailableException();
 
-            // TODO unserialization should be done in the StateMachine
-            return unserialize($this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, $this->uuid, $this->oldStateCounter));
+            return $this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, $this->uuid, $this->oldStateCounter);
         }
         else {
-            return unserialize($this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, false, $this->device->GetFirstSyncTime()));
+            return $this->statemachine->GetState($this->device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, false, $this->device->GetFirstSyncTime());
         }
     }
 
@@ -311,10 +308,10 @@ class StateManager {
             throw new StateNotYetAvailableException();
 
             // TODO serialization should be done in the StateMachine
-            return $this->statemachine->SetState(serialize($data), $this->device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, $this->uuid, $this->newStateCounter);
+            return $this->statemachine->SetState($data, $this->device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, $this->uuid, $this->newStateCounter);
         }
         else {
-            return $this->statemachine->SetState(serialize($data), $this->device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, false, $this->device->GetFirstSyncTime());
+            return $this->statemachine->SetState($data, $this->device->GetDeviceId(), IStateMachine::BACKENDSTORAGE, false, $this->device->GetFirstSyncTime());
         }
     }
 
@@ -511,8 +508,7 @@ class StateManager {
         foreach ($hc->ExportFolders() as $folder)
             $this->device->SetFolderType($folder->serverid, $folder->type);
 
-        $hierarchydata = $this->device->GetHierarchyCacheData();
-        return $this->statemachine->SetState($hierarchydata, $this->device->GetDeviceId(), IStateMachine::HIERARCHY, $this->uuid, $this->newStateCounter);
+        return $this->statemachine->SetState($this->device->GetHierarchyCacheData(), $this->device->GetDeviceId(), IStateMachine::HIERARCHY, $this->uuid, $this->newStateCounter);
     }
 
     /**

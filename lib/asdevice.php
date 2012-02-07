@@ -420,8 +420,8 @@ class ASDevice extends StateObject {
      * @return boolean
      */
     public function SetHierarchyCache($hierarchydata = false) {
-        if (!is_array($hierarchydata) && $hierarchydata !== false) {
-            $this->hierarchyCache = unserialize($hierarchydata);
+        if ($hierarchydata !== false && $hierarchydata instanceof ChangesMemoryWrapper) {
+            $this->hierarchyCache = $hierarchydata;
             $this->hierarchyCache->CopyOldState();
         }
         else

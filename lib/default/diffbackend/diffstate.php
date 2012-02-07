@@ -64,7 +64,7 @@ class DiffState implements IChanges {
      * @throws StatusException
      */
     public function Config($state, $flags = 0) {
-        $this->syncstate = unserialize($state);
+        $this->syncstate = $state;
         $this->flags = $flags;
         return true;
     }
@@ -80,7 +80,7 @@ class DiffState implements IChanges {
         if (!isset($this->syncstate) || !is_array($this->syncstate))
             throw new StatusException("DiffState->GetState(): Error, state not available", SYNC_FSSTATUS_CODEUNKNOWN, null, LOGLEVEL_WARN);
 
-        return serialize($this->syncstate);
+        return $this->syncstate;
     }
 
 

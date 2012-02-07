@@ -122,10 +122,7 @@ class FileStateMachine implements IStateMachine {
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("FileStateMachine->GetState() on file: '%s'", $filename));
 
         if(file_exists($filename)) {
-            $data = file_get_contents($filename);
-            if ($type == IStateMachine::DEVICEDATA)
-                $data = unserialize($data);
-            return $data;
+            return unserialize(file_get_contents($filename));
         }
         // throw an exception on all other states, but not FAILSAVE as it's most of the times not there by default
         else if ($type !== IStateMachine::FAILSAVE)
@@ -146,8 +143,7 @@ class FileStateMachine implements IStateMachine {
      * @throws StateInvalidException
      */
     public function SetState($state, $devid, $type, $key = false, $counter = false) {
-        if ($type == IStateMachine::DEVICEDATA)
-            $state = serialize($state);
+        $state = serialize($state);
 
         $filename = $this->getFullFilePath($devid, $type, $key, $counter);
         if (($bytes = file_put_contents($filename, $state)) === false)
@@ -202,7 +198,7 @@ class FileStateMachine implements IStateMachine {
      * @return array
      */
     public function LinkUserDevice($username, $devid) {
-        // TODO there should be a lock on the users file when writing
+        // TODO there should be a lock on the users file when writing - Mantis #588
         $filecontents = @file_get_contents($this->userfilename);
 
         if ($filecontents)
@@ -240,7 +236,7 @@ class FileStateMachine implements IStateMachine {
      * @return array
      */
     public function UnLinkUserDevice($username, $devid) {
-        // TODO there should be a lock on the users file when writing
+        // TODO there should be a lock on the users file when writing - Mantis #588
         $filecontents = @file_get_contents($this->userfilename);
 
         if ($filecontents)
