@@ -59,6 +59,7 @@ include ("lib/topcollector.php");
  * MAIN
  */
     declare(ticks = 1);
+    define('BASE_PATH_CLI',  dirname(__FILE__) ."/");
 
     ZPush::CheckConfig();
     $zpt = new ZPushTop();
@@ -578,8 +579,8 @@ class ZPushTop {
      * @return string
      */
     private function getVersion() {
-        if (ZPUSH_VERSION == "SVN checkout" && file_exists(BASE_PATH.".svn/entries")) {
-            $svn = file(BASE_PATH.".svn/entries");
+        if (ZPUSH_VERSION == "SVN checkout" && file_exists(REAL_BASE_PATH.".svn/entries")) {
+            $svn = file(REAL_BASE_PATH.".svn/entries");
             return "SVN " . substr(trim($svn[4]),stripos($svn[4],"z-push")+7) ." r".trim($svn[3]);
         }
         return ZPUSH_VERSION;

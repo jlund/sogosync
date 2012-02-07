@@ -200,6 +200,11 @@ class ZPush {
         if (!file_exists(BASE_PATH))
             throw new FatalMisconfigurationException("The configured BASE_PATH does not exist or can not be accessed.");
 
+        if (defined('BASE_PATH_CLI') && file_exists(BASE_PATH_CLI))
+            define('REAL_BASE_PATH', BASE_PATH_CLI);
+        else
+            define('REAL_BASE_PATH', BASE_PATH);
+
         if (!defined('LOGFILEDIR'))
             throw new FatalMisconfigurationException("The LOGFILEDIR is not configured. Check if the config.php file is in place.");
 
@@ -362,8 +367,8 @@ class ZPush {
 
         $rbn = substr($backendname, 7);
 
-        $subdirbackend = BASE_PATH . "backend/" . $rbn . "/" . $rbn . ".php";
-        $stdbackend = BASE_PATH . "backend/" . $rbn . ".php";
+        $subdirbackend = REAL_BASE_PATH . "backend/" . $rbn . "/" . $rbn . ".php";
+        $stdbackend = REAL_BASE_PATH . "backend/" . $rbn . ".php";
 
         if (is_file($subdirbackend))
             $toLoad = $subdirbackend;

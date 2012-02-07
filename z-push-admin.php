@@ -98,10 +98,12 @@ include ("version.php");
 /************************************************
  * MAIN
  */
+    define('BASE_PATH_CLI',  dirname(__FILE__) ."/");
+    set_include_path(get_include_path() . PATH_SEPARATOR . BASE_PATH_CLI);
+
     ZPush::CheckConfig();
     ZPushAdminCLI::CheckEnv();
     ZPushAdminCLI::CheckOptions();
-
     if (! ZPushAdminCLI::SureWhatToDo()) {
         // show error message if available
         if (ZPushAdminCLI::GetErrorMessage())
