@@ -332,7 +332,7 @@ class ZPushAdminCLI {
         else {
             if (self::$user === false) {
                 echo "All synchronized devices\n\n";
-                echo str_pad("Device id", 32). "Synchronized users\n";
+                echo str_pad("Device id", 36). "Synchronized users\n";
                 echo "-----------------------------------------------------\n";
             }
             else
@@ -341,7 +341,7 @@ class ZPushAdminCLI {
 
         foreach ($devicelist as $deviceId) {
             if (self::$user === false) {
-                echo str_pad($deviceId, 32) . implode (",", ZPushAdmin::ListUsers($deviceId)) ."\n";
+                echo str_pad($deviceId, 36) . implode (",", ZPushAdmin::ListUsers($deviceId)) ."\n";
             }
             else
                 self::printDeviceData($deviceId, self::$user);
