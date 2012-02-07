@@ -259,22 +259,19 @@ class BackendCombined extends Backend {
     }
 
     /**
-     * Sends an e-mail with the first backend returning true
+     * Sends an e-mail
+     * This messages needs to be saved into the 'sent items' folder
      *
-     * @param string        $rfc822     raw mail submitted by the mobile
-     * @param string        $forward    id of the message to be attached below $rfc822
-     * @param string        $reply      id of the message to be attached below $rfc822
-     * @param string        $parent     id of the folder containing $forward or $reply
-     * @param boolean       $saveInSent indicates if the mail should be saved in the Sent folder
+     * @param SyncSendMail  $sm     SyncSendMail object
      *
      * @access public
      * @return boolean
+     * @throws StatusException
      */
-    public function SendMail($rfc822, $forward = false, $reply = false, $parent = false, $saveInSent = true) {
+    public function SendMail($sm) {
         ZLog::Write(LOGLEVEL_DEBUG, "Combined->SendMail()");
-        if (isset($parent)) $parent = $this->GetBackendFolder($parent);
         foreach ($this->backends as $i => $b){
-            if($this->backends[$i]->SendMail($rfc822, $forward, $reply, $parent, $saveInSent) == true){
+            if($this->backends[$i]->SendMail($sm) == true){
                 return true;
             }
         }

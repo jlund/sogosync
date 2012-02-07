@@ -94,6 +94,8 @@ include_once('lib/syncobjects/syncuserinformation.php');
 include_once('lib/syncobjects/syncdeviceinformation.php');
 include_once('lib/syncobjects/syncdevicepassword.php');
 include_once('lib/syncobjects/syncitemoperationsattachment.php');
+include_once('lib/syncobjects/syncsendmail.php');
+include_once('lib/syncobjects/syncsendmailsource.php');
 include_once('lib/default/backend.php');
 include_once('lib/default/searchprovider.php');
 include_once('lib/synccollections.php');

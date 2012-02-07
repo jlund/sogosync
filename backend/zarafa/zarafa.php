@@ -381,23 +381,30 @@ class BackendZarafa implements IBackend, ISearchProvider {
      * Sends an e-mail
      * This messages needs to be saved into the 'sent items' folder
      *
-     * @param string        $rfc822     raw mail submitted by the mobile
-     * @param string        $forward    id of the message to be attached below $rfc822
-     * @param string        $reply      id of the message to be attached below $rfc822
-     * @param string        $parent     id of the folder containing $forward or $reply
-     * @param boolean       $saveInSent indicates if the mail should be saved in the Sent folder
+     * @param SyncSendMail  $sm     SyncSendMail object
      *
      * @access public
      * @return boolean
      * @throws StatusException
      */
-     // TODO implement , $saveInSent = true
-    public function SendMail($rfc822, $forward = false, $reply = false, $parent = false, $saveInSent = true) {
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->SendMail(): RFC822: %d bytes  forward-id: '%s' reply-id: '%s' parent-id: '%s' SaveInSent: '%s'",
-                                            strlen($rfc822), Utils::PrintAsString($forward), Utils::PrintAsString($reply), Utils::PrintAsString($parent), Utils::PrintAsString($saveInSent) ));
+    // TODO implement , $saveInSent = true
+    public function SendMail($sm) {
+        $reply = $forward = $parent = false;
+        if (Request::GetCommandCode() == ZPush::COMMAND_SMARTREPLY) {
+            $reply = $sm->source->itemid;
+            $parent = $sm->source->folderid;
+        }
+        if (Request::GetCommandCode() == ZPush::COMMAND_SMARTFORWARD) {
+            $forward = $sm->source->itemid;
+            $parent = $sm->source->folderid;
+        }
+
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->SendMail1(): RFC822: %d bytes  forward-id: '%s' reply-id: '%s' parent-id: '%s' SaveInSent: '%s' ReplaceMIME: '%s'",
+                                            strlen($sm->mime), Utils::PrintAsString($forward), Utils::PrintAsString($reply), Utils::PrintAsString($parent),
+                                            Utils::PrintAsString(isset($sm->saveinsent)), Utils::PrintAsString(isset($sm->replacemime)) ));
 
         // by splitting the message in several lines we can easily grep later
-        foreach(preg_split("/((\r)?\n)/", $rfc822) as $rfc822line)
+        foreach(preg_split("/((\r)?\n)/", $sm->mime) as $rfc822line)
             ZLog::Write(LOGLEVEL_WBXML, "RFC822: ". $rfc822line);
 
         $mimeParams = array('decode_headers' => true,
@@ -405,7 +412,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
                             'include_bodies' => true,
                             'charset' => 'utf-8');
 
-        $mimeObject = new Mail_mimeDecode($rfc822);
+        $mimeObject = new Mail_mimeDecode($sm->mime);
         $message = $mimeObject->decode($mimeParams);
 
         // Open the outbox and create the message there
@@ -498,7 +505,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
                 // standard body
                 if($part->ctype_primary == "text" && $part->ctype_secondary == "plain" && isset($part->body) && (!isset($part->disposition) || $part->disposition != "attachment")) {
-                        $body .= u2wi($part->body); // assume only one text body
+                    $body .= u2wi($part->body); // assume only one text body
                 }
                 // html body
                 elseif($part->ctype_primary == "text" && $part->ctype_secondary == "html") {
@@ -593,93 +600,96 @@ class BackendZarafa implements IBackend, ISearchProvider {
             elseif ($reply) mapi_setprops($fwmessage, array(PR_ICON_INDEX=>261));
             mapi_savechanges($fwmessage);
 
-            $stream = mapi_openproperty($fwmessage, PR_BODY, IID_IStream, 0, 0);
-            $fwbody = "";
+            // only attach the original message if the mobile does not send it itself
+            if (!isset($sm->replacemime)) {
+                $stream = mapi_openproperty($fwmessage, PR_BODY, IID_IStream, 0, 0);
+                $fwbody = "";
 
-            while(1) {
-                $data = mapi_stream_read($stream, 1024);
-                if(strlen($data) == 0)
-                    break;
-                $fwbody .= $data;
-            }
+                while(1) {
+                    $data = mapi_stream_read($stream, 1024);
+                    if(strlen($data) == 0)
+                        break;
+                    $fwbody .= $data;
+                }
 
-            $stream = mapi_openproperty($fwmessage, PR_HTML, IID_IStream, 0, 0);
-            $fwbody_html = "";
+                $stream = mapi_openproperty($fwmessage, PR_HTML, IID_IStream, 0, 0);
+                $fwbody_html = "";
 
-            while(1) {
-                $data = mapi_stream_read($stream, 1024);
-                if(strlen($data) == 0)
-                    break;
-                $fwbody_html .= $data;
-            }
+                while(1) {
+                    $data = mapi_stream_read($stream, 1024);
+                    if(strlen($data) == 0)
+                        break;
+                    $fwbody_html .= $data;
+                }
 
-            if($forward) {
-                // During a forward, we have to add the forward header ourselves. This is because
-                // normally the forwarded message is added as an attachment. However, we don't want this
-                // because it would be rather complicated to copy over the entire original message due
-                // to the lack of IMessage::CopyTo ..
+                if($forward) {
+                    // During a forward, we have to add the forward header ourselves. This is because
+                    // normally the forwarded message is added as an attachment. However, we don't want this
+                    // because it would be rather complicated to copy over the entire original message due
+                    // to the lack of IMessage::CopyTo ..
 
-                $fwmessageprops = mapi_getprops($fwmessage, array(PR_SENT_REPRESENTING_NAME, PR_DISPLAY_TO, PR_DISPLAY_CC, PR_SUBJECT, PR_CLIENT_SUBMIT_TIME));
+                    $fwmessageprops = mapi_getprops($fwmessage, array(PR_SENT_REPRESENTING_NAME, PR_DISPLAY_TO, PR_DISPLAY_CC, PR_SUBJECT, PR_CLIENT_SUBMIT_TIME));
 
-                $fwheader = "\r\n\r\n";
-                $fwheader .= "-----Original Message-----\r\n";
-                if(isset($fwmessageprops[PR_SENT_REPRESENTING_NAME]))
-                    $fwheader .= "From: " . $fwmessageprops[PR_SENT_REPRESENTING_NAME] . "\r\n";
-                if(isset($fwmessageprops[PR_DISPLAY_TO]) && strlen($fwmessageprops[PR_DISPLAY_TO]) > 0)
-                    $fwheader .= "To: " . $fwmessageprops[PR_DISPLAY_TO] . "\r\n";
-                if(isset($fwmessageprops[PR_DISPLAY_CC]) && strlen($fwmessageprops[PR_DISPLAY_CC]) > 0)
-                    $fwheader .= "Cc: " . $fwmessageprops[PR_DISPLAY_CC] . "\r\n";
-                if(isset($fwmessageprops[PR_CLIENT_SUBMIT_TIME]))
-                    $fwheader .= "Sent: " . strftime("%x %X", $fwmessageprops[PR_CLIENT_SUBMIT_TIME]) . "\r\n";
-                if(isset($fwmessageprops[PR_SUBJECT]))
-                    $fwheader .= "Subject: " . $fwmessageprops[PR_SUBJECT] . "\r\n";
-                $fwheader .= "\r\n";
+                    $fwheader = "\r\n\r\n";
+                    $fwheader .= "-----Original Message-----\r\n";
+                    if(isset($fwmessageprops[PR_SENT_REPRESENTING_NAME]))
+                        $fwheader .= "From: " . $fwmessageprops[PR_SENT_REPRESENTING_NAME] . "\r\n";
+                    if(isset($fwmessageprops[PR_DISPLAY_TO]) && strlen($fwmessageprops[PR_DISPLAY_TO]) > 0)
+                        $fwheader .= "To: " . $fwmessageprops[PR_DISPLAY_TO] . "\r\n";
+                    if(isset($fwmessageprops[PR_DISPLAY_CC]) && strlen($fwmessageprops[PR_DISPLAY_CC]) > 0)
+                        $fwheader .= "Cc: " . $fwmessageprops[PR_DISPLAY_CC] . "\r\n";
+                    if(isset($fwmessageprops[PR_CLIENT_SUBMIT_TIME]))
+                        $fwheader .= "Sent: " . strftime("%x %X", $fwmessageprops[PR_CLIENT_SUBMIT_TIME]) . "\r\n";
+                    if(isset($fwmessageprops[PR_SUBJECT]))
+                        $fwheader .= "Subject: " . $fwmessageprops[PR_SUBJECT] . "\r\n";
+                    $fwheader .= "\r\n";
 
 
-                // add fwheader to body and body_html
-                $body .= $fwheader;
-                if (strlen($body_html) > 0)
-                    $body_html .= str_ireplace("\r\n", "<br>", $fwheader);
+                    // add fwheader to body and body_html
+                    $body .= $fwheader;
+                    if (strlen($body_html) > 0)
+                        $body_html .= str_ireplace("\r\n", "<br>", $fwheader);
 
-                // attach the original attachments to the outgoing message
-                $attachtable = mapi_message_getattachmenttable($fwmessage);
-                $rows = mapi_table_queryallrows($attachtable, array(PR_ATTACH_NUM));
+                    // attach the original attachments to the outgoing message
+                    $attachtable = mapi_message_getattachmenttable($fwmessage);
+                    $rows = mapi_table_queryallrows($attachtable, array(PR_ATTACH_NUM));
 
-                foreach($rows as $row) {
-                    if(isset($row[PR_ATTACH_NUM])) {
-                        $attach = mapi_message_openattach($fwmessage, $row[PR_ATTACH_NUM]);
+                    foreach($rows as $row) {
+                        if(isset($row[PR_ATTACH_NUM])) {
+                            $attach = mapi_message_openattach($fwmessage, $row[PR_ATTACH_NUM]);
 
-                        $newattach = mapi_message_createattach($mapimessage);
+                            $newattach = mapi_message_createattach($mapimessage);
 
-                        // Copy all attachments from old to new attachment
-                        $attachprops = mapi_getprops($attach);
-                        mapi_setprops($newattach, $attachprops);
+                            // Copy all attachments from old to new attachment
+                            $attachprops = mapi_getprops($attach);
+                            mapi_setprops($newattach, $attachprops);
 
-                        if(isset($attachprops[mapi_prop_tag(PT_ERROR, mapi_prop_id(PR_ATTACH_DATA_BIN))])) {
-                            // Data is in a stream
-                            $srcstream = mapi_openpropertytostream($attach, PR_ATTACH_DATA_BIN);
-                            $dststream = mapi_openpropertytostream($newattach, PR_ATTACH_DATA_BIN, MAPI_MODIFY | MAPI_CREATE);
+                            if(isset($attachprops[mapi_prop_tag(PT_ERROR, mapi_prop_id(PR_ATTACH_DATA_BIN))])) {
+                                // Data is in a stream
+                                $srcstream = mapi_openpropertytostream($attach, PR_ATTACH_DATA_BIN);
+                                $dststream = mapi_openpropertytostream($newattach, PR_ATTACH_DATA_BIN, MAPI_MODIFY | MAPI_CREATE);
 
-                            while(1) {
-                                $data = mapi_stream_read($srcstream, 4096);
-                                if(strlen($data) == 0)
-                                    break;
+                                while(1) {
+                                    $data = mapi_stream_read($srcstream, 4096);
+                                    if(strlen($data) == 0)
+                                        break;
 
-                                mapi_stream_write($dststream, $data);
+                                    mapi_stream_write($dststream, $data);
+                                }
+
+                                mapi_stream_commit($dststream);
                             }
-
-                            mapi_stream_commit($dststream);
+                            mapi_savechanges($newattach);
                         }
-                        mapi_savechanges($newattach);
                     }
                 }
-            }
 
             if(strlen($body) > 0)
                 $body .= $fwbody;
 
-            if (strlen($body_html) > 0)
-                  $body_html .= $fwbody_html;
+                if (strlen($body_html) > 0)
+                    $body_html .= $fwbody_html;
+            }
         }
 
         //set PR_INTERNET_CPID to 65001 (utf-8) if store supports it and to 1252 otherwise

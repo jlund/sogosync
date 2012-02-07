@@ -161,17 +161,13 @@ interface IBackend {
      *      1) Send the message to an SMTP server as-is
      *      2) Parse the message, and send it some other way
      *
-     * @param string        $rfc822     raw mail submitted by the mobile
-     * @param string        $forward    id of the message to be attached below $rfc822
-     * @param string        $reply      id of the message to be attached below $rfc822
-     * @param string        $parent     id of the folder containing $forward or $reply
-     * @param boolean       $saveInSent indicates if the mail should be saved in the Sent folder
+     * @param SyncSendMail        $sm         SyncSendMail object
      *
      * @access public
      * @return boolean
      * @throws StatusException
      */
-    public function SendMail($rfc822, $forward = false, $reply = false, $parent = false, $saveInSent = true);
+    public function SendMail($sm);
 
     /**
      * Returns all available data of a single message

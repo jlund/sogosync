@@ -128,22 +128,29 @@ class BackendIMAP extends BackendDiff {
 
     /**
      * Sends an e-mail
-     * Message is sent over imap_mail() or mail() depending on IMAP_USE_IMAPMAIL configuration
+     * This messages needs to be saved into the 'sent items' folder
      *
-     * @param string        $rfc822     raw mail submitted by the mobile
-     * @param string        $forward    id of the message to be attached below $rfc822
-     * @param string        $reply      id of the message to be attached below $rfc822
-     * @param string        $parent     id of the folder containing $forward or $reply
-     * @param boolean       $saveInSent indicates if the mail should be saved in the Sent folder
+     * @param SyncSendMail  $sm     SyncSendMail object
      *
      * @access public
      * @return boolean
      * @throws StatusException
      */
-     // TODO implement , $saveInSent = true
-    public function SendMail($rfc822, $forward = false, $reply = false, $parent = false, $saveInSent = true) {
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("BackendIMAP->SendMail(): RFC822: %d bytes  forward-id: '%s' reply-id: '%s' parent-id: '%s' SaveInSent: '%s'",
-                                            strlen($rfc822), Utils::PrintAsString($forward), Utils::PrintAsString($reply), Utils::PrintAsString($parent), Utils::PrintAsString($saveInSent) ));
+    // TODO implement , $saveInSent = true
+    public function SendMail($sm) {
+        $reply = $forward = $parent = false;
+        if (Request::GetCommandCode() == ZPush::COMMAND_SMARTREPLY) {
+            $reply = $sm->source->itemid;
+            $parent = $sm->source->folderid;
+        }
+        if (Request::GetCommandCode() == ZPush::COMMAND_SMARTFORWARD) {
+            $forward = $sm->source->itemid;
+            $parent = $sm->source->folderid;
+        }
+
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->SendMail1(): RFC822: %d bytes  forward-id: '%s' reply-id: '%s' parent-id: '%s' SaveInSent: '%s' ReplaceMIME: '%s'",
+                                            strlen($sm->mime), Utils::PrintAsString($forward), Utils::PrintAsString($reply), Utils::PrintAsString($parent),
+                                            Utils::PrintAsString(isset($sm->saveinsent)), Utils::PrintAsString(isset($sm->replacemime)) ));
 
         if ($parent)
             // convert parent folder id back to work on an imap-id
@@ -151,10 +158,10 @@ class BackendIMAP extends BackendDiff {
 
 
         // by splitting the message in several lines we can easily grep later
-        foreach(preg_split("/((\r)?\n)/", $rfc822) as $rfc822line)
+        foreach(preg_split("/((\r)?\n)/", $sm->mime) as $rfc822line)
             ZLog::Write(LOGLEVEL_WBXML, "RFC822: ". $rfc822line);
 
-        $mobj = new Mail_mimeDecode($rfc822);
+        $mobj = new Mail_mimeDecode($sm->mime);
         $message = $mobj->decode(array('decode_headers' => false, 'decode_bodies' => true, 'include_bodies' => true, 'charset' => 'utf-8'));
 
         $Mail_RFC822 = new Mail_RFC822();
@@ -265,7 +272,7 @@ class BackendIMAP extends BackendDiff {
 
         // if this is a multipart message with a boundary, we must use the original body
         if ($use_orgbody) {
-            list(,$body) = $mobj->_splitBodyHeader($rfc822);
+            list(,$body) = $mobj->_splitBodyHeader($sm->mime);
             $repl_body = $this->getBody($message);
         }
         else
@@ -828,6 +835,9 @@ class BackendIMAP extends BackendDiff {
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("BackendIMAP->GetMessageList('%s','%s')", $folderid, $cutoffdate));
 
         $folderid = $this->getImapIdFromFolderId($folderid);
+
+        if ($folderid == false)
+            throw new StatusException("Folderid not found in cache", SYNC_STATUS_FOLDERHIERARCHYCHANGED);
 
         $messages = array();
         $this->imap_reopenFolder($folderid, true);

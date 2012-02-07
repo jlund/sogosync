@@ -1811,9 +1811,8 @@ class RequestProcessor {
      * @return boolean
      */
     static private function HandleSendMail($forward = false, $reply = false, $parent = false) {
-        // read rfc822 message from stdin
-        $rfc822 = "";
         $status = SYNC_COMMONSTATUS_SUCCESS;
+        $sm = new SyncSendMail();
 
         if (self::$decoder->IsWBXML()) {
             $el = self::$decoder->getElement();
@@ -1832,111 +1831,45 @@ class RequestProcessor {
             if(!$sendmail && !$smartreply && !$smartforward)
                 return false;
 
-            // WP and iPhone have different sequence of tags, so process it independent of it
-            while (1) {
-                $saveInSent = false;
-                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_CLIENTID)) {
-                    $clientid = self::$decoder->getElementContent();
-                    if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_CLIENTID
-                        return false;
-                }
-
-                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_SAVEINSENTITEMS)) {
-                    $saveInSent = true;
-                }
-
-                //TODO replaceMime
-                //the client modified the contents of the original message and will attach it itself
-                $replaceMime = false;
-                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_REPLACEMIME)) {
-                    $replaceMime = true;
-                }
-
-                //TODO longid
-                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_LONGID)) {
-                    $longid = self::$decoder->getElementContent();
-                    if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_LONGID
-                        return false;
-                }
-
-                //The format of the InstanceId element is a dateTime value that includes the punctuation separators. For example, 2010-03-20T22:40:00.000Z.
-                //TODO instanceid
-                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_INSTANCEID)) {
-                    $instanceid = self::$decoder->getElementContent();
-                    if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_INSTANCEID
-                        return false;
-                }
-
-                //TODO accountid
-                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_ACCOUNTID)) {
-                    $accountid = self::$decoder->getElementContent();
-                    if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_ACCOUNTID
-                    return false;
-                }
-
-                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_SOURCE)) {
-                    if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_FOLDERID)) {
-                        $parent = self::$decoder->getElementContent();
-                        if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_FOLDERID
-                            return false;
-                    }
-
-                    if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_ITEMID)) {
-                        $replyid = self::$decoder->getElementContent();
-                        if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_ITEMID
-                            return false;
-                    }
-
-                    if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_SOURCE
-                        return false;
-                }
-
-                if(self::$decoder->getElementStartTag(SYNC_COMPOSEMAIL_MIME)) {
-                    $rfc822 = self::$decoder->getElementContent();
-                    if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_MIME
-                        return false;
-                }
-
-                $e = self::$decoder->peek();
-                if($e[EN_TYPE] == EN_TYPE_ENDTAG) {
-                    self::$decoder->getElementEndTag(); //SYNC_COMPOSEMAIL_SENDMAIL, SYNC_COMPOSEMAIL_SMARTREPLY or SYNC_COMPOSEMAIL_SMARTFORWARD
-                    break;
-                }
-//                 if(!self::$decoder->getElementEndTag()) //SYNC_COMPOSEMAIL_SENDMAIL, SYNC_COMPOSEMAIL_SMARTREPLY or SYNC_COMPOSEMAIL_SMARTFORWARD
-//                     break;
-            }
-
+            $sm->Decode(self::$decoder);
         }
         else {
-            $rfc822 = self::$decoder->GetPlainInputStream();
+            $sm->mime = self::$decoder->GetPlainInputStream();
             // no wbxml output is provided, only a http OK
-            $saveInSent = Request::GetGETSaveInSent();
+            $sm->saveinsent = Request::GetGETSaveInSent();
         }
-        self::$topCollector->AnnounceInformation(sprintf("Sending email with %d bytes", strlen($rfc822)), true);
-        try {
-            // if replyid is set then it's a smartreply or smartforward. Find out which is it and set forward or reply
-            // if replaceMime is set and true, then do not get the original message from the server
-            if (isset($replyid)) {
-                $forward = (isset($smartforward) && $smartforward && (!isset($replaceMime) || (isset($replaceMime) && !$replaceMime))) ? $replyid : false;
-                $reply = (isset($smartreply) && $smartreply && (!isset($replaceMime) || (isset($replaceMime) && !$replaceMime))) ? $replyid : false;
+        if ($reply || $forward) {
+            if (!isset($sm->source)) $sm->source = new SyncSendMailSource();
+            if ($reply) $sm->source->itemid = $reply;
+            else $sm->source->itemid = $forward;
+            if ($parent) $sm->source->folderid = $parent;
+            else {
+                ZLog::Write(LOGLEVEL_ERROR, sprintf("No parent folder id while replying or forwarding message:'%s'", (($reply) ? $reply : $forward)));
             }
-            $status = self::$backend->SendMail($rfc822, $forward, $reply, $parent, $saveInSent);
+        }
+
+        self::$topCollector->AnnounceInformation(sprintf("Sending email with %d bytes", strlen($sm->mime)), true);
+
+        try {
+            $status = self::$backend->SendMail($sm);
         }
         catch (StatusException $se) {
             $status = $se->getCode();
             $statusMessage = $se->getMessage();
         }
 
-        if (self::$decoder->IsWBXML()) {
-            self::$encoder->StartWBXML();
-            self::$encoder->startTag(SYNC_COMPOSEMAIL_SENDMAIL);
+        if ($status != SYNC_COMMONSTATUS_SUCCESS) {
+            if (self::$decoder->IsWBXML()) {
+                // TODO check no WBXML on SmartReply and SmartForward
+                self::$encoder->StartWBXML();
+                self::$encoder->startTag(SYNC_COMPOSEMAIL_SENDMAIL);
                 self::$encoder->startTag(SYNC_COMPOSEMAIL_STATUS);
                 self::$encoder->content($status); //TODO return the correct status
                 self::$encoder->endTag();
-            self::$encoder->endTag();
-        }
-        elseif ($status != SYNC_COMMONSTATUS_SUCCESS) {
-            throw new HTTPReturnCodeException($statusMessage, HTTP_CODE_500, null, LOGLEVEL_WARN);
+                self::$encoder->endTag();
+            }
+            else
+                throw new HTTPReturnCodeException($statusMessage, HTTP_CODE_500, null, LOGLEVEL_WARN);
         }
 
         return $status;
