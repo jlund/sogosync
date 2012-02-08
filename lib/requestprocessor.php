@@ -486,7 +486,10 @@ class RequestProcessor {
                     $newsyncstate = (isset($exporter))?$exporter->GetState():"";
                 }
                 catch (StatusException $stex) {
-                   $status = $stex->getCode();
+                    if ($stex->getCode() == SYNC_FSSTATUS_CODEUNKNOWN)
+                        $status = SYNC_FSSTATUS_SYNCKEYERROR;
+                    else
+                        $status = $stex->getCode();
                 }
             }
 
@@ -1198,7 +1201,7 @@ class RequestProcessor {
                                 $changecount = $exporter->GetChangeCount();
                             }
                             catch (StatusException $stex) {
-                                if ($stex->getCode() === SYNC_FSSTATUS_CODEUNKNOWN)
+                                if ($stex->getCode() === SYNC_FSSTATUS_CODEUNKNOWN && $cpo->HasSyncKey())
                                     $status = SYNC_STATUS_INVALIDSYNCKEY;
                                 else
                                     $status = $stex->getCode();
@@ -1216,7 +1219,7 @@ class RequestProcessor {
                         if (!empty($actiondata["modifyids"]) ||
                             !empty($actiondata["clientids"]) ||
                             !empty($actiondata["removeids"]) ||
-                            $changecount > 0 || ! $cpo->HasSyncKey())
+                            $changecount > 0 || (! $cpo->HasSyncKey() && $status == SYNC_STATUS_SUCCESS))
                                 $cpo->SetNewSyncKey(self::$deviceManager->GetStateManager()->GetNewSyncKey($cpo->GetSyncKey()));
 
                         self::$encoder->startTag(SYNC_FOLDER);
