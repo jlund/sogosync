@@ -442,7 +442,7 @@ class ASDevice extends StateObject {
      */
     public function GetHierarchyCacheData() {
         if (isset($this->hierarchyCache))
-            return serialize($this->hierarchyCache);
+            return $this->hierarchyCache;
 
         ZLog::Write(LOGLEVEL_WARN, "ASDevice->GetHierarchyCacheData() has no data! HierarchyCache probably never initialized.");
         return false;
