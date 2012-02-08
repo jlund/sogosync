@@ -123,7 +123,7 @@ class ExportChangesICS implements IExportChanges{
         $this->flags = $flags;
 
         // this should never happen
-        if ($this->exporter === false)
+        if ($this->exporter === false || is_array($state))
             throw new StatusException("ExportChangesICS->Config(): Error, exporter not available", SYNC_FSSTATUS_CODEUNKNOWN, null, LOGLEVEL_ERROR);
 
         // change exporterflags if we are doing a ContentExport
