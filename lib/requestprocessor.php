@@ -538,7 +538,7 @@ class RequestProcessor {
         // Contains all requested folders (containers)
         $sc = new SyncCollections();
         $status = SYNC_STATUS_SUCCESS;
-        $foldersync = false;
+        $wbxmlproblem = false;
         $emtpysync = false;
 
         // Start Synchronize
@@ -554,8 +554,6 @@ class RequestProcessor {
 
             // Synching specified folders
             if(self::$decoder->getElementStartTag(SYNC_FOLDERS)) {
-                $foldersync = true;
-
                 while(self::$decoder->getElementStartTag(SYNC_FOLDER)) {
                     $actiondata = array();
                     $actiondata["requested"] = true;
@@ -872,6 +870,14 @@ class RequestProcessor {
 
                             // Get the SyncMessage if sent
                             if(self::$decoder->getElementStartTag(SYNC_DATA)) {
+
+                                // We can not proceed here as the content class is unknown
+                                if ($status != SYNC_STATUS_SUCCESS && !$cpo->HasContentClass()) {
+                                    ZLog::Write(LOGLEVEL_WARN, "Ignoring all incoming actions as global status indicates problem.");
+                                    $wbxmlproblem = true;
+                                    break 2;
+                                }
+
                                 $message = ZPush::getSyncObjectFromFolderClass($cpo->GetContentClass());
                                 $message->Decode(self::$decoder);
 
@@ -1030,7 +1036,7 @@ class RequestProcessor {
                         $sc->AddParameter($cpo, "getchanges", true);
                 } // END FOLDER
 
-                if(!self::$decoder->getElementEndTag()) // end collections
+                if(!$wbxmlproblem && !self::$decoder->getElementEndTag()) // end collections
                     return false;
             } // end FOLDERS
 
@@ -1061,7 +1067,7 @@ class RequestProcessor {
             else
                 $partial = false;
 
-            if(!self::$decoder->getElementEndTag()) // end sync
+            if(!$wbxmlproblem && !self::$decoder->getElementEndTag()) // end sync
                 return false;
         }
         // we did not receive a SYNCHRONIZE block - assume empty sync
