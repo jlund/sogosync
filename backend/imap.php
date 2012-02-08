@@ -57,6 +57,8 @@ class BackendIMAP extends BackendDiff {
     private $username;
     private $domain;
     private $serverdelimiter;
+    private $sinkfolders;
+    private $sinkstates;
 
     /**----------------------------------------------------------------------------------------------------------
      * default backend methods
@@ -568,52 +570,86 @@ class BackendIMAP extends BackendDiff {
     }
 
     /**
-     * Returns true if the Backend implementation supports an alternative PING mechanism
+     * Indicates if the backend has a ChangesSink.
+     * A sink is an active notification mechanism which does not need polling.
+     * The IMAP backend simulates a sink by polling status information of the folder
      *
      * @access public
      * @return boolean
      */
-    public function AlterPing() {
+    public function HasChangesSink() {
+        $this->sinkfolders = array();
+        $this->sinkstates = array();
         return true;
     }
 
     /**
-     * Requests an indication if changes happened in a folder since the syncstate
+     * The folder should be considered by the sink.
+     * Folders which were not initialized should not result in a notification
+     * of IBacken->ChangesSink().
      *
-     * @param string        $folderid       id of the folder
-     * @param string        &$syncstate     reference of the syncstate
+     * @param string        $folderid
      *
      * @access public
-     * @return boolean      if false an error occured
+     * @return boolean      false if found can not be found
      */
-    public function AlterPingChanges($folderid, &$syncstate) {
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("AlterPingChanges(): on '%s' with stat: '%s'", $folderid, $syncstate));
-        // convert back to work on an imap-id
-        $folderImapid = $this->getImapIdFromFolderId($folderid);
+    public function ChangesSinkInitialize($folderid) {
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("IMAPBackend->ChangesSinkInitialize(): folderid '%s'", $folderid));
 
-        $this->imap_reopenFolder($folderImapid);
+        $imapid = $this->getImapIdFromFolderId($folderid);
 
-        // courier-imap only cleares the status cache after checking
-        @imap_check($this->mbox);
-
-        $status = @imap_status($this->mbox, $this->server . $folderImapid, SA_ALL);
-        if (!$status) {
-            ZLog::Write(LOGLEVEL_WARN, sprintf("AlterPingChanges: could not stat folder '%s': %s ", $folderid, imap_last_error()));
-            return false;
+        if ($imapid) {
+            $this->sinkfolders[] = $imapid;
+            return true;
         }
-        else {
-            // build somekind of a fake stat which can be easily compared
-            $newstate = "M:". $status->messages ."-R:". $status->recent ."-U:". $status->unseen;
 
-            // message number is different - change occured
-            if (!isset($syncstate[0]) || $syncstate[0] != $newstate) {
-                $syncstate = array($newstate);
-                ZLog::Write(LOGLEVEL_INFO, "AlterPingChanges(): Change FOUND!");
-                // build a dummy change
-                return array(array("type" => "fakeChange"));
+        return false;
+    }
+
+    /**
+     * The actual ChangesSink.
+     * For max. the $timeout value this method should block and if no changes
+     * are available return an empty array.
+     * If changes are available a list of folderids is expected.
+     *
+     * @param int           $timeout        max. amount of seconds to block
+     *
+     * @access public
+     * @return array
+     */
+    public function ChangesSink($timeout = 30) {
+        $notifications = array();
+        $stopat = time() + $timeout - 1;
+
+        while($stopat > time() && empty($notifications)) {
+            foreach ($this->sinkfolders as $imapid) {
+                $this->imap_reopenFolder($imapid);
+
+                // courier-imap only cleares the status cache after checking
+                @imap_check($this->mbox);
+
+                $status = @imap_status($this->mbox, $this->server . $imapid, SA_ALL);
+                if (!$status) {
+                    ZLog::Write(LOGLEVEL_WARN, sprintf("ChangesSink: could not stat folder '%s': %s ", $this->getFolderIdFromImapId($imapid), imap_last_error()));
+                }
+                else {
+                    $newstate = "M:". $status->messages ."-R:". $status->recent ."-U:". $status->unseen;
+
+                    if (! isset($this->sinkstates[$imapid]) )
+                        $this->sinkstates[$imapid] = $newstate;
+
+                    if ($this->sinkstates[$imapid] != $newstate) {
+                        $notifications[] = $this->getFolderIdFromImapId($imapid);
+                        $this->sinkstates[$imapid] = $newstate;
+                    }
+                }
             }
+
+            if (empty($notifications))
+                sleep(5);
         }
-        return array();
+
+        return $notifications;
     }
 
 

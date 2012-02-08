@@ -881,29 +881,6 @@ class BackendZarafa implements IBackend, ISearchProvider {
     }
 
     /**
-     * ZarafaBackend uses ICS to do change detection
-     *
-     * @access public
-     * @return boolean
-     */
-    public function AlterPing() {
-        return false;
-    }
-
-    /**
-     * ZarafaBackend has own machanism
-     *
-     * @param string        $folderid       id of the folder
-     * @param string        &$syncstate     reference of the syncstate
-     *
-     * @access public
-     * @return boolean
-     */
-    public function AlterPingChanges($folderid, &$syncstate) {
-        return array();
-    }
-
-    /**
      * Indicates if the backend has a ChangesSink.
      * A sink is an active notification mechanism which does not need polling.
      * Since Zarafa 7.0.5 such a sink is available.

@@ -223,25 +223,6 @@ interface IBackend {
     public function MeetingResponse($requestid, $folderid, $response);
 
     /**
-     * Returns true if the Backend implementation supports an alternative PING mechanism
-     *
-     * @access public
-     * @return boolean
-     */
-    public function AlterPing();
-
-    /**
-     * Requests an indication if changes happened in a folder since the syncstate
-     *
-     * @param string        $folderid       id of the folder
-     * @param string        &$syncstate     reference of the syncstate
-     *
-     * @access public
-     * @return boolean
-     */
-    public function AlterPingChanges($folderid, &$syncstate);
-
-    /**
      * Indicates if the backend has a ChangesSink.
      * A sink is an active notification mechanism which does not need polling.
      *
