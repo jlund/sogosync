@@ -64,6 +64,12 @@ class DiffState implements IChanges {
      * @throws StatusException
      */
     public function Config($state, $flags = 0) {
+        if ($state == "")
+            $state = array();
+
+        if (!is_array($state))
+            throw new StatusException("Invalid state", SYNC_FSSTATUS_CODEUNKNOWN);
+
         $this->syncstate = $state;
         $this->flags = $flags;
         return true;
