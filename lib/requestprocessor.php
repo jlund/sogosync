@@ -807,6 +807,13 @@ class RequestProcessor {
                     }
 
                     if(self::$decoder->getElementStartTag(SYNC_PERFORM)) {
+                        // We can not proceed here as the content class is unknown
+                        if ($status != SYNC_STATUS_SUCCESS) {
+                            ZLog::Write(LOGLEVEL_WARN, "Ignoring all incoming actions as global status indicates problem.");
+                            $wbxmlproblem = true;
+                            break;
+                        }
+
                         $performaction = true;
 
                         if ($status == SYNC_STATUS_SUCCESS) {
@@ -870,14 +877,6 @@ class RequestProcessor {
 
                             // Get the SyncMessage if sent
                             if(self::$decoder->getElementStartTag(SYNC_DATA)) {
-
-                                // We can not proceed here as the content class is unknown
-                                if ($status != SYNC_STATUS_SUCCESS && !$cpo->HasContentClass()) {
-                                    ZLog::Write(LOGLEVEL_WARN, "Ignoring all incoming actions as global status indicates problem.");
-                                    $wbxmlproblem = true;
-                                    break 2;
-                                }
-
                                 $message = ZPush::getSyncObjectFromFolderClass($cpo->GetContentClass());
                                 $message->Decode(self::$decoder);
 
