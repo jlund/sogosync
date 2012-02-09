@@ -954,6 +954,10 @@ class BackendZarafa implements IBackend, ISearchProvider {
             if (isset($sinknotif['parentid']) && array_key_exists($sinknotif['parentid'], $this->changesSinkFolders)) {
                 $notifications[] = $this->changesSinkFolders[$sinknotif['parentid']];
             }
+            // deletes and moves
+            else if (isset($sinknotif['oldparentid']) && array_key_exists($sinknotif['oldparentid'], $this->changesSinkFolders)) {
+                $notifications[] = $this->changesSinkFolders[$sinknotif['oldparentid']];
+            }
         }
         return $notifications;
     }
