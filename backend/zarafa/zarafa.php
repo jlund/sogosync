@@ -399,6 +399,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
             $parent = $sm->source->folderid;
         }
 
+        //TODO log entry
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->SendMail(): RFC822: %d bytes  forward-id: '%s' reply-id: '%s' parent-id: '%s' SaveInSent: '%s' ReplaceMIME: '%s'",
                                             strlen($sm->mime), Utils::PrintAsString($forward), Utils::PrintAsString($reply), Utils::PrintAsString($parent),
                                             Utils::PrintAsString(isset($sm->saveinsent)), Utils::PrintAsString(isset($sm->replacemime)) ));
@@ -415,78 +416,31 @@ class BackendZarafa implements IBackend, ISearchProvider {
         $mimeObject = new Mail_mimeDecode($sm->mime);
         $message = $mimeObject->decode($mimeParams);
 
+        $sendMailProps = MAPIMapping::GetSendMailProperties();
+        $sendMailProps = getPropIdsFromStrings($this->store, $sendMailProps);
+
         // Open the outbox and create the message there
-        $storeprops = mapi_getprops($this->store, array(PR_IPM_OUTBOX_ENTRYID, PR_IPM_SENTMAIL_ENTRYID));
-        if(isset($storeprops[PR_IPM_OUTBOX_ENTRYID]))
-            $outbox = mapi_msgstore_openentry($this->store, $storeprops[PR_IPM_OUTBOX_ENTRYID]);
+        $storeprops = mapi_getprops($this->store, array($sendMailProps["outboxentryid"], $sendMailProps["sentmailentryid"]));
+        if(isset($storeprops[$sendMailProps["outboxentryid"]]))
+            $outbox = mapi_msgstore_openentry($this->store, $storeprops[$sendMailProps["outboxentryid"]]);
 
         if(!$outbox)
             throw new StatusException(sprintf("ZarafaBackend->SendMail(): No Outbox found or unable to create message: 0x%X", mapi_last_hresult()), SYNC_COMMONSTATUS_SERVERERROR);
 
         $mapimessage = mapi_folder_createmessage($outbox);
 
-        mapi_setprops($mapimessage, array(
-            PR_SUBJECT => u2wi(isset($message->headers["subject"])?$message->headers["subject"]:""),
-            PR_SENTMAIL_ENTRYID => $storeprops[PR_IPM_SENTMAIL_ENTRYID],
-            PR_MESSAGE_CLASS => "IPM.Note",
-            PR_MESSAGE_DELIVERY_TIME => time()
-        ));
+        //message properties to be set
+        $mapiprops = array();
+        $mapiprops[$sendMailProps["subject"]] = u2wi(isset($message->headers["subject"])?$message->headers["subject"]:"");
+        $mapiprops[$sendMailProps["sentmailentryid"]] = $storeprops[$sendMailProps["sentmailentryid"]];
+        $mapiprops[$sendMailProps["messageclass"]] = "IPM.Note";
+        $mapiprops[$sendMailProps["deliverytime"]] = time();
 
         if(isset($message->headers["x-priority"])) {
-            switch($message->headers["x-priority"]) {
-                case 1:
-                case 2:
-                    $priority = PRIO_URGENT;
-                    $importance = IMPORTANCE_HIGH;
-                    break;
-                case 4:
-                case 5:
-                    $priority = PRIO_NONURGENT;
-                    $importance = IMPORTANCE_LOW;
-                    break;
-                case 3:
-                default:
-                    $priority = PRIO_NORMAL;
-                    $importance = IMPORTANCE_NORMAL;
-                    break;
-            }
-            mapi_setprops($mapimessage, array(PR_IMPORTANCE => $importance, PR_PRIORITY => $priority));
+            $this->getImportanceAndPriority($message->headers["x-priority"], $mapiprops);
         }
 
-        $addresses = array();
-
-        $toaddr = $ccaddr = $bccaddr = array();
-
-        $Mail_RFC822 = new Mail_RFC822();
-        if(isset($message->headers["to"]))
-            $toaddr = $Mail_RFC822->parseAddressList($message->headers["to"]);
-        if(isset($message->headers["cc"]))
-            $ccaddr = $Mail_RFC822->parseAddressList($message->headers["cc"]);
-        if(isset($message->headers["bcc"]))
-            $bccaddr = $Mail_RFC822->parseAddressList($message->headers["bcc"]);
-
-        if(empty($toaddr))
-            throw new StatusException(sprintf("ZarafaBackend->SendMail(): 'To' address in RFC822 message not found or unparsable. To header: '%s'", ((isset($message->headers["to"]))?$message->headers["to"]:'')), SYNC_COMMONSTATUS_MESSHASNORECIP);
-
-        // Add recipients
-        $recips = array();
-        foreach(array(MAPI_TO => $toaddr, MAPI_CC => $ccaddr, MAPI_BCC => $bccaddr) as $type => $addrlist) {
-            foreach($addrlist as $addr) {
-                $mapirecip[PR_ADDRTYPE] = "SMTP";
-                $mapirecip[PR_EMAIL_ADDRESS] = $addr->mailbox . "@" . $addr->host;
-                if(isset($addr->personal) && strlen($addr->personal) > 0)
-                    $mapirecip[PR_DISPLAY_NAME] = u2wi($addr->personal);
-                else
-                    $mapirecip[PR_DISPLAY_NAME] = $mapirecip[PR_EMAIL_ADDRESS];
-                $mapirecip[PR_RECIPIENT_TYPE] = $type;
-
-                $mapirecip[PR_ENTRYID] = mapi_createoneoff($mapirecip[PR_DISPLAY_NAME], $mapirecip[PR_ADDRTYPE], $mapirecip[PR_EMAIL_ADDRESS]);
-
-                array_push($recips, $mapirecip);
-            }
-        }
-
-        mapi_message_modifyrecipients($mapimessage, 0, $recips);
+        $this->addRecipients($message->headers, $mapimessage);
 
         // Loop through message subparts.
         $body = "";
@@ -520,7 +474,6 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
                     require_once('tnefparser.php');
                     $zptnef = new TNEFParser($this->store, $tnefAndIcalProps);
-                    $mapiprops = array();
 
                     $zptnef->ExtractProps($part->body, $mapiprops);
                     if (is_array($mapiprops) && !empty($mapiprops)) {
@@ -528,7 +481,6 @@ class BackendZarafa implements IBackend, ISearchProvider {
                         if (isset($mapiprops[$tnefAndIcalProps["tnefrecurr"]])) {
                             MAPIUtils::handleRecurringItem($mapiprops, $tnefAndIcalProps);
                         }
-                        mapi_setprops($mapimessage, $mapiprops);
                     }
                     else ZLog::Write(LOGLEVEL_WARN, "ZarafaBackend->Sendmail(): TNEFParser: Mapi property array was empty");
                 }
@@ -541,7 +493,6 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
                     require_once('icalparser.php');
                     $zpical = new ICalParser($this->store, $tnefAndIcalProps);
-                    $mapiprops = array();
                     $zpical->ExtractProps($part->body, $mapiprops);
 
                     // iPhone sends a second ICS which we ignore if we can
@@ -588,16 +539,17 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
         if(isset($orig) && $orig) {
             // Append the original text body for reply/forward
-            $entryid = mapi_msgstore_entryidfromsourcekey($this->store, hex2bin($parent), hex2bin($orig));
+
+            $entryid = mapi_msgstore_entryidfromsourcekey($this->store, hex2bin($sm->source->folderid), hex2bin($sm->source->itemid));
             if ($entryid)
                 $fwmessage = mapi_msgstore_openentry($this->store, $entryid);
 
             if(!isset($fwmessage) || !$fwmessage)
-                throw new StatusException(sprintf("ZarafaBackend->SendMail(): Could not open message id '%s' in folder id '%s' to be replied/forwarded: 0x%X", $orig, $parent, mapi_last_hresult()), SYNC_COMMONSTATUS_ITEMNOTFOUND);
+                throw new StatusException(sprintf("ZarafaBackend->SendMail(): Could not open message id '%s' in folder id '%s' to be replied/forwarded: 0x%X", $sm->source->itemid, $sm->source->folderid, mapi_last_hresult()), SYNC_COMMONSTATUS_ITEMNOTFOUND);
 
             //update icon when forwarding or replying message
-            if ($forward) mapi_setprops($fwmessage, array(PR_ICON_INDEX=>262));
-            elseif ($reply) mapi_setprops($fwmessage, array(PR_ICON_INDEX=>261));
+            if (Request::GetCommandCode() == ZPush::COMMAND_SMARTFORWARD) mapi_setprops($fwmessage, array(PR_ICON_INDEX=>262));
+            elseif (Request::GetCommandCode() == ZPush::COMMAND_SMARTREPLY) mapi_setprops($fwmessage, array(PR_ICON_INDEX=>261));
             mapi_savechanges($fwmessage);
 
             // only attach the original message if the mobile does not send it itself
@@ -622,7 +574,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
                     $fwbody_html .= $data;
                 }
 
-                if($forward) {
+                if(Request::GetCommandCode() == ZPush::COMMAND_SMARTFORWARD) {
                     // During a forward, we have to add the forward header ourselves. This is because
                     // normally the forwarded message is added as an attachment. However, we don't want this
                     // because it would be rather complicated to copy over the entire original message due
@@ -684,8 +636,8 @@ class BackendZarafa implements IBackend, ISearchProvider {
                     }
                 }
 
-            if(strlen($body) > 0)
-                $body .= $fwbody;
+                if(strlen($body) > 0)
+                    $body .= $fwbody;
 
                 if (strlen($body_html) > 0)
                     $body_html .= $fwbody_html;
@@ -698,11 +650,17 @@ class BackendZarafa implements IBackend, ISearchProvider {
             $internetcpid = INTERNET_CPID_UTF8;
         }
 
-        mapi_setprops($mapimessage, array(PR_BODY => $body, PR_INTERNET_CPID => $internetcpid));
+        $mapiprops[$sendMailProps["body"]] = $body;
+        $mapiprops[$sendMailProps["internetcpid"]] = $internetcpid;
+
 
         if(strlen($body_html) > 0){
-            mapi_setprops($mapimessage, array(PR_HTML => $body_html));
+            $mapiprops[$sendMailProps["html"]] = $body_html;
         }
+
+        //TODO if setting all properties fails, try setting them infividually like in mapiprovider
+        mapi_setprops($mapimessage, $mapiprops);
+
         mapi_savechanges($mapimessage);
         mapi_message_submitmessage($mapimessage);
 
@@ -1304,6 +1262,78 @@ class BackendZarafa implements IBackend, ISearchProvider {
         }
         ZLog::Write(LOGLEVEL_ERROR, sprintf("Getting user information failed: mapi_zarafa_getuser(%X)", mapi_last_hresult()));
         return false;
+    }
+
+    /**
+     * Sets the importance and priority of a message from a RFC822 message headers.
+     *
+     * @param int $xPriority
+     * @param array $mapiprops
+     *
+     * @return void
+     */
+    private function getImportanceAndPriority($xPriority, &$mapiprops) {
+        switch($xPriority) {
+            case 1:
+            case 2:
+                $priority = PRIO_URGENT;
+                $importance = IMPORTANCE_HIGH;
+                break;
+            case 4:
+            case 5:
+                $priority = PRIO_NONURGENT;
+                $importance = IMPORTANCE_LOW;
+                break;
+            case 3:
+            default:
+                $priority = PRIO_NORMAL;
+                $importance = IMPORTANCE_NORMAL;
+                break;
+        }
+        $mapiprops[$sendMailProps["importance"]] = $importance;
+        $mapiprops[$sendMailProps["priority"]] = $priority;
+    }
+
+    /**
+     * Adds the recipients to an email message from a RFC822 message headers.
+     *
+     * Enter description here ...
+     * @param MIMEMessageHeader $headers
+     * @param MAPIMessage $mapimessage
+     */
+    private function addRecipients($headers, &$mapimessage) {
+        $toaddr = $ccaddr = $bccaddr = array();
+
+        $Mail_RFC822 = new Mail_RFC822();
+        if(isset($headers["to"]))
+            $toaddr = $Mail_RFC822->parseAddressList($headers["to"]);
+        if(isset($headers["cc"]))
+            $ccaddr = $Mail_RFC822->parseAddressList($headers["cc"]);
+        if(isset($headers["bcc"]))
+            $bccaddr = $Mail_RFC822->parseAddressList($headers["bcc"]);
+
+        if(empty($toaddr))
+            throw new StatusException(sprintf("ZarafaBackend->SendMail(): 'To' address in RFC822 message not found or unparsable. To header: '%s'", ((isset($headers["to"]))?$headers["to"]:'')), SYNC_COMMONSTATUS_MESSHASNORECIP);
+
+        // Add recipients
+        $recips = array();
+        foreach(array(MAPI_TO => $toaddr, MAPI_CC => $ccaddr, MAPI_BCC => $bccaddr) as $type => $addrlist) {
+            foreach($addrlist as $addr) {
+                $mapirecip[PR_ADDRTYPE] = "SMTP";
+                $mapirecip[PR_EMAIL_ADDRESS] = $addr->mailbox . "@" . $addr->host;
+                if(isset($addr->personal) && strlen($addr->personal) > 0)
+                    $mapirecip[PR_DISPLAY_NAME] = u2wi($addr->personal);
+                else
+                    $mapirecip[PR_DISPLAY_NAME] = $mapirecip[PR_EMAIL_ADDRESS];
+
+                $mapirecip[PR_RECIPIENT_TYPE] = $type;
+                $mapirecip[PR_ENTRYID] = mapi_createoneoff($mapirecip[PR_DISPLAY_NAME], $mapirecip[PR_ADDRTYPE], $mapirecip[PR_EMAIL_ADDRESS]);
+
+                array_push($recips, $mapirecip);
+            }
+        }
+
+        mapi_message_modifyrecipients($mapimessage, 0, $recips);
     }
 
 }
