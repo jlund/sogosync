@@ -473,5 +473,40 @@ class MAPIMapping {
             "messageclass"          => PR_MESSAGE_CLASS,
         );
     }
+
+
+    /**
+    * Returns properties for sending an email
+    *
+    * @access public
+    *
+    * @return array
+    */
+    public static function GetSendMailProperties() {
+        return array(
+                "outboxentryid"         => PR_IPM_OUTBOX_ENTRYID,
+                "sentmailentryid"       => PR_IPM_SENTMAIL_ENTRYID,
+                "subject"               => PR_SUBJECT,
+                "messageclass"          => PR_MESSAGE_CLASS,
+                "deliverytime"          => PR_MESSAGE_DELIVERY_TIME,
+                "importance"            => PR_IMPORTANCE,
+                "priority"              => PR_PRIORITY,
+                "addrtype"              => PR_ADDRTYPE,
+                "emailaddress"          => PR_EMAIL_ADDRESS,
+                "displayname"           => PR_DISPLAY_NAME,
+                "recipienttype"         => PR_RECIPIENT_TYPE,
+                "entryid"               => PR_ENTRYID,
+                "iconindex"             => PR_ICON_INDEX,
+                "body"                  => PR_BODY,
+                "html"                  => PR_HTML,
+                "sentrepresentingname"  => PR_SENT_REPRESENTING_NAME,
+                "displayto"             => PR_DISPLAY_TO,
+                "displaycc"             => PR_DISPLAY_CC,
+                "clientsubmittime"      => PR_CLIENT_SUBMIT_TIME,
+                "attachnum"             => PR_ATTACH_NUM,
+                "attachdatabin"         => PR_ATTACH_DATA_BIN,
+                "internetcpid"          => PR_INTERNET_CPID,
+        );
+    }
 }
 ?>
