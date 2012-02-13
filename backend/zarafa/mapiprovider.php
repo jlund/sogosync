@@ -1311,7 +1311,7 @@ class MAPIProvider {
         $props = array();
         $props[$noteprops["messageclass"]] = "IPM.StickyNote";
         // set body otherwise the note will be "broken" when editing it in outlook
-        $props[$noteprops["body"]] = $note->subject;
+        $props[$noteprops["body"]] = $note->asbody->data;
         mapi_setprops($mapimessage, $props);
     }
 
