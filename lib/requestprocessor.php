@@ -1453,10 +1453,16 @@ class RequestProcessor {
 
         while(self::$decoder->getElementStartTag(SYNC_GETITEMESTIMATE_FOLDER)) {
             $cpo = new ContentParameters();
+            $cpostatus = false;
 
             if (Request::GetProtocolVersion() >= 14.0) {
                 if(self::$decoder->getElementStartTag(SYNC_SYNCKEY)) {
-                    $cpo->SetSyncKey(self::$decoder->getElementContent());
+                    try {
+                        $cpo->SetSyncKey(self::$decoder->getElementContent());
+                    }
+                    catch (StateInvalidException $siex) {
+                        $cpostatus = SYNC_GETITEMESTSTATUS_SYNCSTATENOTPRIMED;
+                    }
 
                     if(!self::$decoder->getElementEndTag())
                         return false;
@@ -1534,7 +1540,12 @@ class RequestProcessor {
                 if(!self::$decoder->getElementStartTag(SYNC_SYNCKEY))
                     return false;
 
-                $cpo->SetSyncKey(self::$decoder->getElementContent());
+                try {
+                    $cpo->SetSyncKey(self::$decoder->getElementContent());
+                }
+                catch (StateInvalidException $siex) {
+                    $cpostatus = SYNC_GETITEMESTSTATUS_SYNCSTATENOTPRIMED;
+                }
 
                 if(!self::$decoder->getElementEndTag())
                     return false;
@@ -1556,20 +1567,26 @@ class RequestProcessor {
 
             // Add collection to SC and load state
             $sc->AddCollection($cpo);
-            try {
-                $sc->AddParameter($cpo, "state", self::$deviceManager->GetStateManager()->GetSyncState($cpo->GetSyncKey()));
+            if ($cpostatus) {
+                // the CPO has a folder id now, so we can set the status
+                $sc->AddParameter($cpo, "status", $cpostatus);
+            }
+            else {
+                try {
+                    $sc->AddParameter($cpo, "state", self::$deviceManager->GetStateManager()->GetSyncState($cpo->GetSyncKey()));
 
-                // if this is an additional folder the backend has to be setup correctly
-                if (!self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore($cpo->GetFolderId())))
-                    throw new StatusException(sprintf("HandleSync() could not Setup() the backend for folder id '%s'", $cpo->GetFolderId()), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
-            }
-            catch (StateNotFoundException $snfex) {
-                $sc->AddParameter($cpo, "status", SYNC_GETITEMESTSTATUS_SYNCKKEYINVALID);
-                self::$topCollector->AnnounceInformation("StateNotFoundException", true);
-            }
-            catch (StatusException $stex) {
-                $sc->AddParameter($cpo, "status", SYNC_GETITEMESTSTATUS_SYNCSTATENOTPRIMED);
-                self::$topCollector->AnnounceInformation("StatusException SYNCSTATENOTPRIMED", true);
+                    // if this is an additional folder the backend has to be setup correctly
+                    if (!self::$backend->Setup(ZPush::GetAdditionalSyncFolderStore($cpo->GetFolderId())))
+                        throw new StatusException(sprintf("HandleSync() could not Setup() the backend for folder id '%s'", $cpo->GetFolderId()), SYNC_STATUS_FOLDERHIERARCHYCHANGED);
+                }
+                catch (StateNotFoundException $snfex) {
+                    $sc->AddParameter($cpo, "status", SYNC_GETITEMESTSTATUS_SYNCKKEYINVALID);
+                    self::$topCollector->AnnounceInformation("StateNotFoundException", true);
+                }
+                catch (StatusException $stex) {
+                    $sc->AddParameter($cpo, "status", SYNC_GETITEMESTSTATUS_SYNCSTATENOTPRIMED);
+                    self::$topCollector->AnnounceInformation("StatusException SYNCSTATENOTPRIMED", true);
+                }
             }
         }
         if(!self::$decoder->getElementEndTag())
@@ -1595,7 +1612,6 @@ class RequestProcessor {
             foreach($sc as $folderid => $cpo) {
                 self::$encoder->startTag(SYNC_GETITEMESTIMATE_RESPONSE);
                 {
-                    $changecount = (isset($changes[$folderid]) && $changes[$folderid] !== false)? $changes[$folderid] : 0;
                     if ($sc->GetParameter($cpo, "status"))
                         $status = $sc->GetParameter($cpo, "status");
 
@@ -1613,13 +1629,16 @@ class RequestProcessor {
                         self::$encoder->content($cpo->GetFolderId());
                         self::$encoder->endTag();
 
-                        self::$encoder->startTag(SYNC_GETITEMESTIMATE_ESTIMATE);
-                        self::$encoder->content($changecount);
-                        self::$encoder->endTag();
+                        if (isset($changes[$folderid]) && $changes[$folderid] !== false) {
+                            self::$encoder->startTag(SYNC_GETITEMESTIMATE_ESTIMATE);
+                            self::$encoder->content($changes[$folderid]);
+                            self::$encoder->endTag();
+
+                            if ($changes[$folderid] > 0)
+                                self::$topCollector->AnnounceInformation(sprintf("%s %d changes", $cpo->GetContentClass(), $changes[$folderid]), true);
+                        }
                     }
                     self::$encoder->endTag();
-                    if ($changecount > 0)
-                        self::$topCollector->AnnounceInformation(sprintf("%s %d changes", $cpo->GetContentClass(), $changecount), true);
                 }
                 self::$encoder->endTag();
             }
