@@ -229,7 +229,7 @@ class MAPIProvider {
         // Only set timezone if the timezone tag is set which is usually for recurring appointments only.
         // For non-recurring appointments it doesn't matter anyway
         if(isset($messageprops[$appointmentprops["timezonetag"]])) {
-            $message->timezone = base64_encode($messageprops[$appointmentprops["timezonetag"]]);
+            $message->timezone = base64_encode($this->getSyncBlobFromTZ($this->getTZFromMAPIBlob($messageprops[$appointmentprops["timezonetag"]])));
         }
         if(isset($messageprops[$appointmentprops["isrecurring"]]) && $messageprops[$appointmentprops["isrecurring"]]) {
             if (isset($messageprops[$appointmentprops["timezonetag"]])) {
