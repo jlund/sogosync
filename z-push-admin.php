@@ -496,7 +496,7 @@ class ZPushAdminCLI {
         if ($device->GetDeviceOSLanguage())
             echo "Device OS Language:\t". $device->GetDeviceOSLanguage(). "\n";
         if ($device->GetDevicePhoneNumber())
-            echo "Device Phone nr:\t\t". $device->GetDevicePhoneNumber(). "\n";
+            echo "Device Phone nr:\t". $device->GetDevicePhoneNumber(). "\n";
         if ($device->GetDeviceMobileOperator())
             echo "Device Operator:\t\t". $device->GetDeviceMobileOperator(). "\n";
         if ($device->GetDeviceEnableOutboundSMS())
