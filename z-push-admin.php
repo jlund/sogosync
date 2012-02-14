@@ -139,8 +139,8 @@ class ZPushAdminCLI {
      * @access public
      */
     static public function UsageInstructions() {
-        return  "Usage:\n\tz-push-admin.php [actions] [options]\n\n" .
-                "Parameters:\n\t[-a] list/wipe/remove/resync\n\t[-u] username\n\t[-d] deviceid\n\n" .
+        return  "Usage:\n\tz-push-admin.php -a ACTION [options]\n\n" .
+                "Parameters:\n\t-a list/wipe/remove/resync\n\t[-u] username\n\t[-d] deviceid\n\n" .
                 "Actions:\n\tlist\t\t\t Lists all devices and synchronized users\n" .
                 "\tlist -u USER\t\t Lists all devices of user USER\n" .
                 "\tlist -d DEVICE\t\t Lists all users of device DEVICE\n" .
