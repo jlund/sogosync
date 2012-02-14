@@ -164,7 +164,7 @@ class RequestProcessor {
                 $status = self::HandlePing();
                 break;
             case ZPush::COMMAND_PROVISION:
-                $status = (PROVISIONING === true) ? self::HandleProvision() : false;
+                $status = self::HandleProvision();
                 break;
             case ZPush::COMMAND_SEARCH:
                 $status = self::HandleSearch();
@@ -2210,6 +2210,7 @@ class RequestProcessor {
      */
     static private function HandleProvision() {
         $status = SYNC_PROVISION_STATUS_SUCCESS;
+        $policystatus = SYNC_PROVISION_POLICYSTATUS_SUCCESS;
 
         $rwstatus = self::$deviceManager->GetProvisioningWipeStatus();
         $rwstatusWiped = false;
@@ -2230,7 +2231,7 @@ class RequestProcessor {
             if(!self::$decoder->getElementStartTag(SYNC_PROVISION_STATUS))
                 return false;
 
-            $status = self::$decoder->getElementContent();
+            $instatus = self::$decoder->getElementContent();
 
             if(!self::$decoder->getElementEndTag())
                 return false;
@@ -2268,9 +2269,7 @@ class RequestProcessor {
                 if(!self::$decoder->getElementStartTag(SYNC_PROVISION_STATUS))
                     return false;
 
-                $status = self::$decoder->getElementContent();
-                //do status handling
-                $status = SYNC_PROVISION_STATUS_SUCCESS;
+                $instatus = self::$decoder->getElementContent();
 
                 if(!self::$decoder->getElementEndTag())
                     return false;
@@ -2301,6 +2300,11 @@ class RequestProcessor {
         }
         if(!self::$decoder->getElementEndTag()) //provision
             return false;
+
+        if (PROVISIONING !== true) {
+            ZLog::Write(LOGLEVEL_INFO, "No policies deployed to device");
+            $policystatus = SYNC_PROVISION_POLICYSTATUS_NOPOLICY;
+        }
 
         self::$encoder->StartWBXML();
 
@@ -2333,14 +2337,14 @@ class RequestProcessor {
                 }
 
                 self::$encoder->startTag(SYNC_PROVISION_STATUS);
-                    self::$encoder->content($status);
+                    self::$encoder->content($policystatus);
                 self::$encoder->endTag();
 
                 self::$encoder->startTag(SYNC_PROVISION_POLICYKEY);
                        self::$encoder->content($policykey);
                 self::$encoder->endTag();
 
-                if ($phase2) {
+                if ($phase2 && $policystatus === SYNC_PROVISION_POLICYSTATUS_SUCCESS) {
                     self::$encoder->startTag(SYNC_PROVISION_DATA);
                     if ($policytype == 'MS-WAP-Provisioning-XML') {
                         self::$encoder->content('<wap-provisioningdoc><characteristic type="SecurityPolicy"><parm name="4131" value="1"/><parm name="4133" value="1"/></characteristic></wap-provisioningdoc>');
@@ -2369,7 +2373,7 @@ class RequestProcessor {
         }
 
         //wipe data if a higher RWSTATUS is requested
-        if ($rwstatus > SYNC_PROVISION_RWSTATUS_OK) {
+        if ($rwstatus > SYNC_PROVISION_RWSTATUS_OK && $policystatus === SYNC_PROVISION_POLICYSTATUS_SUCCESS) {
             self::$encoder->startTag(SYNC_PROVISION_REMOTEWIPE, false, true);
             self::$deviceManager->SetProvisioningWipeStatus(($rwstatusWiped)?SYNC_PROVISION_RWSTATUS_WIPED:SYNC_PROVISION_RWSTATUS_REQUESTED);
             self::$topCollector->AnnounceInformation(sprintf("Remote wipe %s", ($rwstatusWiped)?"executed":"requested"), true);
