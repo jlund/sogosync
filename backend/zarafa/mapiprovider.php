@@ -201,10 +201,8 @@ class MAPIProvider {
         //set the body according to contentparameters and supported AS version
         $this->setMessageBody($mapimessage, $contentparameters, $message);
 
-        // Disable reminder if it is off
-        if(!isset($messageprops[$appointmentprops["reminderset"]]) || $messageprops[$appointmentprops["reminderset"]] == false)
-            $message->reminder = "";
-        else {
+        // Set reminder time if reminderset is true
+        if(isset($messageprops[$appointmentprops["reminderset"]]) && $messageprops[$appointmentprops["reminderset"]] == true) {
             if ($messageprops[$appointmentprops["remindertime"]] == 0x5AE980E1)
                 $message->reminder = 15;
             else
