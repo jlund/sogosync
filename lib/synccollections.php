@@ -424,6 +424,10 @@ class SyncCollections implements Iterator {
         $started = time();
         $endat = time() + $lifetime;
         while(($now = time()) < $endat) {
+            $nextInterval = $interval;
+            // we should not block longer than the lifetime
+            if ($endat - $now < $nextInterval)
+                $nextInterval = $endat - $now;
 
             // Check if provisioning is necessary
             // if a PolicyKey was sent use it. If not, compare with the ReferencePolicyKey
@@ -462,7 +466,7 @@ class SyncCollections implements Iterator {
                 }
 
                 ZPush::GetTopCollector()->AnnounceInformation(sprintf("Sink %d/%ds on %s", ($now-$started), $lifetime, $checkClasses));
-                $notifications = ZPush::GetBackend()->ChangesSink($interval);
+                $notifications = ZPush::GetBackend()->ChangesSink($nextInterval);
 
                 foreach ($notifications as $folderid) {
                     // check if the notification on the folder is within our filter
@@ -483,11 +487,11 @@ class SyncCollections implements Iterator {
                     return true;
                 }
                 else {
-                    sleep($interval);
+                    sleep($nextInterval);
                 }
             } // end polling
         } // end wait for changes
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("CheckForChanges(): no changes found after %ds", $lifetime));
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("CheckForChanges(): no changes found after %ds", time() - $started));
 
         return false;
     }
