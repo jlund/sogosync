@@ -127,8 +127,7 @@ class SyncAppointment extends SyncObject {
                                                                                     self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_ZEROORONE      => self::STREAMER_CHECK_SETZERO)),
 
                     SYNC_POOMCAL_REMINDER                               => array (  self::STREAMER_VAR      => "reminder",
-                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED       => self::STREAMER_CHECK_SETZERO,
-                                                                                                                        self::STREAMER_CHECK_CMPHIGHER      => -1)),
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_CMPHIGHER      => -1)),
 
                     SYNC_POOMCAL_RTF                                    => array (  self::STREAMER_VAR      => "rtf"),
 
