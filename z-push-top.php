@@ -44,16 +44,16 @@
 * Consult LICENSE file for details
 ************************************************/
 
-include ("lib/zpushdefs.php");
-include ("lib/zpush.php");
-include ("lib/request/request.php");
-include ("lib/request/requestprocessor.php");
-include ("lib/zlog.php");
-include ("lib/utils/utils.php");
-include ("config.php");
-include ("version.php");
-include ("lib/interprocessdata.php");
-include ("lib/topcollector.php");
+include('lib/core/zpushdefs.php');
+include('lib/core/zpush.php');
+include('lib/core/zlog.php');
+include('lib/core/interprocessdata.php');
+include('lib/core/topcollector.php');
+include('lib/utils/utils.php');
+include('lib/request/request.php');
+include('lib/request/requestprocessor.php');
+include('config.php');
+include('version.php');
 
 /************************************************
  * MAIN
