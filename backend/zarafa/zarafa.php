@@ -420,7 +420,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         $sendMailProps = getPropIdsFromStrings($this->store, $sendMailProps);
 
         // Open the outbox and create the message there
-        $storeprops = mapi_getprops($this->store, array($sendMailProps["outboxentryid"], $sendMailProps["sentmailentryid"]));
+        $storeprops = mapi_getprops($this->store, array($sendMailProps["outboxentryid"], $sendMailProps["ipmsentmailentryid"]));
         if(isset($storeprops[$sendMailProps["outboxentryid"]]))
             $outbox = mapi_msgstore_openentry($this->store, $storeprops[$sendMailProps["outboxentryid"]]);
 
@@ -432,7 +432,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         //message properties to be set
         $mapiprops = array();
         $mapiprops[$sendMailProps["subject"]] = u2wi(isset($message->headers["subject"])?$message->headers["subject"]:"");
-        $mapiprops[$sendMailProps["sentmailentryid"]] = $storeprops[$sendMailProps["sentmailentryid"]];
+        $mapiprops[$sendMailProps["sentmailentryid"]] = $storeprops[$sendMailProps["ipmsentmailentryid"]];
         $mapiprops[$sendMailProps["messageclass"]] = "IPM.Note";
         $mapiprops[$sendMailProps["deliverytime"]] = time();
 

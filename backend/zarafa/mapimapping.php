@@ -482,7 +482,8 @@ class MAPIMapping {
     public static function GetSendMailProperties() {
         return array(
                 "outboxentryid"         => PR_IPM_OUTBOX_ENTRYID,
-                "sentmailentryid"       => PR_IPM_SENTMAIL_ENTRYID,
+                "ipmsentmailentryid"    => PR_IPM_SENTMAIL_ENTRYID,
+                "sentmailentryid"       => PR_SENTMAIL_ENTRYID,
                 "subject"               => PR_SUBJECT,
                 "messageclass"          => PR_MESSAGE_CLASS,
                 "deliverytime"          => PR_MESSAGE_DELIVERY_TIME,
