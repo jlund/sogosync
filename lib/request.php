@@ -88,6 +88,13 @@ class Request {
     static private $asProtocolVersion;
     static private $policykey;
     static private $useragent;
+    static private $attachmentName;
+    static private $collectionId;
+    static private $itemId;
+    static private $longId; //TODO
+    static private $occurence; //TODO
+    static private $saveInSent;
+
 
     /**
      * Initializes request data
@@ -111,6 +118,14 @@ class Request {
             self::$devid = self::filterEvilInput($_GET["DeviceId"], self::WORDCHAR_ONLY);
         if(isset($_GET["DeviceType"]))
             self::$devtype = self::filterEvilInput($_GET["DeviceType"], self::LETTERS_ONLY);
+        if (isset($_GET["AttachmentName"]))
+            self::$attachmentName = self::filterEvilInput($_GET["AttachmentName"], self::HEX_EXTENDED);
+        if (isset($_GET["CollectionId"]))
+            self::$collectionId = self::filterEvilInput($_GET["CollectionId"], self::HEX_ONLY);
+        if (isset($_GET["ItemId"]))
+            self::$itemId = self::filterEvilInput($_GET["ItemId"], self::HEX_ONLY);
+        if (isset($_GET["SaveInSent"]) && $_GET["SaveInSent"] == "T")
+            self::$saveInSent = true;
 
         if(isset($_SERVER["REQUEST_METHOD"]))
             self::$method = self::filterEvilInput($_SERVER["REQUEST_METHOD"], self::LETTERS_ONLY);
@@ -138,6 +153,18 @@ class Request {
 
             if (isset($query['ProtVer']))
                 self::$asProtocolVersion = self::filterEvilInput($query['ProtVer'], self::NUMBERS_ONLY) / 10;
+
+            if (isset($query[self::COMMANDPARAM_ATTACHMENTNAME]))
+                self::$attachmentName = self::filterEvilInput($query[self::COMMANDPARAM_ATTACHMENTNAME], self::HEX_EXTENDED);
+
+            if (isset($query[self::COMMANDPARAM_COLLECTIONID]))
+                self::$collectionId = self::filterEvilInput($query[self::COMMANDPARAM_COLLECTIONID], self::HEX_ONLY);
+
+            if (isset($query[self::COMMANDPARAM_ITEMID]))
+                self::$itemId = self::filterEvilInput($query[self::COMMANDPARAM_ITEMID], self::HEX_ONLY);
+
+            if (isset($query[self::COMMANDPARAM_OPTIONS]) && ($query[self::COMMANDPARAM_OPTIONS] & 1))
+                self::$saveInSent = true;
         }
 
         // in base64 encoded query string user is not necessarily set
@@ -257,8 +284,11 @@ class Request {
      * @return string/boolean       false if not available
      */
     static public function GetGETItemId() {
-        return (isset($_GET["ItemId"]))? self::filterEvilInput($_GET["ItemId"], self::HEX_ONLY) : false;
-    }
+        if (isset(self::$itemId))
+            return self::$itemId;
+        else
+            return false;
+        }
 
     /**
      * Returns the value of the CollectionId parameter of the querystring
@@ -267,7 +297,10 @@ class Request {
      * @return string/boolean       false if not available
      */
     static public function GetGETCollectionId() {
-        return (isset($_GET["CollectionId"]))? self::filterEvilInput($_GET["CollectionId"], self::HEX_ONLY) : false;
+        if (isset(self::$collectionId))
+            return self::$collectionId;
+        else
+            return false;
     }
 
     /**
@@ -277,7 +310,10 @@ class Request {
      * @return boolean
      */
     static public function GetGETSaveInSent() {
-        return (isset($_GET["SaveInSent"]))? ($_GET["SaveInSent"] == "T") : false;
+        if (isset(self::$saveInSent))
+            return self::$saveInSent;
+        else
+            return true;
     }
 
     /**
@@ -287,7 +323,10 @@ class Request {
      * @return string/boolean       false if not available
      */
     static public function GetGETAttachmentName() {
-        return (isset($_GET["AttachmentName"]))? self::filterEvilInput($_GET["AttachmentName"], self::HEX_EXTENDED) : false;
+        if (isset(self::$attachmentName))
+            return self::$attachmentName;
+        else
+            return false;
     }
 
     /**
