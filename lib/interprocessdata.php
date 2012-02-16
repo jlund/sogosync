@@ -88,7 +88,7 @@ abstract class InterProcessData {
         }
 
         if (!function_exists('sem_get') || !function_exists('shm_attach') || !function_exists('sem_acquire')|| !function_exists('shm_get_var')) {
-            ZLog::Write(LOGLEVEL_INFO, "InterProcessData::InitSharedMem(): PHP libraries for the use shared memory are not availble. Functionalities like z-push-top or loop detection are not available. Check your php packages.");
+            ZLog::Write(LOGLEVEL_INFO, "InterProcessData::InitSharedMem(): PHP libraries for the use shared memory are not available. Functionalities like z-push-top or loop detection are not available. Check your php packages.");
             return false;
         }
 
