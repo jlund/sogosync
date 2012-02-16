@@ -1,13 +1,12 @@
 <?php
 /***********************************************
-* File      :   webservice.php
+* File      :   notify.php
 * Project   :   Z-Push
-* Descr     :   Provides an interface for administration
-*               tasks over a webservice
+* Descr     :   Provides the NOTIFY command
 *
-* Created   :   29.12.2011
+* Created   :   16.02.2012
 *
-* Copyright 2007 - 2011 Zarafa Deutschland GmbH
+* Copyright 2007 - 2012 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -42,38 +41,42 @@
 * Consult LICENSE file for details
 ************************************************/
 
-class Webservice {
-    private $server;
+class Notify extends RequestProcessor {
 
     /**
-     * Handles a webservice command
+     * Handles the Notify command
      *
      * @param int       $commandCode
      *
      * @access public
      * @return boolean
-     * @throws SoapFault
      */
     public function Handle($commandCode) {
-        if (Request::GetDeviceType() !== "webservice" || Request::GetDeviceID() !== "webservice")
-            throw new FatalException("Invalid device id and type for webservice execution");
+        if(!self::$decoder->getElementStartTag(SYNC_AIRNOTIFY_NOTIFY))
+            return false;
 
-        if (Request::GetGETUser() != Request::GetAuthUser())
-            ZLog::Write(LOGLEVEL_INFO, sprintf("Webservice::HandleWebservice('%s'): user '%s' executing action for user '%s'", $commandCode, Request::GetAuthUser(), Request::GetGETUser()));
+        if(!self::$decoder->getElementStartTag(SYNC_AIRNOTIFY_DEVICEINFO))
+            return false;
 
-        // initialize non-wsdl soap server
-        $this->server = new SoapServer(null, array('uri' => "http://z-push.sf.net/webservice"));
+        if(!self::$decoder->getElementEndTag())
+            return false;
 
-        // the webservice command is handled by its class
-        if ($commandCode == ZPush::COMMAND_WEBSERVICE_DEVICE) {
-            ZLog::Write(LOGLEVEL_DEBUG, sprintf("Webservice::HandleWebservice('%s'): executing WebserviceDevice service", $commandCode));
+        if(!self::$decoder->getElementEndTag())
+            return false;
 
-            include_once('webservicedevice.php');
-            $this->server->setClass("WebserviceDevice");
+        self::$encoder->StartWBXML();
+
+        self::$encoder->startTag(SYNC_AIRNOTIFY_NOTIFY);
+        {
+            self::$encoder->startTag(SYNC_AIRNOTIFY_STATUS);
+            self::$encoder->content(1);
+            self::$encoder->endTag();
+
+            self::$encoder->startTag(SYNC_AIRNOTIFY_VALIDCARRIERPROFILES);
+            self::$encoder->endTag();
         }
-        $this->server->handle();
+        self::$encoder->endTag();
 
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("Webservice::HandleWebservice('%s'): sucessfully sent %d bytes", $commandCode, ob_get_length()));
         return true;
     }
 }

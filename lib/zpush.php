@@ -49,6 +49,7 @@ class ZPush {
     const WEBSERVICECOMMAND = 4;
     const HIERARCHYCOMMAND = 5;
     const PLAININPUT = 6;
+    const REQUESTHANDLER = 7;
     const CLASS_NAME = 1;
     const CLASS_REQUIRESPROTOCOLVERSION = 2;
     const CLASS_DEFAULTTYPE = 3;
@@ -96,78 +97,82 @@ class ZPush {
     // Webservice commands
     const COMMAND_WEBSERVICE_DEVICE = -100;
 
-    static private $supportedASVersions = array(self::ASV_1,
-                                                self::ASV_2,
-                                                self::ASV_21,
-                                                self::ASV_25,
-                                                self::ASV_12,
-                                                self::ASV_121,
-                                                self::ASV_14);
+    static private $supportedASVersions = array(
+                    self::ASV_1,
+                    self::ASV_2,
+                    self::ASV_21,
+                    self::ASV_25,
+                    self::ASV_12,
+                    self::ASV_121,
+                    self::ASV_14
+                );
 
     static private $supportedCommands = array(
-                                            self::COMMAND_SYNC              => array(self::ASV_1),
-                                            self::COMMAND_SENDMAIL          => array(self::ASV_1),
-                                            self::COMMAND_SMARTFORWARD      => array(self::ASV_1),
-                                            self::COMMAND_SMARTREPLY        => array(self::ASV_1),
-                                            self::COMMAND_GETATTACHMENT     => array(self::ASV_1),
-                                            self::COMMAND_GETHIERARCHY      => array(self::ASV_1, self::HIERARCHYCOMMAND),                       // deprecated but implemented
-                                            self::COMMAND_CREATECOLLECTION  => array(self::ASV_1),                                               // deprecated & not implemented
-                                            self::COMMAND_DELETECOLLECTION  => array(self::ASV_1),                                               // deprecated & not implemented
-                                            self::COMMAND_MOVECOLLECTION    => array(self::ASV_1),                                               // deprecated & not implemented
-                                            self::COMMAND_FOLDERSYNC        => array(self::ASV_2, self::HIERARCHYCOMMAND),
-                                            self::COMMAND_FOLDERCREATE      => array(self::ASV_2, self::HIERARCHYCOMMAND),
-                                            self::COMMAND_FOLDERDELETE      => array(self::ASV_2, self::HIERARCHYCOMMAND),
-                                            self::COMMAND_FOLDERUPDATE      => array(self::ASV_2, self::HIERARCHYCOMMAND),
-                                            self::COMMAND_MOVEITEMS         => array(self::ASV_1),
-                                            self::COMMAND_GETITEMESTIMATE   => array(self::ASV_1),
-                                            self::COMMAND_MEETINGRESPONSE   => array(self::ASV_1),
-                                            self::COMMAND_RESOLVERECIPIENTS => array(self::ASV_1),
-                                            self::COMMAND_VALIDATECERT      => array(self::ASV_1),
-                                            self::COMMAND_PROVISION         => array(self::ASV_25, self::UNAUTHENTICATED, self::UNPROVISIONED),
-                                            self::COMMAND_SEARCH            => array(self::ASV_1),
-                                            self::COMMAND_PING              => array(self::ASV_2, self::UNPROVISIONED),
-                                            self::COMMAND_NOTIFY            => array(self::ASV_1),                                               // deprecated & not implemented
-                                            self::COMMAND_ITEMOPERATIONS    => array(self::ASV_12),
-                                            self::COMMAND_SETTINGS          => array(self::ASV_12),
-                                            //'Autodiscover' => false,
-                                            self::COMMAND_WEBSERVICE_DEVICE => array(self::PLAININPUT, self::NOACTIVESYNCCOMMAND, self::WEBSERVICECOMMAND),
-                                          );
+                    // COMMAND                             // AS VERSION   // REQUESTHANDLER                        // OTHER SETTINGS
+                    self::COMMAND_SYNC              => array(self::ASV_1,  self::REQUESTHANDLER => "Sync"),
+                    self::COMMAND_SENDMAIL          => array(self::ASV_1,  self::REQUESTHANDLER => "SendMail"),
+                    self::COMMAND_SMARTFORWARD      => array(self::ASV_1,  self::REQUESTHANDLER => "SendMail"),
+                    self::COMMAND_SMARTREPLY        => array(self::ASV_1,  self::REQUESTHANDLER => "SendMail"),
+                    self::COMMAND_GETATTACHMENT     => array(self::ASV_1,  self::REQUESTHANDLER => "GetAttachment"),
+                    self::COMMAND_GETHIERARCHY      => array(self::ASV_1,  self::REQUESTHANDLER => "GetHierarchy",  self::HIERARCHYCOMMAND),            // deprecated but implemented
+                    self::COMMAND_CREATECOLLECTION  => array(self::ASV_1),                                                                              // deprecated & not implemented
+                    self::COMMAND_DELETECOLLECTION  => array(self::ASV_1),                                                                              // deprecated & not implemented
+                    self::COMMAND_MOVECOLLECTION    => array(self::ASV_1),                                                                              // deprecated & not implemented
+                    self::COMMAND_FOLDERSYNC        => array(self::ASV_2,  self::REQUESTHANDLER => "FolderSync",    self::HIERARCHYCOMMAND),
+                    self::COMMAND_FOLDERCREATE      => array(self::ASV_2,  self::REQUESTHANDLER => "FolderChange",  self::HIERARCHYCOMMAND),
+                    self::COMMAND_FOLDERDELETE      => array(self::ASV_2,  self::REQUESTHANDLER => "FolderChange",  self::HIERARCHYCOMMAND),
+                    self::COMMAND_FOLDERUPDATE      => array(self::ASV_2,  self::REQUESTHANDLER => "FolderChange",  self::HIERARCHYCOMMAND),
+                    self::COMMAND_MOVEITEMS         => array(self::ASV_1,  self::REQUESTHANDLER => "MoveItems"),
+                    self::COMMAND_GETITEMESTIMATE   => array(self::ASV_1,  self::REQUESTHANDLER => "GetItemEstimate"),
+                    self::COMMAND_MEETINGRESPONSE   => array(self::ASV_1,  self::REQUESTHANDLER => "MeetingResponse"),
+                    self::COMMAND_RESOLVERECIPIENTS => array(self::ASV_1,  self::REQUESTHANDLER => false),
+                    self::COMMAND_VALIDATECERT      => array(self::ASV_1,  self::REQUESTHANDLER => false),
+                    self::COMMAND_PROVISION         => array(self::ASV_25, self::REQUESTHANDLER => "Provisioning",  self::UNAUTHENTICATED, self::UNPROVISIONED),
+                    self::COMMAND_SEARCH            => array(self::ASV_1,  self::REQUESTHANDLER => "Search"),
+                    self::COMMAND_PING              => array(self::ASV_2,  self::REQUESTHANDLER => "Ping",          self::UNPROVISIONED),
+                    self::COMMAND_NOTIFY            => array(self::ASV_1,  self::REQUESTHANDLER => "Notify"),                                           // deprecated & not implemented
+                    self::COMMAND_ITEMOPERATIONS    => array(self::ASV_12, self::REQUESTHANDLER => "ItemOperations"),
+                    self::COMMAND_SETTINGS          => array(self::ASV_12, self::REQUESTHANDLER => "Settings"),
+
+                    self::COMMAND_WEBSERVICE_DEVICE => array(self::REQUESTHANDLER => "Webservice", self::PLAININPUT, self::NOACTIVESYNCCOMMAND, self::WEBSERVICECOMMAND),
+                );
 
 
 
-    static private $classes = array("Email"     => array(
-                                                        self::CLASS_NAME => "SyncMail",
-                                                        self::CLASS_REQUIRESPROTOCOLVERSION => false,
-                                                        self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_INBOX,
-                                                        self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_OTHER, SYNC_FOLDER_TYPE_DRAFTS, SYNC_FOLDER_TYPE_WASTEBASKET,
-                                                                                        SYNC_FOLDER_TYPE_SENTMAIL, SYNC_FOLDER_TYPE_OUTBOX, SYNC_FOLDER_TYPE_USER_MAIL,
-                                                                                        SYNC_FOLDER_TYPE_JOURNAL, SYNC_FOLDER_TYPE_USER_JOURNAL),
-                                                   ),
-                                    "Contacts"  => array(
-                                                        self::CLASS_NAME => "SyncContact",
-                                                        self::CLASS_REQUIRESPROTOCOLVERSION => true,
-                                                        self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_CONTACT,
-                                                        self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_USER_CONTACT),
-                                                   ),
-                                    "Calendar"  => array(
-                                                        self::CLASS_NAME => "SyncAppointment",
-                                                        self::CLASS_REQUIRESPROTOCOLVERSION => false,
-                                                        self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_APPOINTMENT,
-                                                        self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_USER_APPOINTMENT),
-                                                   ),
-                                    "Tasks"     => array(
-                                                        self::CLASS_NAME => "SyncTask",
-                                                        self::CLASS_REQUIRESPROTOCOLVERSION => false,
-                                                        self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_TASK,
-                                                        self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_USER_TASK),
-                                                   ),
-                                    "Notes" => array(
-                                                        self::CLASS_NAME => "SyncNote",
-                                                        self::CLASS_REQUIRESPROTOCOLVERSION => false,
-                                                        self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_NOTE,
-                                                        self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_USER_NOTE),
-                                                   ),
-                                    );
+    static private $classes = array(
+                    "Email"     => array(
+                                        self::CLASS_NAME => "SyncMail",
+                                        self::CLASS_REQUIRESPROTOCOLVERSION => false,
+                                        self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_INBOX,
+                                        self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_OTHER, SYNC_FOLDER_TYPE_DRAFTS, SYNC_FOLDER_TYPE_WASTEBASKET,
+                                                                        SYNC_FOLDER_TYPE_SENTMAIL, SYNC_FOLDER_TYPE_OUTBOX, SYNC_FOLDER_TYPE_USER_MAIL,
+                                                                        SYNC_FOLDER_TYPE_JOURNAL, SYNC_FOLDER_TYPE_USER_JOURNAL),
+                                   ),
+                    "Contacts"  => array(
+                                        self::CLASS_NAME => "SyncContact",
+                                        self::CLASS_REQUIRESPROTOCOLVERSION => true,
+                                        self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_CONTACT,
+                                        self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_USER_CONTACT),
+                                   ),
+                    "Calendar"  => array(
+                                        self::CLASS_NAME => "SyncAppointment",
+                                        self::CLASS_REQUIRESPROTOCOLVERSION => false,
+                                        self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_APPOINTMENT,
+                                        self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_USER_APPOINTMENT),
+                                   ),
+                    "Tasks"     => array(
+                                        self::CLASS_NAME => "SyncTask",
+                                        self::CLASS_REQUIRESPROTOCOLVERSION => false,
+                                        self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_TASK,
+                                        self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_USER_TASK),
+                                   ),
+                    "Notes" => array(
+                                        self::CLASS_NAME => "SyncNote",
+                                        self::CLASS_REQUIRESPROTOCOLVERSION => false,
+                                        self::CLASS_DEFAULTTYPE => SYNC_FOLDER_TYPE_NOTE,
+                                        self::CLASS_OTHERTYPES => array(SYNC_FOLDER_TYPE_USER_NOTE),
+                                   ),
+                );
 
 
     static private $stateMachine;
@@ -633,9 +638,37 @@ END;
     }
 
     /**
+     * Loads and instantiates a request processor for a command
+     *
+     * @param int $commandCode
+     *
+     * @access public
+     * @return RequestProcessor sub-class
+     */
+    static public function GetRequestHandlerForCommand($commandCode) {
+        if (!array_key_exists($commandCode, self::$supportedCommands) ||
+            !array_key_exists(self::REQUESTHANDLER, self::$supportedCommands[$commandCode]) )
+            throw new FatalNotImplementedException(sprintf("Command '%s' has no request handler or class", Utils::GetCommandFromCode($commandCode)));
+
+        $class = self::$supportedCommands[$commandCode][self::REQUESTHANDLER];
+        if ($class == "Webservice")
+            $handlerclass = REAL_BASE_PATH . "lib/webservice/webservice.php";
+        else
+            $handlerclass = REAL_BASE_PATH . "lib/request/" . strtolower($class) . ".php";
+
+        if (is_file($handlerclass))
+            include($handlerclass);
+
+        if (class_exists($class))
+            return new $class();
+        else
+            throw new FatalNotImplementedException(sprintf("Request handler '%s' can not be loaded", $class));
+    }
+
+    /**
      * Indicates if a commands requires authentication or not
      *
-     * @param string $command
+     * @param int $commandCode
      *
      * @access public
      * @return boolean

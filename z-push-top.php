@@ -46,8 +46,8 @@
 
 include ("lib/zpushdefs.php");
 include ("lib/zpush.php");
-include ("lib/request.php");
-include ("lib/requestprocessor.php");
+include ("lib/request/request.php");
+include ("lib/request/requestprocessor.php");
 include ("lib/zlog.php");
 include ("lib/utils/utils.php");
 include ("config.php");

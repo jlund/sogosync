@@ -1,13 +1,12 @@
 <?php
 /***********************************************
-* File      :   webservice.php
+* File      :   getattachment.php
 * Project   :   Z-Push
-* Descr     :   Provides an interface for administration
-*               tasks over a webservice
+* Descr     :   Provides the GETATTACHMENT command
 *
-* Created   :   29.12.2011
+* Created   :   16.02.2012
 *
-* Copyright 2007 - 2011 Zarafa Deutschland GmbH
+* Copyright 2007 - 2012 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -42,38 +41,47 @@
 * Consult LICENSE file for details
 ************************************************/
 
-class Webservice {
-    private $server;
+class GetAttachment extends RequestProcessor {
 
     /**
-     * Handles a webservice command
+     * Handles the GetAttachment command
      *
      * @param int       $commandCode
      *
      * @access public
      * @return boolean
-     * @throws SoapFault
      */
     public function Handle($commandCode) {
-        if (Request::GetDeviceType() !== "webservice" || Request::GetDeviceID() !== "webservice")
-            throw new FatalException("Invalid device id and type for webservice execution");
+        $attname = Request::GetGETAttachmentName();
+        if(!$attname)
+            return false;
 
-        if (Request::GetGETUser() != Request::GetAuthUser())
-            ZLog::Write(LOGLEVEL_INFO, sprintf("Webservice::HandleWebservice('%s'): user '%s' executing action for user '%s'", $commandCode, Request::GetAuthUser(), Request::GetGETUser()));
+        try {
+            $attachment = self::$backend->GetAttachmentData($attname);
+            $stream = $attachment->data;
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandleGetAttachment(): attachment stream from backend: %s", $stream));
 
-        // initialize non-wsdl soap server
-        $this->server = new SoapServer(null, array('uri' => "http://z-push.sf.net/webservice"));
+            header("Content-Type: application/octet-stream");
+            $l = 0;
+            while (!feof($stream)) {
+                $d = fgets($stream, 4096);
+                $l += strlen($d);
+                echo $d;
 
-        // the webservice command is handled by its class
-        if ($commandCode == ZPush::COMMAND_WEBSERVICE_DEVICE) {
-            ZLog::Write(LOGLEVEL_DEBUG, sprintf("Webservice::HandleWebservice('%s'): executing WebserviceDevice service", $commandCode));
+                // announce an update every 100K
+                if (($l/1024) % 100 == 0)
+                    self::$topCollector->AnnounceInformation(sprintf("Streaming attachment: %d KB sent", round($l/1024)));
+            }
+            fclose($stream);
+            self::$topCollector->AnnounceInformation(sprintf("Streamed %d KB attachment", $l/1024), true);
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("HandleGetAttachment(): attachment with %d KB sent to mobile", $l/1024));
 
-            include_once('webservicedevice.php');
-            $this->server->setClass("WebserviceDevice");
         }
-        $this->server->handle();
+        catch (StatusException $s) {
+            // StatusException already logged so we just need to pass it upwards to send a HTTP error
+            throw new HTTPReturnCodeException($s->getMessage(), HTTP_CODE_500, null, LOGLEVEL_DEBUG);
+        }
 
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("Webservice::HandleWebservice('%s'): sucessfully sent %d bytes", $commandCode, ob_get_length()));
         return true;
     }
 }

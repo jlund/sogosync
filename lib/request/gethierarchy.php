@@ -1,13 +1,12 @@
 <?php
 /***********************************************
-* File      :   webservice.php
+* File      :   gethierarchy.php
 * Project   :   Z-Push
-* Descr     :   Provides an interface for administration
-*               tasks over a webservice
+* Descr     :   Provides the GETHIERARCHY command
 *
-* Created   :   29.12.2011
+* Created   :   16.02.2012
 *
-* Copyright 2007 - 2011 Zarafa Deutschland GmbH
+* Copyright 2007 - 2012 Zarafa Deutschland GmbH
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License, version 3,
@@ -42,39 +41,41 @@
 * Consult LICENSE file for details
 ************************************************/
 
-class Webservice {
-    private $server;
+class GetHierarchy extends RequestProcessor {
 
     /**
-     * Handles a webservice command
+     * Handles the GetHierarchy command
+     * simply returns current hierarchy of all folders
      *
      * @param int       $commandCode
      *
      * @access public
      * @return boolean
-     * @throws SoapFault
      */
     public function Handle($commandCode) {
-        if (Request::GetDeviceType() !== "webservice" || Request::GetDeviceID() !== "webservice")
-            throw new FatalException("Invalid device id and type for webservice execution");
+        try {
+            $folders = self::$backend->GetHierarchy();
+            if (!$folders || empty($folders))
+                throw new StatusException("GetHierarchy() did not return any data.");
 
-        if (Request::GetGETUser() != Request::GetAuthUser())
-            ZLog::Write(LOGLEVEL_INFO, sprintf("Webservice::HandleWebservice('%s'): user '%s' executing action for user '%s'", $commandCode, Request::GetAuthUser(), Request::GetGETUser()));
+            // TODO execute $data->Check() to see if SyncObject is valid
 
-        // initialize non-wsdl soap server
-        $this->server = new SoapServer(null, array('uri' => "http://z-push.sf.net/webservice"));
-
-        // the webservice command is handled by its class
-        if ($commandCode == ZPush::COMMAND_WEBSERVICE_DEVICE) {
-            ZLog::Write(LOGLEVEL_DEBUG, sprintf("Webservice::HandleWebservice('%s'): executing WebserviceDevice service", $commandCode));
-
-            include_once('webservicedevice.php');
-            $this->server->setClass("WebserviceDevice");
         }
-        $this->server->handle();
+        catch (StatusException $ex) {
+            return false;
+        }
 
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("Webservice::HandleWebservice('%s'): sucessfully sent %d bytes", $commandCode, ob_get_length()));
-        return true;
+        self::$encoder->StartWBXML();
+        self::$encoder->startTag(SYNC_FOLDERHIERARCHY_FOLDERS);
+        foreach ($folders as $folder) {
+            self::$encoder->startTag(SYNC_FOLDERHIERARCHY_FOLDER);
+            $folder->Encode(self::$encoder);
+            self::$encoder->endTag();
+        }
+        self::$encoder->endTag();
+
+        // save hierarchy for upcoming syncing
+        return self::$deviceManager->InitializeFolderCache($folders);
     }
 }
 ?>
