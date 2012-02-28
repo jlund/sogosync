@@ -423,7 +423,7 @@ class Utils {
      */
     static public function Utf7_to_utf8($string) {
         if (function_exists("iconv")){
-            return @iconv("UTF7", "UTF-8", $string);
+            return @iconv("UTF-7", "UTF-8", $string);
         }
         return $string;
     }
@@ -438,7 +438,7 @@ class Utils {
      */
     static public function Utf8_to_utf7($string) {
         if (function_exists("iconv")){
-            return @iconv("UTF-8", "UTF7", $string);
+            return @iconv("UTF-8", "UTF-7", $string);
         }
         return $string;
     }
