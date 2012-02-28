@@ -140,23 +140,17 @@ class BackendIMAP extends BackendDiff {
      */
     // TODO implement , $saveInSent = true
     public function SendMail($sm) {
-        $reply = $forward = $parent = false;
-        if (Request::GetCommandCode() == ZPush::COMMAND_SMARTREPLY) {
-            $reply = $sm->source->itemid;
-            $parent = $sm->source->folderid;
-        }
-        if (Request::GetCommandCode() == ZPush::COMMAND_SMARTFORWARD) {
-            $forward = $sm->source->itemid;
-            $parent = $sm->source->folderid;
-        }
+        $forward = $reply = (isset($sm->source->itemid) && $sm->source->itemid) ? $sm->source->itemid : false;
+        $parent = false;
 
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("IMAPBackend->SendMail(): RFC822: %d bytes  forward-id: '%s' reply-id: '%s' parent-id: '%s' SaveInSent: '%s' ReplaceMIME: '%s'",
-                                            strlen($sm->mime), Utils::PrintAsString($forward), Utils::PrintAsString($reply), Utils::PrintAsString($parent),
-                                            Utils::PrintAsString(isset($sm->saveinsent)), Utils::PrintAsString(isset($sm->replacemime)) ));
+                                            strlen($sm->mime), Utils::PrintAsString($sm->forwardflag), Utils::PrintAsString($sm->replyflag),
+                                            Utils::PrintAsString((isset($sm->source->folderid) ? $sm->source->folderid : false)),
+                                            Utils::PrintAsString(($sm->saveinsent)), Utils::PrintAsString(isset($sm->replacemime)) ));
 
-        if ($parent)
+        if (isset($sm->source->folderid) && $sm->source->folderid)
             // convert parent folder id back to work on an imap-id
-            $parent = $this->getImapIdFromFolderId($parent);
+            $parent = $this->getImapIdFromFolderId($sm->source->folderid);
 
 
         // by splitting the message in several lines we can easily grep later
@@ -203,7 +197,7 @@ class BackendIMAP extends BackendDiff {
                 }
 
                 // save the original content-type header for the body part when forwarding
-                if ($forward && !$use_orgbody) {
+                if ($sm->forwardflag && !$use_orgbody) {
                     $forward_h_ct = $v;
                     continue;
                 }
@@ -218,7 +212,7 @@ class BackendIMAP extends BackendDiff {
                 if (trim($v) == "base64") $body_base64 = true;
 
                 // save the original encoding header for the body part when forwarding
-                if ($forward) {
+                if ($sm->forwardflag) {
                     $forward_h_cte = $v;
                     continue;
                 }
@@ -281,7 +275,7 @@ class BackendIMAP extends BackendDiff {
             $body = $this->getBody($message);
 
         // reply
-        if ($reply && $parent) {
+        if ($sm->replyflag && $parent) {
             $this->imap_reopenFolder($parent);
             // receive entire mail (header + body) to decode body correctly
             $origmail = @imap_fetchheader($this->mbox, $reply, FT_UID) . @imap_body($this->mbox, $reply, FT_PEEK | FT_UID);
@@ -298,11 +292,11 @@ class BackendIMAP extends BackendDiff {
 
         // encode the body to base64 if it was sent originally in base64 by the pda
         // contrib - chunk base64 encoded body
-        if ($body_base64 && !$forward) $body = chunk_split(base64_encode($body));
+        if ($body_base64 && !$sm->forwardflag) $body = chunk_split(base64_encode($body));
 
 
         // forward
-        if ($forward && $parent) {
+        if ($sm->forwardflag && $parent) {
             $this->imap_reopenFolder($parent);
             // receive entire mail (header + body)
             $origmail = @imap_fetchheader($this->mbox, $forward, FT_UID) . @imap_body($this->mbox, $forward, FT_PEEK | FT_UID);

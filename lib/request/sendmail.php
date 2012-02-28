@@ -55,7 +55,6 @@ class SendMail extends RequestProcessor {
         $status = SYNC_COMMONSTATUS_SUCCESS;
         $sm = new SyncSendMail();
 
-        // handle SmartReply and SmartForward
         $reply = $forward = $parent = false;
         if (Request::GetGETCollectionId())
             $parent = Request::GetGETCollectionId();
@@ -88,14 +87,26 @@ class SendMail extends RequestProcessor {
             // no wbxml output is provided, only a http OK
             $sm->saveinsent = Request::GetGETSaveInSent();
         }
-        if ($reply || $forward) {
+        // Check if it is a reply or forward. Two cases are possible:
+        // 1. Either $smartreply or $smartforward are set after reading WBXML
+        // 2. Either $reply or $forward are set after geting the request parameters
+        if ($reply || $smartreply || $forward || $smartforward) {
+            // If the mobile sends an email in WBXML data the variables below
+            // should be set. If it is a RFC822 message, get the reply/forward message id
+            // from the request as they are always available there
             if (!isset($sm->source)) $sm->source = new SyncSendMailSource();
-            if ($reply) $sm->source->itemid = $reply;
-            else $sm->source->itemid = $forward;
-            if ($parent) $sm->source->folderid = $parent;
-            else {
+            if (!isset($sm->source->itemid)) $sm->source->itemid = Request::GetGETItemId();
+            if (!isset($sm->source->folderid)) $sm->source->folderid = Request::GetGETCollectionId();
+
+            // replyflag and forward flags are actually only for the correct icon.
+            // Even if they are a part of SyncSendMail object, they won't be streamed.
+            if ($smartreply || $reply)
+                $sm->replyflag = true;
+            else
+                $sm->forwardflag = true;
+
+            if (!isset($sm->source->folderid))
                 ZLog::Write(LOGLEVEL_ERROR, sprintf("No parent folder id while replying or forwarding message:'%s'", (($reply) ? $reply : $forward)));
-            }
         }
 
         self::$topCollector->AnnounceInformation(sprintf("Sending email with %d bytes", strlen($sm->mime)), true);

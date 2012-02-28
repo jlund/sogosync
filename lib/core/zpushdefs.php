@@ -648,6 +648,9 @@ define("SYNC_COMPOSEMAIL_MIME", "ComposeMail:MIME");
 define("SYNC_COMPOSEMAIL_CLIENTID", "ComposeMail:ClientId");
 define("SYNC_COMPOSEMAIL_STATUS", "ComposeMail:Status");
 define("SYNC_COMPOSEMAIL_ACCOUNTID", "ComposeMail:AccountId");
+// only for internal use - never to be streamed to the mobile
+define("SYNC_COMPOSEMAIL_REPLYFLAG","ComposeMail:ReplyFlag");
+define("SYNC_COMPOSEMAIL_FORWARDFLAG","ComposeMail:ForwardFlag");
 
 //POOMMAIL2 //14.0
 define("SYNC_POOMMAIL2_UMCALLERID", "POOMMAIL2:UmCallerId");

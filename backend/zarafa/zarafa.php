@@ -387,22 +387,11 @@ class BackendZarafa implements IBackend, ISearchProvider {
      * @return boolean
      * @throws StatusException
      */
-    // TODO implement , $saveInSent = true
     public function SendMail($sm) {
-        $reply = $forward = $parent = false;
-        if (Request::GetCommandCode() == ZPush::COMMAND_SMARTREPLY) {
-            $reply = $sm->source->itemid;
-            $parent = $sm->source->folderid;
-        }
-        if (Request::GetCommandCode() == ZPush::COMMAND_SMARTFORWARD) {
-            $forward = $sm->source->itemid;
-            $parent = $sm->source->folderid;
-        }
-
-        //TODO log entry
         ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->SendMail(): RFC822: %d bytes  forward-id: '%s' reply-id: '%s' parent-id: '%s' SaveInSent: '%s' ReplaceMIME: '%s'",
-                                            strlen($sm->mime), Utils::PrintAsString($forward), Utils::PrintAsString($reply), Utils::PrintAsString($parent),
-                                            Utils::PrintAsString(isset($sm->saveinsent)), Utils::PrintAsString(isset($sm->replacemime)) ));
+                                            strlen($sm->mime), Utils::PrintAsString($sm->forwardflag), Utils::PrintAsString($sm->replyflag),
+                                            Utils::PrintAsString((isset($sm->source->folderid) ? $sm->source->folderid : false)),
+                                            Utils::PrintAsString(($sm->saveinsent)), Utils::PrintAsString(isset($sm->replacemime)) ));
 
         // by splitting the message in several lines we can easily grep later
         foreach(preg_split("/((\r)?\n)/", $sm->mime) as $rfc822line)
@@ -432,12 +421,13 @@ class BackendZarafa implements IBackend, ISearchProvider {
         //message properties to be set
         $mapiprops = array();
         $mapiprops[$sendMailProps["subject"]] = u2wi(isset($message->headers["subject"])?$message->headers["subject"]:"");
+        // only save the outgoing in sent items folder if the mobile requests it
         $mapiprops[$sendMailProps["sentmailentryid"]] = $storeprops[$sendMailProps["ipmsentmailentryid"]];
         $mapiprops[$sendMailProps["messageclass"]] = "IPM.Note";
         $mapiprops[$sendMailProps["deliverytime"]] = time();
 
         if(isset($message->headers["x-priority"])) {
-            $this->getImportanceAndPriority($message->headers["x-priority"], $mapiprops);
+            $this->getImportanceAndPriority($message->headers["x-priority"], $mapiprops, $sendMailProps);
         }
 
         $this->addRecipients($message->headers, $mapimessage);
@@ -532,12 +522,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
             $body = strip_tags($body_html);
         }
 
-        if($forward)
-            $orig = $forward;
-        if($reply)
-            $orig = $reply;
-
-        if(isset($orig) && $orig) {
+        if(isset($sm->source->itemid) && $sm->source->itemid) {
             // Append the original text body for reply/forward
 
             $entryid = mapi_msgstore_entryidfromsourcekey($this->store, hex2bin($sm->source->folderid), hex2bin($sm->source->itemid));
@@ -548,8 +533,8 @@ class BackendZarafa implements IBackend, ISearchProvider {
                 throw new StatusException(sprintf("ZarafaBackend->SendMail(): Could not open message id '%s' in folder id '%s' to be replied/forwarded: 0x%X", $sm->source->itemid, $sm->source->folderid, mapi_last_hresult()), SYNC_COMMONSTATUS_ITEMNOTFOUND);
 
             //update icon when forwarding or replying message
-            if (Request::GetCommandCode() == ZPush::COMMAND_SMARTFORWARD) mapi_setprops($fwmessage, array(PR_ICON_INDEX=>262));
-            elseif (Request::GetCommandCode() == ZPush::COMMAND_SMARTREPLY) mapi_setprops($fwmessage, array(PR_ICON_INDEX=>261));
+            if ($sm->forwardflag) mapi_setprops($fwmessage, array(PR_ICON_INDEX=>262));
+            elseif ($sm->replyflag) mapi_setprops($fwmessage, array(PR_ICON_INDEX=>261));
             mapi_savechanges($fwmessage);
 
             // only attach the original message if the mobile does not send it itself
@@ -574,7 +559,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
                     $fwbody_html .= $data;
                 }
 
-                if(Request::GetCommandCode() == ZPush::COMMAND_SMARTFORWARD) {
+                if($sm->forwardflag) {
                     // During a forward, we have to add the forward header ourselves. This is because
                     // normally the forwarded message is added as an attachment. However, we don't want this
                     // because it would be rather complicated to copy over the entire original message due
@@ -1272,7 +1257,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
      *
      * @return void
      */
-    private function getImportanceAndPriority($xPriority, &$mapiprops) {
+    private function getImportanceAndPriority($xPriority, &$mapiprops, $sendMailProps) {
         switch($xPriority) {
             case 1:
             case 2:

@@ -53,6 +53,8 @@ class SyncSendMail extends SyncObject {
     public $accountid;
     public $source;
     public $mime;
+    public $replyflag;
+    public $forwardflag;
 
     function SyncSendMail() {
         $mapping = array (
@@ -70,6 +72,12 @@ class SyncSendMail extends SyncObject {
                                                                                       self::STREAMER_TYPE     => "SyncSendMailSource"),
 
                     SYNC_COMPOSEMAIL_MIME                                 => array (  self::STREAMER_VAR      => "mime"),
+
+                    SYNC_COMPOSEMAIL_REPLYFLAG                            => array (  self::STREAMER_VAR      => "replyflag",
+                                                                                      self::STREAMER_TYPE     => self::STREAMER_TYPE_IGNORE),
+
+                    SYNC_COMPOSEMAIL_FORWARDFLAG                          => array (  self::STREAMER_VAR      => "forwardflag",
+                                                                                      self::STREAMER_TYPE     => self::STREAMER_TYPE_IGNORE),
         );
 
         parent::SyncObject($mapping);
