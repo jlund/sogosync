@@ -378,6 +378,35 @@ class ZPushAdmin {
         return true;
     }
 
+    /**
+     * Clears loop detection data
+     *
+     * @param string    $user           (opt) user which data should be removed - user may not be specified without device id
+     * @param string    $devid          (opt) device id which data to be removed
+     *
+     * @return boolean
+     * @access public
+     */
+    static public function ClearLoopDetectionData($user = false, $devid = false) {
+        $loopdetection = new LoopDetection();
+        return $loopdetection->ClearData($user, $devid);
+    }
+
+    /**
+     * Returns loop detection data of a user & device
+     *
+     * @param string    $user
+     * @param string    $devid
+     *
+     * @return array/boolean            returns false if data is not available
+     * @access public
+     */
+    static public function GetLoopDetectionData($user, $devid) {
+        $loopdetection = new LoopDetection();
+        return $loopdetection->GetCachedData($user, $devid);
+    }
+
+
 }
 
 ?>

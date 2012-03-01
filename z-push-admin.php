@@ -53,6 +53,8 @@ include('lib/core/zlog.php');
 include('lib/core/statemanager.php');
 include('lib/core/streamer.php');
 include('lib/core/asdevice.php');
+include('lib/core/interprocessdata.php');
+include('lib/core/loopdetection.php');
 include('lib/exceptions/exceptions.php');
 include('lib/utils/utils.php');
 include('lib/utils/zpushadmin.php');
@@ -126,6 +128,7 @@ class ZPushAdminCLI {
     const COMMAND_WIPEDEVICE = 4;
     const COMMAND_REMOVEDEVICE = 5;
     const COMMAND_RESYNCDEVICE = 6;
+    const COMMAND_CLEARLOOP = 7;
 
     static private $command;
     static private $user = false;
@@ -140,17 +143,19 @@ class ZPushAdminCLI {
      */
     static public function UsageInstructions() {
         return  "Usage:\n\tz-push-admin.php -a ACTION [options]\n\n" .
-                "Parameters:\n\t-a list/wipe/remove/resync\n\t[-u] username\n\t[-d] deviceid\n\n" .
-                "Actions:\n\tlist\t\t\t Lists all devices and synchronized users\n" .
-                "\tlist -u USER\t\t Lists all devices of user USER\n" .
-                "\tlist -d DEVICE\t\t Lists all users of device DEVICE\n" .
-                "\twipe -u USER\t\t Remote wipes all devices of user USER\n" .
-                "\twipe -d DEVICE\t\t Remote wipes device DEVICE\n" .
-                "\twipe -u USER -d DEVICE\t Remote wipes device DEVICE of user USER\n" .
-                "\tremove -u USER\t\t Removes all state data of all devices of user USER\n" .
-                "\tremove -d DEVICE\t Removes all state data of all users synchronized on device DEVICE\n" .
-                "\tremove -u USER -d DEVICE Removes all related state data of device DEVICE of user USER\n" .
-                "\tresync -u USER -d DEVICE Resynchronizes all data of device DEVICE of user USER\n" .
+                "Parameters:\n\t-a list/wipe/remove/resync/clearloop\n\t[-u] username\n\t[-d] deviceid\n\n" .
+                "Actions:\n\tlist\t\t\t\t Lists all devices and synchronized users\n" .
+                "\tlist -u USER\t\t\t Lists all devices of user USER\n" .
+                "\tlist -d DEVICE\t\t\t Lists all users of device DEVICE\n" .
+                "\twipe -u USER\t\t\t Remote wipes all devices of user USER\n" .
+                "\twipe -d DEVICE\t\t\t Remote wipes device DEVICE\n" .
+                "\twipe -u USER -d DEVICE\t\t Remote wipes device DEVICE of user USER\n" .
+                "\tremove -u USER\t\t\t Removes all state data of all devices of user USER\n" .
+                "\tremove -d DEVICE\t\t Removes all state data of all users synchronized on device DEVICE\n" .
+                "\tremove -u USER -d DEVICE\t Removes all related state data of device DEVICE of user USER\n" .
+                "\tresync -u USER -d DEVICE\t Resynchronizes all data of device DEVICE of user USER\n" .
+                "\tclearloop\t\t\t Clears system wide loop detection data\n" .
+                "\tclearloop -d DEVICE -u USER\t Clears all loop detection data of a device DEVICE and an optional user USER\n" .
                 "\n";
     }
 
@@ -242,6 +247,13 @@ class ZPushAdminCLI {
                     self::$command = self::COMMAND_RESYNCDEVICE;
                 break;
 
+            // clear loop detection data
+            case "clearloop":
+            case "clearloopdetection":
+                self::$command = self::COMMAND_CLEARLOOP;
+                break;
+
+
             default:
                 self::UsageInstructions();
         }
@@ -315,6 +327,10 @@ class ZPushAdminCLI {
                         exit(1);
                 }
                 self::CommandResyncDevices();
+                break;
+
+            case self::COMMAND_CLEARLOOP:
+                self::CommandClearLoopDetectionData();
                 break;
         }
         echo "\n";
@@ -420,6 +436,19 @@ class ZPushAdminCLI {
     static public function CommandResyncDevices() {
         $stat = ZPushAdmin::ResyncDevice(self::$user, self::$device);
         echo sprintf("Resync of device '%s' of user '%s': %s", self::$device, self::$user, ($stat)?'Requested':ZLog::GetLastMessage(LOGLEVEL_ERROR)). "\n";
+    }
+
+    static public function CommandClearLoopDetectionData() {
+        $stat = false;
+        $stat = ZPushAdmin::ClearLoopDetectionData(self::$user, self::$device);
+        if (self::$user === false && self::$device === false)
+           echo sprintf("System wide loop detection data removed: %s", ($stat)?'OK':ZLog::GetLastMessage(LOGLEVEL_ERROR)). "\n";
+        elseif (self::$user === false)
+           echo sprintf("Loop detection data of device '%s' removed: %s", self::$device, ($stat)?'OK':ZLog::GetLastMessage(LOGLEVEL_ERROR)). "\n";
+        elseif (self::$device === false && self::$user !== false)
+           echo sprintf("Error: %s", ($stat)?'OK':ZLog::GetLastMessage(LOGLEVEL_WARN)). "\n";
+        else
+           echo sprintf("Loop detection data of device '%s' of user '%s' removed: %s", self::$device, self::$user, ($stat)?'OK':ZLog::GetLastMessage(LOGLEVEL_ERROR)). "\n";
     }
 
     /**
