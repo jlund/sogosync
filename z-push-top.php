@@ -44,6 +44,7 @@
 * Consult LICENSE file for details
 ************************************************/
 
+include('lib/exceptions/exceptions.php');
 include('lib/core/zpushdefs.php');
 include('lib/core/zpush.php');
 include('lib/core/zlog.php');
@@ -61,7 +62,12 @@ include('version.php');
     declare(ticks = 1);
     define('BASE_PATH_CLI',  dirname(__FILE__) ."/");
 
-    ZPush::CheckConfig();
+    try {
+        ZPush::CheckConfig();
+    }
+    catch (ZPushException $zpe) {
+        die(get_class($zpe) . ": ". $zpe->getMessage() . "\n");
+    }
     $zpt = new ZPushTop();
     if ($zpt->IsAvailable()) {
         pcntl_signal(SIGINT, array($zpt, "SignalHandler"));
