@@ -160,7 +160,6 @@ class Sync extends RequestProcessor {
                             else
                                 $supfields[] = $el[EN_TAG];
                         }
-                        // TODO supported fields could be saved in CPO
                         self::$deviceManager->SetSupportedFields($cpo->GetFolderId(), $supfields);
                     }
 
@@ -209,6 +208,8 @@ class Sync extends RequestProcessor {
 
                     // Do not truncate by default
                     $cpo->SetTruncation(SYNC_TRUNCATION_ALL);
+                    // set to synchronize all changes. The mobile could overwrite this value
+                    $cpo->SetFilterType(SYNC_FILTERTYPE_ALL);
 
                     if(self::$decoder->getElementStartTag(SYNC_OPTIONS)) {
                         while(1) {
