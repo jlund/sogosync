@@ -98,6 +98,9 @@ class LoopDetection extends InterProcessData {
             return true;
         }
 
+        // initialize params
+        $this->InitializeParams();
+
         $loop = false;
 
         // exclusive block
@@ -244,6 +247,66 @@ class LoopDetection extends InterProcessData {
                 $this->ignore_next_streamed_message = false;
             return true;
         }
+        return false;
+    }
+
+    /**
+     * Clears loop detection data
+     *
+     * @param string    $user           (opt) user which data should be removed - user can not be specified without
+     * @param string    $devid          (opt) device id which data to be removed
+     *
+     * @return boolean
+     * @access public
+     */
+    public function ClearData($user = false, $devid = false) {
+        $stat = true;
+        $ok = false;
+
+        // exclusive block
+        if ($this->blockMutex()) {
+            $loopdata = ($this->hasData()) ? $this->getData() : array();
+
+            if ($user == false && $devid == false)
+                $loopdata = array();
+            elseif ($user == false && $devid != false)
+                $loopdata[$devid] = array();
+            elseif ($user != false && $devid != false)
+                $loopdata[$devid][$user] = array();
+            elseif ($user != false && $devid == false) {
+                ZLog::Write(LOGLEVEL_WARN, sprintf("Not possible to reset loop detection data for user '%s' without a specifying a device id", $user));
+                $stat = false;
+            }
+
+            if ($stat)
+                $ok = $this->setData($loopdata);
+
+            $this->releaseMutex();
+        }
+        // end exclusive block
+
+        return $stat && $ok;
+    }
+
+    /**
+     * Returns loop detection data for a user and device
+     *
+     * @param string    $user
+     * @param string    $devid
+     *
+     * @return array/boolean    returns false if data not available
+     * @access public
+     */
+    public function GetCachedData($user, $devid) {
+        // exclusive block
+        if ($this->blockMutex()) {
+            $loopdata = ($this->hasData()) ? $this->getData() : array();
+            $this->releaseMutex();
+        }
+        // end exclusive block
+        if (isset($loopdata) && isset($loopdata[$devid]) && isset($loopdata[$devid][$user]))
+            return $loopdata[$devid][$user];
+
         return false;
     }
 

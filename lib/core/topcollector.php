@@ -62,6 +62,9 @@ class TopCollector extends InterProcessData {
         $this->type = 20;
         parent::__construct();
 
+        // initialize params
+        $this->InitializeParams();
+
         $this->preserved = array();
         // static vars come from the parent class
         $this->latest = array(  "pid"       => self::$pid,

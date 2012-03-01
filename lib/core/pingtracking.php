@@ -88,6 +88,9 @@ class PingTracking extends InterProcessData {
     protected function initPing() {
         $stat = false;
 
+        // initialize params
+        $this->InitializeParams();
+
         // exclusive block
         if ($this->blockMutex()) {
             $pings = ($this->hasData()) ? $this->getData() : array();

@@ -60,18 +60,27 @@ abstract class InterProcessData {
      * @access public
      */
     public function InterProcessData() {
+        if (!isset($this->type) || !isset($this->allocate))
+            throw new FatalNotImplementedException(sprintf("Class InterProcessData can not be initialized. Subclass %s did not initialize type and allocable memory.", get_class($this)));
+
+        if ($this->InitSharedMem())
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("%s(): Initialized mutexid %s and memid %s.", get_class($this), $this->mutexid, $this->memid));
+    }
+
+    /**
+     * Initializes internal parameters
+     *
+     * @access public
+     * @return boolean
+     */
+    public function InitializeParams() {
         if (!isset(self::$devid)) {
             self::$devid = Request::GetDeviceID();
             self::$pid = @getmypid();
             self::$user = Request::GetAuthUser();
             self::$start = time();
         }
-
-        if (!isset($this->type) || !isset($this->allocate))
-            throw new FatalNotImplementedException(sprintf("Class InterProcessData can not be initialized. Subclass %s did not initialize type and allocable memory.", get_class($this)));
-
-        if ($this->InitSharedMem())
-            ZLog::Write(LOGLEVEL_DEBUG, sprintf("%s(): Initialized mutexid %s and memid %s.", get_class($this), $this->mutexid, $this->memid));
+        return true;
     }
 
     /**
