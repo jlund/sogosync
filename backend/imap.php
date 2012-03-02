@@ -1194,7 +1194,7 @@ class BackendIMAP extends BackendDiff {
         $overview = @imap_fetch_overview ( $this->mbox , $id, FT_UID);
 
         if (!$overview)
-            throw new StatusException(sprintf("ImportChangesICS->MoveMessage('%s','%s','%s'): Error, unable to retrieve overview of source message: %s", $folderid, $id, $newfolderid, imap_last_error()), SYNC_MOVEITEMSSTATUS_INVALIDSOURCEID);
+            throw new StatusException(sprintf("BackendIMAP->MoveMessage('%s','%s','%s'): Error, unable to retrieve overview of source message: %s", $folderid, $id, $newfolderid, imap_last_error()), SYNC_MOVEITEMSSTATUS_INVALIDSOURCEID);
         else {
             // get next UID for destination folder
             // when moving a message we have to announce through ActiveSync the new messageID in the
@@ -1203,14 +1203,14 @@ class BackendIMAP extends BackendDiff {
             // in the worst case the moved message is displayed twice on the mobile.
             $destStatus = imap_status($this->mbox, $this->server . $newfolderImapid, SA_ALL);
             if (!$destStatus)
-                throw new StatusException(sprintf("ImportChangesICS->MoveMessage('%s','%s','%s'): Error, unable to open destination folder: %s", $folderid, $id, $newfolderid, imap_last_error()), SYNC_MOVEITEMSSTATUS_INVALIDDESTID);
+                throw new StatusException(sprintf("BackendIMAP->MoveMessage('%s','%s','%s'): Error, unable to open destination folder: %s", $folderid, $id, $newfolderid, imap_last_error()), SYNC_MOVEITEMSSTATUS_INVALIDDESTID);
 
             $newid = $destStatus->uidnext;
 
             // move message
             $s1 = imap_mail_move($this->mbox, $id, $newfolderImapid, CP_UID);
             if (! $s1)
-                throw new StatusException(sprintf("ImportChangesICS->ImportMessageMove('%s','%s','%s'): Error, copy to destination folder failed: %s", $folderid, $id, $newfolderid, imap_last_error()), SYNC_MOVEITEMSSTATUS_CANNOTMOVE);
+                throw new StatusException(sprintf("BackendIMAP->MoveMessage('%s','%s','%s'): Error, copy to destination folder failed: %s", $folderid, $id, $newfolderid, imap_last_error()), SYNC_MOVEITEMSSTATUS_CANNOTMOVE);
 
 
             // delete message in from-folder
@@ -1219,7 +1219,7 @@ class BackendIMAP extends BackendDiff {
             // open new folder
             $stat = $this->imap_reopenFolder($newfolderImapid);
             if (! $s1)
-                throw new StatusException(sprintf("ImportChangesICS->ImportMessageMove('%s','%s','%s'): Error, openeing the destination folder: %s", $folderid, $id, $newfolderid, imap_last_error()), SYNC_MOVEITEMSSTATUS_CANNOTMOVE);
+                throw new StatusException(sprintf("BackendIMAP->MoveMessage('%s','%s','%s'): Error, openeing the destination folder: %s", $folderid, $id, $newfolderid, imap_last_error()), SYNC_MOVEITEMSSTATUS_CANNOTMOVE);
 
 
             // remove all flags

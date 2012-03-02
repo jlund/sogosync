@@ -257,7 +257,7 @@ class ImportChangesDiff extends DiffState implements IImportChanges {
         // check the foldertype
         $folder = $this->backend->GetFolder($id);
         if (isset($folder->type) && Utils::IsSystemFolder($folder->type))
-            throw new StatusException(sprintf("ImportChangesICS->ImportFolderDeletion('%s','%s'): Error deleting system/default folder", $id, $parent), SYNC_FSSTATUS_SYSTEMFOLDER);
+            throw new StatusException(sprintf("ImportChangesDiff->ImportFolderDeletion('%s','%s'): Error deleting system/default folder", $id, $parent), SYNC_FSSTATUS_SYSTEMFOLDER);
 
         $ret = $this->backend->DeleteFolder($id, $parent);
         if (!$ret)
