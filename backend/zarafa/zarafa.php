@@ -166,7 +166,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         }
 
         if(!$this->session) {
-            ZLog::Write(LOGLEVEL_WARN, "logon failed for user $user");
+            ZLog::Write(LOGLEVEL_WARN, sprintf("ZarafaBackend->Logon(): logon failed for user '%s'", $user));
             $this->defaultstore = false;
             return false;
         }
@@ -180,7 +180,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         $this->store = $this->defaultstore;
         $this->storeName = $user;
 
-        ZLog::Write(LOGLEVEL_INFO, sprintf("ZarafaBackend->Logon(): User '%s' is authenticated",$user));
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->Logon(): User '%s' is authenticated",$user));
 
         // check if this is a Zarafa 7 store with unicode support
         MAPIUtils::IsUnicodeStore($this->store);
