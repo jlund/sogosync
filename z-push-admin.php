@@ -102,10 +102,15 @@ include('version.php');
  */
     define('BASE_PATH_CLI',  dirname(__FILE__) ."/");
     set_include_path(get_include_path() . PATH_SEPARATOR . BASE_PATH_CLI);
+    try {
+        ZPush::CheckConfig();
+        ZPushAdminCLI::CheckEnv();
+        ZPushAdminCLI::CheckOptions();
+    }
+    catch (ZPushException $zpe) {
+        die(get_class($zpe) . ": ". $zpe->getMessage() . "\n");
+    }
 
-    ZPush::CheckConfig();
-    ZPushAdminCLI::CheckEnv();
-    ZPushAdminCLI::CheckOptions();
     if (! ZPushAdminCLI::SureWhatToDo()) {
         // show error message if available
         if (ZPushAdminCLI::GetErrorMessage())
