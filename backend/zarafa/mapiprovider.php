@@ -969,6 +969,10 @@ class MAPIProvider {
             $props[$appointmentprops["flagdueby"]] = $appointment->starttime - $appointment->reminder * 60;
         }
 
+        if (isset($appointment->asbody)) {
+            $this->setASbody($appointment->asbody, $props, $appointmentprops);
+        }
+
         if(isset($appointment->recurrence)) {
             // Set PR_ICON_INDEX to 1025 to show correct icon in category view
             $props[$appointmentprops["icon"]] = 1025;
@@ -1222,6 +1226,10 @@ class MAPIProvider {
             }
         }
 
+        if (isset($contact->asbody)) {
+            $this->setASbody($contact->asbody, $props, $contactprops);
+        }
+
         mapi_setprops($mapimessage, $props);
     }
 
@@ -1237,12 +1245,17 @@ class MAPIProvider {
     private function setTask($mapimessage, $task) {
         mapi_setprops($mapimessage, array(PR_MESSAGE_CLASS => "IPM.Task"));
 
-        $this->setPropsInMAPI($mapimessage, $task, MAPIMapping::GetTaskMapping());
+        $taskmapping = MAPIMapping::GetTaskMapping();
         $taskprops = MAPIMapping::GetTaskProperties();
-        $taskprops = $this->getPropIdsFromStrings($taskprops);
+        $this->setPropsInMAPI($mapimessage, $task, $taskmapping);
+        $taskprops = array_merge($this->getPropIdsFromStrings($taskmapping), $this->getPropIdsFromStrings($taskprops));
 
         // task specific properties to be set
         $props = array();
+
+        if (isset($task->asbody)) {
+            $this->setASbody($task->asbody, $props, $taskprops);
+        }
 
         if(isset($task->complete)) {
             if($task->complete) {
@@ -2226,7 +2239,7 @@ class MAPIProvider {
     }
 
     /**
-    * sets properties for an email message
+    * Sets properties for an email message
     *
     * @param mixed             $mapimessage
     * @param SyncMail          $message
@@ -2241,6 +2254,39 @@ class MAPIProvider {
         $message->flag = new SyncMailFlags();
 
         $this->getPropsFromMAPI($message->flag, $mapimessage, MAPIMapping::GetMailFlagsMapping());
+    }
+
+    /**
+     * Sets information from SyncBaseBody type for a MAPI message.
+     *
+     * @param SyncBaseBody $asbody
+     * @param array $props
+     * @param array $appointmentprops
+     *
+     * @access private
+     * @return void
+     */
+    private function setASbody($asbody, &$props, $appointmentprops) {
+        if (isset($asbody->type) && isset($asbody->data) && strlen($asbody->data) > 0) {
+            switch ($asbody->type) {
+                case SYNC_BODYPREFERENCE_PLAIN:
+                default:
+                //set plain body if the type is not in valid range
+                    $props[$appointmentprops["body"]] = u2w($asbody->data);
+                    break;
+                case SYNC_BODYPREFERENCE_HTML:
+                    $props[$appointmentprops["html"]] = u2w($asbody->data);
+                    break;
+                case SYNC_BODYPREFERENCE_RTF:
+                    break;
+                case SYNC_BODYPREFERENCE_MIME:
+                    break;
+            }
+        }
+        else {
+            ZLog::Write(LOGLEVEL_INFO, "MAPIProvider->setASbody either type or data are not set. Setting to empty body");
+            $props[$appointmentprops["body"]] = "";
+        }
     }
 }
 
