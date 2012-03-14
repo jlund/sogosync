@@ -85,6 +85,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
     private $changesSink;
     private $changesSinkFolders;
     private $changesSinkStores;
+    private $wastebasket;
 
     /**
      * Constructor of the Zarafa Backend
@@ -101,6 +102,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
         $this->changesSink = false;
         $this->changesSinkFolders = array();
         $this->changesSinkStores = array();
+        $this->wastebasket = false;
     }
 
     /**
@@ -694,7 +696,20 @@ class BackendZarafa implements IBackend, ISearchProvider {
      * @return string
      */
     public function GetWasteBasket() {
-        // TODO: implement GetWasteBasket() for deletion operations on WM
+        if ($this->wastebasket) {
+            return $this->wastebasket;
+        }
+
+        $storeprops = mapi_getprops($this->defaultstore, array(PR_IPM_WASTEBASKET_ENTRYID));
+        if (isset($storeprops[PR_IPM_WASTEBASKET_ENTRYID])) {
+            $wastebasket = mapi_msgstore_openentry($this->store, $storeprops[PR_IPM_WASTEBASKET_ENTRYID]);
+            $wastebasketprops = mapi_getprops($wastebasket, array(PR_SOURCE_KEY));
+            if (isset($wastebasketprops[PR_SOURCE_KEY])) {
+                $this->wastebasket = bin2hex($wastebasketprops[PR_SOURCE_KEY]);
+                ZLog::Write(LOGLEVEL_DEBUG, sprintf("Got waste basket with id '%s'", $this->wastebasket));
+                return $this->wastebasket;
+            }
+        }
         return false;
     }
 
