@@ -84,10 +84,11 @@ class FolderChange extends RequestProcessor {
                 return false;
         }
 
+        // Parent
+        $parentid = false;
+
         // when creating or updating more information is necessary
         if (!$delete) {
-            // Parent
-            $parentid = false;
             if(self::$decoder->getElementStartTag(SYNC_FOLDERHIERARCHY_PARENTID)) {
                 $parentid = self::$decoder->getElementContent();
                 if(!self::$decoder->getElementEndTag())

@@ -106,10 +106,10 @@ class ImportChangesICS implements IImportChanges {
             throw new StatusException(sprintf("ImportChangesICS('%s','%s','%s'): Error, unable to open folder: 0x%X", $session, $store, Utils::PrintAsString($folderid), mapi_last_hresult()), SYNC_FSSTATUS_CODEUNKNOWN);
         }
 
-        if ($folderid) {
+        $this->mapiprovider = new MAPIProvider($this->session, $this->store);
+
+        if ($folderid)
             $this->importer = mapi_openproperty($folder, PR_COLLECTOR, IID_IExchangeImportContentsChanges, 0 , 0);
-            $this->mapiprovider = new MAPIProvider($this->session, $this->store);
-        }
         else
             $this->importer = mapi_openproperty($folder, PR_COLLECTOR, IID_IExchangeImportHierarchyChanges, 0 , 0);
     }
