@@ -48,8 +48,8 @@
 
 class SyncProvisioning extends SyncObject {
     //AS 12.0, 12.1 and 14.0 props
-    public $devpwenabled = 0;
-    public $alphanumpwreq = 0;
+    public $devpwenabled;
+    public $alphanumpwreq;
     public $devencenabled;
     public $pwrecoveryenabled;
     public $docbrowseenabled;
@@ -93,7 +93,6 @@ class SyncProvisioning extends SyncObject {
     public $allowinternetsharing;
     public $unapprovedinromapplist;
     public $approvedapplist;
-
 
     function SyncProvisioning() {
         $mapping = array (
@@ -238,7 +237,7 @@ class SyncProvisioning extends SyncObject {
 
     public function Load($policies = array()) {
         if (empty($policies)) {
-            $this->attenabled = 1;
+            $this->LoadDefaultPolicies();
         }
         else foreach ($policies as $p=>$v) {
             if (!isset($this->mapping[$p])) {
@@ -250,6 +249,55 @@ class SyncProvisioning extends SyncObject {
             $var = $this->mapping[$p][self::STREAMER_VAR];
             $this->$var = $v;
         }
+    }
+
+    public function LoadDefaultPolicies() {
+        //AS 12.0, 12.1 and 14.0 props
+        $this->devpwenabled = 0;
+        $this->alphanumpwreq = 0;
+        $this->devencenabled = 0;
+        $this->pwrecoveryenabled = 0;
+        $this->docbrowseenabled;
+        $this->attenabled = 1;
+        $this->mindevpwlenngth = 4;
+        $this->maxinacttimedevlock = 900;
+        $this->maxdevpwfailedattempts = 8;
+        $this->maxattsize = '';
+        $this->allowsimpledevpw = 1;
+        $this->devpwexpiration = 0;
+        $this->devpwhistory = 0;
+
+        //AS 12.1 and 14.0 props
+        $this->allostoragecard = 1;
+        $this->allowcam = 1;
+        $this->reqdevenc = 0;
+        $this->allowunsignedapps = 1;
+        $this->allowunsigninstallpacks = 1;
+        $this->mindevcomplexchars = 3;
+        $this->allowwifi = 1;
+        $this->allowtextmessaging = 1;
+        $this->allowpopimapemail = 1;
+        $this->allowbluetooth = 2;
+        $this->allowirda = 1;
+        $this->reqmansyncroam = 0;
+        $this->allowdesktopsync = 1;
+        $this->maxcalagefilter = 0;
+        $this->allowhtmlemail = 1;
+        $this->maxemailagefilter = 0;
+        $this->maxemailbodytruncsize = -1;
+        $this->maxemailhtmlbodytruncsize = -1;
+        $this->reqsignedsmimemessages = 0;
+        $this->reqencsmimemessages = 0;
+        $this->reqsignedsmimealgorithm = 0;
+        $this->reqencsmimealgorithm = 0;
+        $this->allowsmimeencalgneg = 2;
+        $this->allowsmimesoftcerts = 1;
+        $this->allowbrowser = 1;
+        $this->allowconsumeremail = 1;
+        $this->allowremotedesk = 1;
+        $this->allowinternetsharing = 1;
+        $this->unapprovedinromapplist = array();
+        $this->approvedapplist = array();
     }
 }
 
