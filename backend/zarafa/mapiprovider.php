@@ -176,6 +176,10 @@ class MAPIProvider {
         if ($message->complete == 1 && !isset($message->datecompleted))
             $message->datecompleted = time();
 
+        // if no reminder is set, announce that to the mobile
+        if (!isset($message->reminderset))
+            $message->reminderset = 0;
+
         return $message;
     }
 
