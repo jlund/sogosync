@@ -198,32 +198,39 @@ class FileStateMachine implements IStateMachine {
      * @return array
      */
     public function LinkUserDevice($username, $devid) {
-        // TODO there should be a lock on the users file when writing - Mantis #588
-        $filecontents = @file_get_contents($this->userfilename);
+        include_once("simplemutex.php");
+        $mutex = new SimpleMutex();
 
-        if ($filecontents)
-            $users = unserialize($filecontents);
-        else
-            $users = array();
+        // exclusive block
+        if ($mutex->Block()) {
+            $filecontents = @file_get_contents($this->userfilename);
 
-        $changed = false;
+            if ($filecontents)
+                $users = unserialize($filecontents);
+            else
+                $users = array();
 
-        // add user/device to the list
-        if (!isset($users[$username])) {
-            $users[$username] = array();
-            $changed = true;
+            $changed = false;
+
+            // add user/device to the list
+            if (!isset($users[$username])) {
+                $users[$username] = array();
+                $changed = true;
+            }
+            if (!isset($users[$username][$devid])) {
+                $users[$username][$devid] = 1;
+                $changed = true;
+            }
+
+            if ($changed) {
+                $bytes = file_put_contents($this->userfilename, serialize($users));
+                ZLog::Write(LOGLEVEL_DEBUG, sprintf("FileStateMachine->LinkUserDevice(): wrote %d bytes to users file", $bytes));
+            }
+            else
+                ZLog::Write(LOGLEVEL_DEBUG, "FileStateMachine->LinkUserDevice(): nothing changed");
+
+            $mutex->Release();
         }
-        if (!isset($users[$username][$devid])) {
-            $users[$username][$devid] = 1;
-            $changed = true;
-        }
-
-        if ($changed) {
-            $bytes = file_put_contents($this->userfilename, serialize($users));
-            ZLog::Write(LOGLEVEL_DEBUG, sprintf("FileStateMachine->LinkUserDevice(): wrote %d bytes to users file", $bytes));
-        }
-        else
-            ZLog::Write(LOGLEVEL_DEBUG, "FileStateMachine->LinkUserDevice(): nothing changed");
     }
 
    /**
@@ -236,36 +243,43 @@ class FileStateMachine implements IStateMachine {
      * @return array
      */
     public function UnLinkUserDevice($username, $devid) {
-        // TODO there should be a lock on the users file when writing - Mantis #588
-        $filecontents = @file_get_contents($this->userfilename);
+        include_once("simplemutex.php");
+        $mutex = new SimpleMutex();
 
-        if ($filecontents)
-            $users = unserialize($filecontents);
-        else
-            $users = array();
+        // exclusive block
+        if ($mutex->Block()) {
+            $filecontents = @file_get_contents($this->userfilename);
 
-        $changed = false;
+            if ($filecontents)
+                $users = unserialize($filecontents);
+            else
+                $users = array();
 
-        // is this user listed at all?
-        if (isset($users[$username])) {
-            if (isset($users[$username][$devid])) {
-                unset($users[$username][$devid]);
-                $changed = true;
+            $changed = false;
+
+            // is this user listed at all?
+            if (isset($users[$username])) {
+                if (isset($users[$username][$devid])) {
+                    unset($users[$username][$devid]);
+                    $changed = true;
+                }
+
+                // if there is no device left, remove the user
+                if (empty($users[$username])) {
+                    unset($users[$username]);
+                    $changed = true;
+                }
             }
 
-            // if there is no device left, remove the user
-            if (empty($users[$username])) {
-                unset($users[$username]);
-                $changed = true;
+            if ($changed) {
+                $bytes = file_put_contents($this->userfilename, serialize($users));
+                ZLog::Write(LOGLEVEL_DEBUG, sprintf("FileStateMachine->UnLinkUserDevice(): wrote %d bytes to users file", $bytes));
             }
-        }
+            else
+                ZLog::Write(LOGLEVEL_DEBUG, "FileStateMachine->UnLinkUserDevice(): nothing changed");
 
-        if ($changed) {
-            $bytes = file_put_contents($this->userfilename, serialize($users));
-            ZLog::Write(LOGLEVEL_DEBUG, sprintf("FileStateMachine->UnLinkUserDevice(): wrote %d bytes to users file", $bytes));
+            $mutex->Release();
         }
-        else
-            ZLog::Write(LOGLEVEL_DEBUG, "FileStateMachine->UnLinkUserDevice(): nothing changed");
     }
 
     /**
