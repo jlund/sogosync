@@ -549,7 +549,7 @@
                 $store = $this->store;
             } else {
                 $ab = mapi_openaddressbook($this->session); // seb changed from $session to $this->session
-                if(!ab) return false;
+                if(!$ab) return false;
 
                 $mailuser = mapi_ab_openentry($ab, $ownerentryid);
                 if(!$mailuser) return false;
