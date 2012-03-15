@@ -98,9 +98,7 @@ class SyncMeetingRequest extends SyncObject {
                                                                                     self::STREAMER_TYPE     => self::STREAMER_TYPE_DATE_DASHES),
 
                     SYNC_POOMMAIL_REMINDER                              => array (  self::STREAMER_VAR      => "reminder",
-                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_REQUIRED   => self::STREAMER_CHECK_SETZERO,
-                                                                                                                        self::STREAMER_CHECK_CMPHIGHER  => -1)),
-
+                                                                                    self::STREAMER_CHECKS   => array(   self::STREAMER_CHECK_CMPHIGHER      => -1)),
 
                     SYNC_POOMMAIL_RESPONSEREQUESTED                     => array (  self::STREAMER_VAR      => "responserequested"),
                     SYNC_POOMMAIL_RECURRENCES                           => array (  self::STREAMER_VAR      => "recurrences",
