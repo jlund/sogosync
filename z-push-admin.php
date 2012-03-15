@@ -106,21 +106,21 @@ include('version.php');
         ZPush::CheckConfig();
         ZPushAdminCLI::CheckEnv();
         ZPushAdminCLI::CheckOptions();
+
+        if (! ZPushAdminCLI::SureWhatToDo()) {
+            // show error message if available
+            if (ZPushAdminCLI::GetErrorMessage())
+                echo "ERROR: ". ZPushAdminCLI::GetErrorMessage() . "\n";
+
+            echo ZPushAdminCLI::UsageInstructions();
+            exit(1);
+        }
+
+        ZPushAdminCLI::RunCommand();
     }
     catch (ZPushException $zpe) {
         die(get_class($zpe) . ": ". $zpe->getMessage() . "\n");
     }
-
-    if (! ZPushAdminCLI::SureWhatToDo()) {
-        // show error message if available
-        if (ZPushAdminCLI::GetErrorMessage())
-            echo "ERROR: ". ZPushAdminCLI::GetErrorMessage() . "\n";
-
-        echo ZPushAdminCLI::UsageInstructions();
-        exit(1);
-    }
-
-    ZPushAdminCLI::RunCommand();
 
 
 /************************************************

@@ -64,18 +64,19 @@ include('version.php');
 
     try {
         ZPush::CheckConfig();
+
+        $zpt = new ZPushTop();
+        if ($zpt->IsAvailable()) {
+            pcntl_signal(SIGINT, array($zpt, "SignalHandler"));
+            $zpt->run();
+            $zpt->scrClear();
+        }
+        else
+            echo "Z-Push shared memory interprocess communication is not available.\n";
     }
     catch (ZPushException $zpe) {
         die(get_class($zpe) . ": ". $zpe->getMessage() . "\n");
     }
-    $zpt = new ZPushTop();
-    if ($zpt->IsAvailable()) {
-        pcntl_signal(SIGINT, array($zpt, "SignalHandler"));
-        $zpt->run();
-        $zpt->scrClear();
-    }
-    else
-        echo "Z-Push shared memory interprocess communication is not available.\n";
 
     echo "terminated\n";
 
