@@ -288,7 +288,8 @@ class Sync extends RequestProcessor {
 
                     // limit items to be synchronized to the mobiles if configured
                     if (defined('SYNC_FILTERTIME_MAX') && SYNC_FILTERTIME_MAX > SYNC_FILTERTYPE_ALL &&
-                        (!$cpo->HasFilterType() || $cpo->GetFilterType() > SYNC_FILTERTIME_MAX)) {
+                        (!$cpo->HasFilterType() || $cpo->GetFilterType() == SYNC_FILTERTYPE_ALL || $cpo->GetFilterType() > SYNC_FILTERTIME_MAX)) {
+                            ZLog::Write(LOGLEVEL_DEBUG, sprintf("SYNC_FILTERTIME_MAX defined. Filter set to value: %s", SYNC_FILTERTIME_MAX));
                             $cpo->SetFilterType(SYNC_FILTERTIME_MAX);
                     }
 
