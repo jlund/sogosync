@@ -1063,6 +1063,34 @@ class BackendZarafa implements IBackend, ISearchProvider {
         return true;
     }
 
+    /**
+     * Returns the MAPI store ressource for a folderid
+     * This is not part of IBackend but necessary for the ImportChangesICS->MoveMessage() operation if
+     * the destination folder is not in the default store
+     * Note: The current backend store might be changed as IBackend->Setup() is executed
+     *
+     * @param string        $store              target store, could contain a "domain\user" value - if emtpy default store is returned
+     * @param string        $folderid
+     *
+     * @access public
+     * @return Ressource/boolean
+     */
+    public function GetMAPIStoreForFolderId($store, $folderid) {
+        if ($store == false) {
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("ZarafaBackend->GetMAPIStoreForFolderId('%s', '%s'): no store specified, returning default store", $store, $folderid));
+            return $this->defaultstore;
+        }
+
+        // setup the correct store
+        if ($this->Setup($store, false, $folderid)) {
+            return $this->store;
+        }
+        else {
+            ZLog::Write(LOGLEVEL_WARN, sprintf("ZarafaBackend->GetMAPIStoreForFolderId('%s', '%s'): store is not available", $store, $folderid));
+            return false;
+        }
+    }
+
 
     /**----------------------------------------------------------------------------------------------------------
      * Private methods
