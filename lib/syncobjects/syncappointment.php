@@ -168,6 +168,12 @@ class SyncAppointment extends SyncObject {
             unset($mapping[SYNC_POOMCAL_BODY], $mapping[SYNC_POOMCAL_BODYTRUNCATED]);
         }
 
+        if(Request::GetProtocolVersion() >= 14.0) {
+            $mapping[SYNC_POOMCAL_DISALLOWNEWTIMEPROPOSAL]              = array (   self::STREAMER_VAR      => "disallownewtimeprop");
+            $mapping[SYNC_POOMCAL_RESPONSEREQUESTED]                    = array (   self::STREAMER_VAR      => "responserequested");
+            $mapping[SYNC_POOMCAL_RESPONSETYPE]                         = array (   self::STREAMER_VAR      => "responsetype");
+        }
+
         parent::SyncObject($mapping);
     }
 
