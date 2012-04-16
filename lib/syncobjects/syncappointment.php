@@ -75,6 +75,10 @@ class SyncAppointment extends SyncObject {
     public $asbody;
     public $nativebodytype;
 
+    // AS 14.0 props
+    public $disallownewtimeprop;
+    public $responsetype;
+    public $responserequested;
 
 
     function SyncAppointment() {
