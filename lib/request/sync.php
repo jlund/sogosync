@@ -714,16 +714,17 @@ class Sync extends RequestProcessor {
                             catch (StatusException $stex) {
                                $status = $stex->getCode();
                             }
-
                             try {
                                 // Stream the messages directly to the PDA
                                 $streamimporter = new ImportChangesStream(self::$encoder, ZPush::getSyncObjectFromFolderClass($cpo->GetContentClass()));
 
-                                $exporter->Config($sc->GetParameter($cpo, "state"));
-                                $exporter->ConfigContentParameters($cpo);
-                                $exporter->InitializeExporter($streamimporter);
+                                if ($exporter !== false) {
+                                    $exporter->Config($sc->GetParameter($cpo, "state"));
+                                    $exporter->ConfigContentParameters($cpo);
+                                    $exporter->InitializeExporter($streamimporter);
 
-                                $changecount = $exporter->GetChangeCount();
+                                    $changecount = $exporter->GetChangeCount();
+                                }
                             }
                             catch (StatusException $stex) {
                                 if ($stex->getCode() === SYNC_FSSTATUS_CODEUNKNOWN && $cpo->HasSyncKey())
@@ -731,6 +732,7 @@ class Sync extends RequestProcessor {
                                 else
                                     $status = $stex->getCode();
                             }
+
                             if (! $cpo->HasSyncKey())
                                 self::$topCollector->AnnounceInformation(sprintf("Exporter registered. %d objects queued.", $changecount), true);
                             else if ($status != SYNC_STATUS_SUCCESS)
