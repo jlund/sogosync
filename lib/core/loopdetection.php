@@ -118,10 +118,12 @@ class LoopDetection extends InterProcessData {
 
             // old UUID in cache - the device requested a new state!!
             else if (isset($current['type']) && $current['type'] == $type && isset($current['uuid']) && $current['uuid'] != $uuid ) {
-                ZLog::Write(LOGLEVEL_DEBUG, "LoopDetection->Detect(): UUID changed for folder changed by mobile!");
+                ZLog::Write(LOGLEVEL_DEBUG, "LoopDetection->Detect(): UUID changed for folder");
 
                 // some devices (iPhones) may request new UUIDs after broken items were sent several times
-                if (isset($current['queued']) && $current['queued'] > 0 && isset($current['maxCount']) && $current['count']+1 < $current['maxCount']) {
+                if (isset($current['queued']) && $current['queued'] > 0 &&
+                    (isset($current['maxCount']) && $current['count']+1 < $current['maxCount'] || $counter == 1)) {
+
                     ZLog::Write(LOGLEVEL_DEBUG, "LoopDetection->Detect(): UUID changed and while items where sent to device - forcing loop mode");
                     $loop = true; // force loop mode
                     $current['queued'] = $queuedMessages;
