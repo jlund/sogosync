@@ -186,7 +186,8 @@ class LoopDetection extends InterProcessData {
                         // case 3.1) we have just encountered a loop!
                         ZLog::Write(LOGLEVEL_DEBUG, "LoopDetection->Detect(): case 3.1 detected - loop detected, init loop mode");
                         $current['loopcount'] = 1;
-                        $current['maxCount'] = $counter + $queuedMessages;
+                        // the MaxCount is the max number of messages exported before
+                        $current['maxCount'] = $counter + (($maxItems < $queuedMessages)? $maxItems: $queuedMessages);
                         $loop = true;   // loop mode!!
                     }
                     else if ($queuedMessages == 0) {
