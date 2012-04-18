@@ -682,7 +682,8 @@ class Sync extends RequestProcessor {
         self::$encoder->startTag(SYNC_SYNCHRONIZE);
         {
             // global status
-            if ($status != SYNC_STATUS_SUCCESS) {
+            // SYNC_COMMONSTATUS_* start with values from 101
+            if ($status != SYNC_COMMONSTATUS_SUCCESS && $status > 100) {
                 self::$encoder->startTag(SYNC_STATUS);
                     self::$encoder->content($status);
                 self::$encoder->endTag();
@@ -701,7 +702,7 @@ class Sync extends RequestProcessor {
 
                         // initialize exporter to get changecount
                         $changecount = 0;
-                        // TODO observe if it works correct after merge of rev 716
+
                         // TODO we could check against $sc->GetChangedFolderIds() on heartbeat so we do not need to configure all exporter again
                         if($status == SYNC_STATUS_SUCCESS && ($sc->GetParameter($cpo, "getchanges") || ! $cpo->HasSyncKey())) {
                             try {
