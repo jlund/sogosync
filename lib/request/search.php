@@ -73,11 +73,11 @@ class Search extends RequestProcessor {
 
         // check if it is a content of an element (= GAL search)
         // or a starttag (= mailbox or documentlibrary search)
-        $e = self::$decoder->peek();
-        if ($e[EN_TYPE] == EN_TYPE_CONTENT) {
-            $searchquery = self::$decoder->getElementContent();
-        }
-        elseif ($e[EN_TYPE] == EN_TYPE_STARTTAG) {
+        $searchquery = self::$decoder->getElementContent();
+        if($searchquery && !self::$decoder->getElementEndTag())
+            return false;
+
+        if ($searchquery === false) {
             $cpo->SetSearchName($searchname);
             if (self::$decoder->getElementStartTag(SYNC_SEARCH_AND)) {
                 if (self::$decoder->getElementStartTag(SYNC_FOLDERID)) {
@@ -171,8 +171,6 @@ class Search extends RequestProcessor {
                 return false;
 
         }
-
-
 
         if(self::$decoder->getElementStartTag(SYNC_SEARCH_OPTIONS)) {
             while(1) {
