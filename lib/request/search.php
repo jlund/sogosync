@@ -82,6 +82,14 @@ class Search extends RequestProcessor {
         elseif ($e[EN_TYPE] == EN_TYPE_STARTTAG) {
             $cpo->SetSearchName($searchname);
             if (self::$decoder->getElementStartTag(SYNC_SEARCH_AND)) {
+                if (self::$decoder->getElementStartTag(SYNC_FOLDERID)) {
+                    $searchfolderid = self::$decoder->getElementContent();
+                    $cpo->SetSearchFolderid($searchfolderid);
+                    if(!self::$decoder->getElementEndTag()) // SYNC_FOLDERTYPE
+                    return false;
+                }
+
+
                 if (self::$decoder->getElementStartTag(SYNC_FOLDERTYPE)) {
                     $searchclass = self::$decoder->getElementContent();
                     $cpo->SetSearchClass($searchclass);
@@ -93,6 +101,60 @@ class Search extends RequestProcessor {
                     $searchfolderid = self::$decoder->getElementContent();
                     $cpo->SetSearchFolderid($searchfolderid);
                     if(!self::$decoder->getElementEndTag()) // SYNC_FOLDERTYPE
+                    return false;
+                }
+
+                if (self::$decoder->getElementStartTag(SYNC_SEARCH_FREETEXT)) {
+                    $searchfreetext = self::$decoder->getElementContent();
+                    $cpo->SetSearchFreeText($searchfreetext);
+                    if(!self::$decoder->getElementEndTag()) // SYNC_SEARCH_FREETEXT
+                    return false;
+                }
+
+                //TODO - review
+                if (self::$decoder->getElementStartTag(SYNC_SEARCH_GREATERTHAN)) {
+                    if(self::$decoder->getElementStartTag(SYNC_POOMMAIL_DATERECEIVED)) {
+                        $datereceivedgreater = true;
+                        if (($dam = self::$decoder->getElementContent()) !== false) {
+                            $datereceivedgreater = true;
+                            if(!self::$decoder->getElementEndTag()) {
+                                return false;
+                            }
+                        }
+                        $cpo->SetSearchDateReceivedGreater($datereceivedgreater);
+                    }
+
+                    if(self::$decoder->getElementStartTag(SYNC_SEARCH_VALUE)) {
+                        $searchvalue = self::$decoder->getElementContent();
+                        $cpo->SetSearchValueGreater($searchvalue);
+                        if(!self::$decoder->getElementEndTag()) // SYNC_SEARCH_VALUE
+                            return false;
+                    }
+
+                    if(!self::$decoder->getElementEndTag()) // SYNC_SEARCH_GREATERTHAN
+                        return false;
+                }
+
+                if (self::$decoder->getElementStartTag(SYNC_SEARCH_LESSTHAN)) {
+                    if(self::$decoder->getElementStartTag(SYNC_POOMMAIL_DATERECEIVED)) {
+                        $datereceivedless = true;
+                        if (($dam = self::$decoder->getElementContent()) !== false) {
+                            $datereceivedless = true;
+                            if(!self::$decoder->getElementEndTag()) {
+                                return false;
+                            }
+                        }
+                        $cpo->SetSearchDateReceivedLess($datereceivedless);
+                    }
+
+                    if(self::$decoder->getElementStartTag(SYNC_SEARCH_VALUE)) {
+                        $searchvalue = self::$decoder->getElementContent();
+                        $cpo->SetSearchValueLess($searchvalue);
+                        if(!self::$decoder->getElementEndTag()) // SYNC_SEARCH_VALUE
+                         return false;
+                    }
+
+                    if(!self::$decoder->getElementEndTag()) // SYNC_SEARCH_LESSTHAN
                         return false;
                 }
 
@@ -100,31 +162,7 @@ class Search extends RequestProcessor {
                     $searchfreetext = self::$decoder->getElementContent();
                     $cpo->SetSearchFreeText($searchfreetext);
                     if(!self::$decoder->getElementEndTag()) // SYNC_SEARCH_FREETEXT
-                        return false;
-                }
-
-                //TODO - review
-                if (self::$decoder->getElementStartTag(SYNC_SEARCH_LESSTHAN)) {
-                    if(self::$decoder->getElementStartTag(SYNC_POOMMAIL_DATERECEIVED)) {
-                        $datereceived = true;
-                        if (($dam = self::$decoder->getElementContent()) !== false) {
-                            $datereceived = true;
-                            if(!self::$decoder->getElementEndTag()) {
-                                return false;
-                            }
-                        }
-                        $cpo->SetSearchDateReceived($datereceived);
-                    }
-
-                    if(self::$decoder->getElementStartTag(SYNC_SEARCH_VALUE)) {
-                        $searchvalue = self::$decoder->getElementContent();
-                        $cpo->SetSearchValue($searchvalue);
-                        if(!self::$decoder->getElementEndTag())
-                        return false;
-                    }
-
-                    if(!self::$decoder->getElementEndTag()) // SYNC_SEARCH_VALUE
-                        return false;
+                    return false;
                 }
 
                 if(!self::$decoder->getElementEndTag()) // SYNC_SEARCH_AND
