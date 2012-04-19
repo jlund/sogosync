@@ -103,6 +103,30 @@ class Search extends RequestProcessor {
                         return false;
                 }
 
+                //TODO - review
+                if (self::$decoder->getElementStartTag(SYNC_SEARCH_LESSTHAN)) {
+                    if(self::$decoder->getElementStartTag(SYNC_POOMMAIL_DATERECEIVED)) {
+                        $datereceived = true;
+                        if (($dam = self::$decoder->getElementContent()) !== false) {
+                            $datereceived = true;
+                            if(!self::$decoder->getElementEndTag()) {
+                                return false;
+                            }
+                        }
+                        $cpo->SetSearchDateReceived($datereceived);
+                    }
+
+                    if(self::$decoder->getElementStartTag(SYNC_SEARCH_VALUE)) {
+                        $searchvalue = self::$decoder->getElementContent();
+                        $cpo->SetSearchValue($searchvalue);
+                        if(!self::$decoder->getElementEndTag())
+                        return false;
+                    }
+
+                    if(!self::$decoder->getElementEndTag()) // SYNC_SEARCH_VALUE
+                        return false;
+                }
+
                 if(!self::$decoder->getElementEndTag()) // SYNC_SEARCH_AND
                     return false;
             }
