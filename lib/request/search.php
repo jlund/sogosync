@@ -76,8 +76,6 @@ class Search extends RequestProcessor {
         $e = self::$decoder->peek();
         if ($e[EN_TYPE] == EN_TYPE_CONTENT) {
             $searchquery = self::$decoder->getElementContent();
-            if(!self::$decoder->getElementEndTag())
-                return false;
         }
         elseif ($e[EN_TYPE] == EN_TYPE_STARTTAG) {
             $cpo->SetSearchName($searchname);
