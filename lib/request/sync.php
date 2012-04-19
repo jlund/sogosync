@@ -213,6 +213,15 @@ class Sync extends RequestProcessor {
 
                     if(self::$decoder->getElementStartTag(SYNC_OPTIONS)) {
                         while(1) {
+                            //TODO - review - sms sync
+                            if(self::$decoder->getElementStartTag(SYNC_FOLDERTYPE)) {
+                                $foldertype = self::$decoder->getElementContent();
+                                ZLog::Write(LOGLEVEL_DEBUG, "options 1 foldertype:$foldertype");
+
+                                if(!self::$decoder->getElementEndTag())
+                                return false;
+                            }
+
                             if(self::$decoder->getElementStartTag(SYNC_FILTERTYPE)) {
                                 $cpo->SetFilterType(self::$decoder->getElementContent());
                                 if(!self::$decoder->getElementEndTag())
@@ -277,6 +286,43 @@ class Sync extends RequestProcessor {
                                 if(!self::$decoder->getElementEndTag())
                                     return false;
                             }
+
+                            $e = self::$decoder->peek();
+                            if($e[EN_TYPE] == EN_TYPE_ENDTAG) {
+                                self::$decoder->getElementEndTag();
+                                break;
+                            }
+                        }
+                    }
+
+                    //TODO - review - sms sync
+                    if(self::$decoder->getElementStartTag(SYNC_OPTIONS)) {
+                        while(1) {
+                            if(self::$decoder->getElementStartTag(SYNC_FOLDERTYPE)) {
+                                $foldertype = self::$decoder->getElementContent();
+
+                                if(!self::$decoder->getElementEndTag())
+                                    return false;
+                            }
+
+                            if(self::$decoder->getElementStartTag(SYNC_FILTERTYPE)) {
+                                $cpo->SetFilterType(self::$decoder->getElementContent());
+                                if(!self::$decoder->getElementEndTag())
+                                    return false;
+                            }
+
+                            while (self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_BODYPREFERENCE)) {
+                                if(self::$decoder->getElementStartTag(SYNC_AIRSYNCBASE_TYPE)) {
+                                    $bptype = self::$decoder->getElementContent();
+                                    $cpo->BodyPreference($bptype);
+                                    if(!self::$decoder->getElementEndTag()) {
+                                        return false;
+                                    }
+                                }
+                                if(!self::$decoder->getElementEndTag())
+                                    return false;
+                            }
+
 
                             $e = self::$decoder->peek();
                             if($e[EN_TYPE] == EN_TYPE_ENDTAG) {
