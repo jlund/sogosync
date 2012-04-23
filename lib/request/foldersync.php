@@ -68,10 +68,17 @@ class FolderSync extends RequestProcessor {
             return false;
 
         $status = SYNC_FSSTATUS_SUCCESS;
+        $newsynckey = $synckey;
         try {
             $syncstate = self::$deviceManager->GetStateManager()->GetSyncState($synckey);
+
+            // We will be saving the sync state under 'newsynckey'
+            $newsynckey = self::$deviceManager->GetStateManager()->GetNewSyncKey($synckey);
         }
         catch (StateNotFoundException $snfex) {
+                $status = SYNC_FSSTATUS_SYNCKEYERROR;
+        }
+        catch (StateInvalidException $sive) {
                 $status = SYNC_FSSTATUS_SYNCKEYERROR;
         }
 
@@ -79,9 +86,6 @@ class FolderSync extends RequestProcessor {
         // before sending the actual data.
         // the HierarchyCache is notified and the changes from the PIM are transmitted to the actual backend
         $changesMem = self::$deviceManager->GetHierarchyChangesWrapper();
-
-        // We will be saving the sync state under 'newsynckey'
-        $newsynckey = self::$deviceManager->GetStateManager()->GetNewSyncKey($synckey);
 
         // the hierarchyCache should now fully be initialized - check for changes in the additional folders
         $changesMem->Config(ZPush::GetAdditionalSyncFolders());
