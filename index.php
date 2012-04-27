@@ -184,6 +184,12 @@ include_once('version.php');
         // the buffer.
         if(!headers_sent())
             header("Content-Length: $len");
+
+        // send vnd.ms-sync.wbxml content type header if there is no content
+        // otherwise text/html content type is added which might break some devices
+        if ($len == 0)
+            header("Content-Type: application/vnd.ms-sync.wbxml");
+
         print $data;
 
         // destruct backend after all data is on the stream
