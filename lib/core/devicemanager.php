@@ -379,12 +379,12 @@ class DeviceManager {
      * synchronization
      *
      * @param string        $id         message id
-     * @param SyncObject    $message
+     * @param SyncObject    &$message   the method could edit the message to change the flags
      *
      * @access public
      * @return boolean          returns true if the message should NOT be send!
      */
-    public function DoNotStreamMessage($id, $message) {
+    public function DoNotStreamMessage($id, &$message) {
         $folderid = $this->latestFolder;
 
         if (isset($message->parentid))
@@ -403,7 +403,10 @@ class DeviceManager {
         }
 
         // all other messages are potentially synched now
-        $this->announceAcceptedMessage($folderid, $id);
+        if ($this->announceAcceptedMessage($folderid, $id)) {
+            // reset the flags so the message is streamed with <Add>
+            $message->flags = false;
+        }
         return false;
     }
 
@@ -582,11 +585,14 @@ class DeviceManager {
      * @param string        $id         message id
      *
      * @access public
-     * @return boolean          returns true if the message should NOT be send
+     * @return boolean          returns true if the message was ignored before
      */
     private function announceAcceptedMessage($folderid, $id) {
-        if ($this->device->RemoveIgnoredMessage($folderid, $id))
-            ZLog::Write(LOGLEVEL_INFO, sprintf("DeviceManager->announceAcceptedMessage('%s', '%s'): cleared previosily ignored message as message was sucessfully streamed",$folderid, $id));
+        if ($this->device->RemoveIgnoredMessage($folderid, $id)) {
+            ZLog::Write(LOGLEVEL_INFO, sprintf("DeviceManager->announceAcceptedMessage('%s', '%s'): cleared previosily ignored message as message is sucessfully streamed",$folderid, $id));
+            return true;
+        }
+        return false;
     }
 }
 
