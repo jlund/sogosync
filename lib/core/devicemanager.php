@@ -440,6 +440,7 @@ class DeviceManager {
     /**
      * Sets the amount of items the device is requesting
      *
+     * @param string    $folderid
      * @param int       $maxItems
      *
      * @access public
@@ -475,6 +476,24 @@ class DeviceManager {
      */
     public function GetSupportedFields($folderid) {
         return $this->device->GetSupportedFields($folderid);
+    }
+
+    /**
+     * Removes all linked states of a specific folder.
+     * During next request the folder is resynchronized.
+     *
+     * @param string    $folderid
+     *
+     * @access public
+     * @return boolean
+     */
+    public function ForceFolderResync($folderid) {
+        ZLog::Write(LOGLEVEL_INFO, sprintf("DeviceManager->ForceFolderResync('%s'): folder resync", $folderid));
+
+        // delete folder states
+        StateManager::UnLinkState($this->device, $folderid);
+
+        return true;
     }
 
     /**

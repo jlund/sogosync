@@ -70,6 +70,8 @@ include_once('lib/core/streamimporter.php');
 include_once('lib/core/synccollections.php');
 include_once('lib/core/hierarchycache.php');
 include_once('lib/core/changesmemorywrapper.php');
+include_once('lib/core/syncparameters.php');
+include_once('lib/core/bodypreference.php');
 include_once('lib/core/contentparameters.php');
 include_once('lib/wbxml/wbxmldefs.php');
 include_once('lib/wbxml/wbxmldecoder.php');
