@@ -232,6 +232,11 @@ class SyncParameters extends StateObject {
             throw new FatalNotImplementedException(sprintf("SyncParameters->GetCPO('%s') ContentParameters is invalid. Such type is not available.", $options));
 
         $this->checkCPO($options);
+
+        // copy contentclass and conversationmode to the CPO
+        $this->contentParameters[$options]->SetContentClass($this->contentclass);
+        $this->contentParameters[$options]->SetConversationMode($this->conversationmode);
+
         return $this->contentParameters[$options];
     }
 

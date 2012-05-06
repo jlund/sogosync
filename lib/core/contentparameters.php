@@ -44,13 +44,15 @@
 
 
 class ContentParameters extends StateObject {
-    protected $unsetdata = array(   'foldertype' => '',
+    protected $unsetdata = array(   'contentclass' => false,
+                                    'foldertype' => '',
                                     'conflict' => false,
                                     'deletesasmoves' => true,
                                     'filtertype' => false,
                                     'truncation' => false,
                                     'rtftruncation' => false,
                                     'mimesupport' => false,
+                                    'conversationmode' => false,
                                 );
 
     private $synckeyChanged = false;
@@ -59,8 +61,6 @@ class ContentParameters extends StateObject {
      * Expected magic getters and setters
      *
      * GetContentClass() + SetContentClass()
-     * GetFolderId() + SetFolderId()
-     * GetWindowSize() + SetWindowSize()
      * GetConflict() + SetConflict()
      * GetDeletesAsMoves() + SetDeletesAsMoves()
      * GetFilterType() + SetFilterType()
