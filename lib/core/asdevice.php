@@ -65,6 +65,7 @@ class ASDevice extends StateObject {
                                     'forcesave' => false,
                                     'asversion' => false,
                                     'ignoredmessages' => array(),
+                                    'announcedASversion' => false,
                                 );
 
     static private $loadedData;

@@ -164,7 +164,15 @@ include_once('version.php');
             throw new NoPostRequestException("This is the Z-Push location and can only be accessed by Microsoft ActiveSync-capable devices", NoPostRequestException::GET_REQUEST);
 
         // Do the actual request
-        header(ZPush::getServerHeader());
+        header(ZPush::GetServerHeader());
+
+        // announce the supported AS versions (if not already sent to device)
+        if (ZPush::GetDeviceManager()->AnnounceASVersion()) {
+            $versions = ZPush::GetSupportedProtocolVersions(true);
+            ZLog::Write(LOGLEVEL_INFO, sprintf("Announcing latest AS version to device: %s", $versions));
+            header("X-MS-RP: ". $versions);
+        }
+
         RequestProcessor::Initialize();
         if(!RequestProcessor::HandleRequest())
             throw new WBXMLException(ZLog::GetWBXMLDebugInfo());

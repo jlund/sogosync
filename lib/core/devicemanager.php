@@ -531,6 +531,19 @@ class DeviceManager {
         return $this->hierarchySyncRequired;
     }
 
+    /**
+     * Indicates if the device needs an AS version update
+     *
+     * @access public
+     * @return boolean
+     */
+    public function AnnounceASVersion() {
+        $latest = ZPush::GetSupportedASVersion();
+        $announced = $this->device->GetAnnouncedASversion();
+        $this->device->SetAnnouncedASversion($latest);
+
+        return ($announced != $latest);
+    }
 
     /**----------------------------------------------------------------------------------------------------------
      * private DeviceManager methods
