@@ -491,8 +491,10 @@ class MAPIProvider {
 
         $fromname = $fromaddr = "";
 
-        if(isset($messageprops[$emailproperties["representingname"]]))
-            $fromname = $messageprops[$emailproperties["representingname"]];
+        if(isset($messageprops[$emailproperties["representingname"]])) {
+            // remove encapsulating double quotes from the representingname
+            $fromname = preg_replace('/^\"(.*)\"$/',"\${1}", $messageprops[$emailproperties["representingname"]]);
+        }
         if(isset($messageprops[$emailproperties["representingentryid"]]))
             $fromaddr = $this->getSMTPAddressFromEntryID($messageprops[$emailproperties["representingentryid"]]);
 
