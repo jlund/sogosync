@@ -614,7 +614,7 @@ class MAPIProvider {
             if(isset($row[PR_ATTACH_NUM])) {
                 $mapiattach = mapi_message_openattach($mapimessage, $row[PR_ATTACH_NUM]);
 
-                $attachprops = mapi_getprops($mapiattach, array(PR_ATTACH_LONG_FILENAME, PR_ATTACH_FILENAME, PR_ATTACHMENT_HIDDEN, PR_ATTACH_CONTENT_ID, PR_ATTACH_CONTENT_ID_W));
+                $attachprops = mapi_getprops($mapiattach, array(PR_ATTACH_LONG_FILENAME, PR_ATTACH_FILENAME, PR_ATTACHMENT_HIDDEN, PR_ATTACH_CONTENT_ID, PR_ATTACH_CONTENT_ID_W, PR_ATTACH_MIME_TAG, PR_ATTACH_MIME_TAG_W));
 
                 $stream = mapi_openpropertytostream($mapiattach, PR_ATTACH_DATA_BIN);
                 if($stream) {
@@ -622,7 +622,26 @@ class MAPIProvider {
 
                     if (Request::GetProtocolVersion() >= 12.0) {
                         $attach = new SyncBaseAttachment();
-                        $attach->displayname = w2u((isset($attachprops[PR_ATTACH_LONG_FILENAME])) ? $attachprops[PR_ATTACH_LONG_FILENAME] : ((isset($attachprops[PR_ATTACH_FILENAME])) ? $attachprops[PR_ATTACH_FILENAME] : "attachment.bin"));
+                    }
+                    else {
+                        $attach = new SyncAttachment();
+                    }
+
+                    // the displayname is handled equal for all AS versions
+                    $attach->displayname = w2u((isset($attachprops[PR_ATTACH_LONG_FILENAME])) ? $attachprops[PR_ATTACH_LONG_FILENAME] : ((isset($attachprops[PR_ATTACH_FILENAME])) ? $attachprops[PR_ATTACH_FILENAME] : "attachment.bin"));
+
+                    // fix attachment name in case of inline images
+                    if ($attach->displayname == "inline.txt" && (isset($attachprops[PR_ATTACH_MIME_TAG]) || $attachprops[PR_ATTACH_MIME_TAG_W])) {
+                        $mimetype = (isset($attachprops[PR_ATTACH_MIME_TAG]))?$attachprops[PR_ATTACH_MIME_TAG]:$attachprops[PR_ATTACH_MIME_TAG_W];
+                        $mime = explode("/", $mimetype);
+
+                        if (count($mime) == 2 && $mime[0] == "image") {
+                            $attach->displayname = "inline." . $mime[1];
+                        }
+                    }
+
+                    // set AS version specific parameters
+                    if (Request::GetProtocolVersion() >= 12.0) {
                         $attach->filereference = $entryid.":".$row[PR_ATTACH_NUM];
                         $attach->method = 1;
                         $attach->estimatedDataSize = $stat["cb"];
@@ -641,9 +660,7 @@ class MAPIProvider {
                         array_push($message->asattachments, $attach);
                     }
                     else {
-                        $attach = new SyncAttachment();
                         $attach->attsize = $stat["cb"];
-                        $attach->displayname = w2u((isset($attachprops[PR_ATTACH_LONG_FILENAME])) ? $attachprops[PR_ATTACH_LONG_FILENAME] : ((isset($attachprops[PR_ATTACH_FILENAME])) ? $attachprops[PR_ATTACH_FILENAME] : "attachment.bin"));
                         $attach->attname = $entryid.":".$row[PR_ATTACH_NUM];
                         if(!isset($message->attachments))
                             $message->attachments = array();
