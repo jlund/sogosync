@@ -209,7 +209,12 @@ class LoopDetection extends InterProcessData {
             }
         }
 
-        $filtered = array_keys(array_filter($seenFailed, function ($element) { return ($element>1); } ));
+        $filtered = array();
+        foreach ($seenFailed as $k => $count) {
+            if ($count>1)
+                $filtered[] = $k;
+        }
+
         if ($seenFolderSync && !empty($filtered)) {
             ZLog::Write(LOGLEVEL_INFO, "LoopDetection->ProcessLoopDetectionIsHierarchyResyncRequired(): Potential loop detected. Full hierarchysync indicated.");
             return true;
