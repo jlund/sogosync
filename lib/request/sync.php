@@ -121,6 +121,12 @@ class Sync extends RequestProcessor {
                         // this forces a resync of all states previous to Z-Push 2 beta4
                         if (! $spa instanceof SyncParameters)
                             throw new StateInvalidException("Saved state are not of type SyncParameters");
+
+                        // new/resync requested
+                        if ($synckey == "0")
+                            $spa->RemoveSyncKey();
+                        else if ($synckey !== false)
+                            $spa->SetSyncKey($synckey);
                     }
                     catch (StateInvalidException $stie) {
                         $spa = new SyncParameters();
@@ -134,12 +140,6 @@ class Sync extends RequestProcessor {
 
                     if ($class !== false)
                         $spa->SetContentClass($class);
-
-                    // new/resync requested
-                    if ($synckey == "0")
-                        $spa->RemoveSyncKey();
-                    else if ($synckey !== false)
-                        $spa->SetSyncKey($synckey);
 
                     // Get class for as versions >= 12.0
                     if (! $spa->HasContentClass()) {
