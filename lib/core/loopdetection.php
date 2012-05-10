@@ -48,7 +48,11 @@
 
 
 class LoopDetection extends InterProcessData {
+    const INTERPROCESSLD = "ipldkey";
+    static private $processident;
+    static private $processentry;
     private $ignore_messageid;
+
 
     /**
      * Constructor
@@ -63,6 +67,237 @@ class LoopDetection extends InterProcessData {
 
         $this->ignore_messageid = false;
     }
+
+    /**
+     * PROCESS LOOP DETECTION
+     */
+
+    /**
+     * Adds the process entry to the process stack
+     *
+     * @access public
+     * @return boolean
+     */
+    public function ProcessLoopDetectionInit() {
+        return $this->updateProcessStack();
+    }
+
+    /**
+     * Returns a unique identifier for the internal process tracking
+     *
+     * @access public
+     * @return string
+     */
+    public static function GetProcessIdentifier() {
+        if (!isset(self::$processident))
+            self::$processident = sprintf('%04x%04', mt_rand(0, 0xffff), mt_rand(0, 0xffff));
+
+        return self::$processident;
+    }
+
+    /**
+     * Returns a unique entry with informations about the current process
+     *
+     * @access public
+     * @return array
+     */
+    public static function GetProcessEntry() {
+        if (!isset(self::$processentry)) {
+            self::$processentry = array();
+            self::$processentry['id'] = self::GetProcessIdentifier();
+            self::$processentry['time'] = self::$start;
+            self::$processentry['cc'] = Request::GetCommandCode();
+        }
+
+        return self::$processentry;
+    }
+
+    /**
+     * Adds an Exceptions to the process tracking
+     *
+     * @param Exception     $exception
+     *
+     * @access public
+     * @return boolean
+     */
+    public function ProcessLoopDetectionAddException($exception) {
+        // generate entry if not already there
+        self::GetProcessEntry();
+
+        if (!isset(self::$processentry['stat']))
+            self::$processentry['stat'] = array();
+
+        self::$processentry['stat'][get_class($exception)] = $exception->getCode();
+
+        $this->updateProcessStack();
+        return true;
+    }
+
+    /**
+     * Adds a folderid and connected status code to the process tracking
+     *
+     * @param string    $folderid
+     * @param int       $status
+     *
+     * @access public
+     * @return boolean
+     */
+    public function ProcessLoopDetectionAddStatus($folderid, $status) {
+        // generate entry if not already there
+        self::GetProcessEntry();
+
+        if ($folderid === false)
+            $folderid = "hierarchy";
+
+        if (!isset(self::$processentry['stat']))
+            self::$processentry['stat'] = array();
+
+        self::$processentry['stat'][$folderid] = $status;
+
+        $this->updateProcessStack();
+
+        return true;
+    }
+
+    /**
+     * Indicates if a full Hierarchy Resync is necessary
+     *
+     * In some occasions the mobile tries to sync a folder with an invalid/not-existing ID.
+     * In these cases a status exception like SYNC_STATUS_FOLDERHIERARCHYCHANGED is returned
+     * so the mobile executes a FolderSync expecting that some action is taken on that folder (e.g. remove).
+     *
+     * If the FolderSync is not doing anything relevant, then the Sync is attempted again
+     * resulting in the same error and looping between these two processes.
+     *
+     * This method checks if in the last process stack a Sync and FolderSync were triggered to
+     * catch the loop at the 2nd interaction (Sync->FolderSync->Sync->FolderSync => ReSync)
+     * Ticket: https://jira.zarafa.com/browse/ZP-5
+     *
+     * @access public
+     * @return boolean
+     *
+     */
+    public function ProcessLoopDetectionIsHierarchyResyncRequired() {
+        $seenFailed = array();
+        $seenFolderSync = false;
+
+        $lookback = self::$start - 600; // look at the last 5 min
+        foreach ($this->getProcessStack() as $se) {
+            if ($se['time'] > $lookback && $se['time'] < (self::$start-1)) {
+                // look for sync command
+                if (isset($se['stat']) && ($se['cc'] == ZPush::COMMAND_SYNC || $se['cc'] == ZPush::COMMAND_PING)) {
+                    foreach($se['stat'] as $key => $value) {
+                        if (!isset($seenFailed[$key]))
+                            $seenFailed[$key] = 0;
+                        $seenFailed[$key]++;
+                        ZLog::Write(LOGLEVEL_DEBUG, sprintf("LoopDetection->ProcessLoopDetectionIsHierarchyResyncRequired(): seen command with Exception or folderid '%s' and code '%s'", $key, $value ));
+                    }
+                }
+                // look for FolderSync command with previous failed commands
+                if ($se['cc'] == ZPush::COMMAND_FOLDERSYNC && !empty($seenFailed) && $se['id'] != self::GetProcessIdentifier()) {
+                    // a full folderresync was already triggered
+                    if (isset($se['stat']) && $se['stat']['hierarchy'] == SYNC_FSSTATUS_SYNCKEYERROR) {
+                        ZLog::Write(LOGLEVEL_DEBUG, "LoopDetection->ProcessLoopDetectionIsHierarchyResyncRequired(): a full FolderReSync was already requested. Resetting fail counter.");
+                        $seenFailed = array();
+                    }
+                    else {
+                        $seenFolderSync = true;
+                        if (!empty($seenFailed))
+                            ZLog::Write(LOGLEVEL_DEBUG, "LoopDetection->ProcessLoopDetectionIsHierarchyResyncRequired(): seen FolderSync after other failing command");
+                    }
+                }
+            }
+        }
+
+        $filtered = array_keys(array_filter($seenFailed, function ($element) { return ($element>1); } ));
+        if ($seenFolderSync && !empty($filtered)) {
+            ZLog::Write(LOGLEVEL_INFO, "LoopDetection->ProcessLoopDetectionIsHierarchyResyncRequired(): Potential loop detected. Full hierarchysync indicated.");
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Inserts or updates the current process entry on the stack
+     *
+     * @access private
+     * @return boolean
+     */
+    private function updateProcessStack() {
+        // initialize params
+        $this->InitializeParams();
+        if ($this->blockMutex()) {
+            $loopdata = ($this->hasData()) ? $this->getData() : array();
+
+            // check and initialize the array structure
+            $this->checkArrayStructure($loopdata, self::INTERPROCESSLD);
+
+            $stack = $loopdata[self::$devid][self::$user][self::INTERPROCESSLD];
+
+            // insert/update current process entry
+            $nstack = array();
+            $updateentry = self::GetProcessEntry();
+            $found = false;
+
+            foreach ($stack as $entry) {
+                if ($entry['id'] != $updateentry['id']) {
+                    $nstack[] = $entry;
+                }
+                else {
+                    $nstack[] = $updateentry;
+                    $found = true;
+                }
+            }
+
+            if (!$found)
+                $nstack[] = $updateentry;
+
+            if (count($nstack) > 10)
+                $nstack = array_slice($nstack, -10, 10);
+
+            // update loop data
+            $loopdata[self::$devid][self::$user][self::INTERPROCESSLD] = $nstack;
+            $ok = $this->setData($loopdata);
+
+            $this->releaseMutex();
+        }
+        // end exclusive block
+
+        return true;
+    }
+
+    /**
+     * Returns the current process stack
+     *
+     * @access private
+     * @return array
+     */
+
+    private function getProcessStack() {
+        // initialize params
+        $this->InitializeParams();
+        $stack = array();
+
+        if ($this->blockMutex()) {
+            $loopdata = ($this->hasData()) ? $this->getData() : array();
+
+            // check and initialize the array structure
+            $this->checkArrayStructure($loopdata, self::INTERPROCESSLD);
+
+            $stack = $loopdata[self::$devid][self::$user][self::INTERPROCESSLD];
+
+            $this->releaseMutex();
+        }
+        // end exclusive block
+
+        return $stack;
+    }
+
+
+    /**
+     * MESSAGE LOOP DETECTION
+     */
 
     /**
      * Loop detection mechanism

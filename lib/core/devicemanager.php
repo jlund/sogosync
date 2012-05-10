@@ -91,6 +91,8 @@ class DeviceManager {
             throw new FatalNotImplementedException("Can not proceed without a device id.");
 
         $this->loopdetection = new LoopDetection();
+        $this->loopdetection->ProcessLoopDetectionInit();
+
         $this->stateManager = new StateManager();
         $this->stateManager->SetDevice($this->device);
     }
@@ -529,6 +531,40 @@ class DeviceManager {
             $this->hierarchySyncRequired = true;
 
         return $this->hierarchySyncRequired;
+    }
+
+    /**
+     * Indicates if a full hierarchy resync should be triggered due to loops
+     *
+     * @access public
+     * @return boolean
+     */
+    public function IsHierarchyFullResyncRequired() {
+        // check for potential process loops like described in ZP-5
+        return $this->loopdetection->ProcessLoopDetectionIsHierarchyResyncRequired();
+    }
+
+    /**
+     * Adds an Exceptions to the process tracking
+     *
+     * @param Exception     $exception
+     *
+     * @access public
+     * @return boolean
+     */
+    public function AnnounceProcessException($exception) {
+        return $this->loopdetection->ProcessLoopDetectionAddException($exception);
+    }
+
+    /**
+     * Adds a non-ok status for a folderid to the process tracking.
+     * On 'false' a hierarchy status is assumed
+     *
+     * @access public
+     * @return boolean
+     */
+    public function AnnounceProcessStatus($folderid, $status) {
+        return $this->loopdetection->ProcessLoopDetectionAddStatus($folderid, $status);
     }
 
     /**

@@ -161,6 +161,7 @@ class Ping extends RequestProcessor {
                     break;
                 case SyncCollections::ERROR_WRONG_HIERARCHY:
                     $pingstatus = SYNC_PINGSTATUS_FOLDERHIERSYNCREQUIRED;
+                    self::$deviceManager->AnnounceProcessStatus(false, $pingstatus);
                     break;
 
             }

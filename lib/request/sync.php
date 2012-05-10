@@ -796,6 +796,10 @@ class Sync extends RequestProcessor {
                             self::$encoder->content($status);
                         self::$encoder->endTag();
 
+                        // announce failing status to the process loop detection
+                        if ($status !== SYNC_STATUS_SUCCESS)
+                            self::$deviceManager->AnnounceProcessStatus($spa->GetFolderId(), $status);
+
                         // Output IDs and status for incoming items & requests
                         if($status == SYNC_STATUS_SUCCESS && (
                             !empty($actiondata["clientids"]) ||
