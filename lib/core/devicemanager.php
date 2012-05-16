@@ -135,6 +135,11 @@ class DeviceManager {
     public function Save() {
         // TODO save other stuff
 
+        // check if previousily ignored messages were synchronized for the current folder
+        // on multifolder operations of AS14 this is done by setLatestFolder()
+        if ($this->latestFolder !== false)
+            $this->checkBrokenMessages($this->latestFolder);
+
         // update the user agent and AS version on the device
         $this->device->SetUserAgent(Request::GetUserAgent());
         $this->device->SetASVersion(Request::GetProtocolVersion());
@@ -387,7 +392,7 @@ class DeviceManager {
      * @return boolean          returns true if the message should NOT be send!
      */
     public function DoNotStreamMessage($id, &$message) {
-        $folderid = $this->latestFolder;
+        $folderid = $this->getLatestFolder();
 
         if (isset($message->parentid))
             $folder = $message->parentid;
@@ -404,10 +409,13 @@ class DeviceManager {
             return true;
         }
 
-        // all other messages are potentially synched now
-        if ($this->announceAcceptedMessage($folderid, $id)) {
-            // reset the flags so the message is streamed with <Add>
+        // check if this message is broken
+        if ($this->device->HasIgnoredMessage($folderid, $id)) {
+            // reset the flags so the message is always streamed with <Add>
             $message->flags = false;
+
+            // track the borken message to the message
+            $this->loopdetection->SetBrokenMessage($folderid, $id);
         }
         return false;
     }
@@ -427,7 +435,7 @@ class DeviceManager {
         else
             $items = self::DEFAULTWINDOWSIZE;
 
-        $this->latestFolder = $folderid;
+        $this->setLatestFolder($folderid);
 
         // detect if this is a loop condition
         if ($this->loopdetection->Detect($folderid, $type, $uuid, $statecounter, $items, $queuedmessages))
@@ -609,7 +617,6 @@ class DeviceManager {
         return true;
     }
 
-
     /**
      * Called when a SyncObject is not being streamed to the mobile.
      * The user can be informed so he knows about this issue
@@ -624,7 +631,7 @@ class DeviceManager {
      */
     public function AnnounceIgnoredMessage($folderid, $id, SyncObject $message, $reason = self::MSG_BROKEN_UNKNOWN) {
         if ($folderid === false)
-            $folderid = $this->latestFolder;
+            $folderid = $this->getLatestFolder();
 
         $class = get_class($message);
 
@@ -661,6 +668,53 @@ class DeviceManager {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Checks if there were broken messages streamed to the mobile.
+     * If the sync completes/continues without further erros they are marked as accepted
+     *
+     * @param string    $folderid       folderid which is to be checked
+     *
+     * @access private
+     * @return boolean
+     */
+    private function checkBrokenMessages($folderid) {
+        // check for correctly synchronized messages of the folder
+        foreach($this->loopdetection->GetSyncedButBeforeIgnoredMessages($folderid) as $okID) {
+            $this->announceAcceptedMessage($folderid, $okID);
+        }
+        return true;
+    }
+
+    /**
+     * Setter for the latest folder id
+     * on multi-folder operations of AS 14 this is used to set the new current folder id
+     *
+     * @param string    $folderid       the current folder
+     *
+     * @access private
+     * @return boolean
+     */
+    private function setLatestFolder($folderid) {
+        // this is a multi folder operation
+        // check on ignoredmessages before discaring the folderid
+        if ($this->latestFolder !== false)
+            $this->checkBrokenMessages($this->latestFolder);
+
+        $this->latestFolder = $folderid;
+
+        return true;
+    }
+
+    /**
+     * Getter for the latest folder id
+     *
+     * @access private
+     * @return string    $folderid       the current folder
+     */
+    private function getLatestFolder() {
+        return $this->latestFolder;
     }
 }
 

@@ -49,9 +49,12 @@
 
 class LoopDetection extends InterProcessData {
     const INTERPROCESSLD = "ipldkey";
+    const BROKENMSGS = "bromsgs";
     static private $processident;
     static private $processentry;
     private $ignore_messageid;
+    private $broken_message_uuid;
+    private $broken_message_counter;
 
 
     /**
@@ -278,7 +281,6 @@ class LoopDetection extends InterProcessData {
      * @access private
      * @return array
      */
-
     private function getProcessStack() {
         // initialize params
         $this->InitializeParams();
@@ -299,6 +301,126 @@ class LoopDetection extends InterProcessData {
         return $stack;
     }
 
+    /**
+     * TRACKING OF BROKEN MESSAGES
+     * if a previousily ignored message is streamed again to the device it's tracked here
+     *
+     * There are two outcomes:
+     * - next uuid counter is higher than current -> message is fixed and successfully synchronized
+     * - next uuid counter is the same or uuid changed -> message is still broken
+     */
+
+    /**
+     * Adds a message to the tracking of broken messages
+     * Being tracked means that a broken message was streamed to the device.
+     * We save the latest uuid and counter so if on the next sync the counter is higher
+     * the message was accepted by the device.
+     *
+     * @param string    $folderid   the parent folder of the message
+     * @param string    $id         the id of the message
+     *
+     * @access public
+     * @return boolean
+     */
+    public function SetBrokenMessage($folderid, $id) {
+        if ($folderid == false || !isset($this->broken_message_uuid) || !isset($this->broken_message_counter) || $this->broken_message_uuid == false || $this->broken_message_counter == false)
+            return false;
+
+        $ok = false;
+        $brokenkey = self::BROKENMSGS ."-". $folderid;
+
+        // initialize params
+        $this->InitializeParams();
+        if ($this->blockMutex()) {
+            $loopdata = ($this->hasData()) ? $this->getData() : array();
+
+            // check and initialize the array structure
+            $this->checkArrayStructure($loopdata, $brokenkey);
+
+            $brokenmsgs = $loopdata[self::$devid][self::$user][$brokenkey];
+
+            $brokenmsgs[$id] = array('uuid' => $this->broken_message_uuid, 'counter' => $this->broken_message_counter);
+            ZLog::Write(LOGLEVEL_DEBUG, sprintf("LoopDetection->SetBrokenMessage('%s', '%s'): tracking broken message", $folderid, $id));
+
+            // update data
+            $loopdata[self::$devid][self::$user][$brokenkey] = $brokenmsgs;
+            $ok = $this->setData($loopdata);
+
+            $this->releaseMutex();
+        }
+        // end exclusive block
+
+        return $ok;
+    }
+
+    /**
+     * Gets a list of all ids of a folder which were tracked and which were
+     * accepted by the device from the last sync.
+     *
+     * @param string    $folderid   the parent folder of the message
+     * @param string    $id         the id of the message
+     *
+     * @access public
+     * @return array
+     */
+    public function GetSyncedButBeforeIgnoredMessages($folderid) {
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("GetSyncedButBeforeIgnoredMessages('%s')",$folderid));
+
+        if ($folderid == false || !isset($this->broken_message_uuid) || !isset($this->broken_message_counter) || $this->broken_message_uuid == false || $this->broken_message_counter == false)
+            return array();
+
+        $brokenkey = self::BROKENMSGS ."-". $folderid;
+        $removeIds = array();
+        $okIds = array();
+
+        // initialize params
+        $this->InitializeParams();
+        if ($this->blockMutex()) {
+            $loopdata = ($this->hasData()) ? $this->getData() : array();
+
+            // check and initialize the array structure
+            $this->checkArrayStructure($loopdata, $brokenkey);
+
+            $brokenmsgs = $loopdata[self::$devid][self::$user][$brokenkey];
+
+            if (!empty($brokenmsgs)) {
+                foreach ($brokenmsgs as $id => $data) {
+                    // previously broken message was sucessfully synced!
+                    if ($data['uuid'] == $this->broken_message_uuid && $data['counter'] < $this->broken_message_counter) {
+                        ZLog::Write(LOGLEVEL_DEBUG, sprintf("LoopDetection->GetSyncedButBeforeIgnoredMessages('%s'): message '%s' was successfully synchronized", $folderid, $id));
+                        $okIds[] = $id;
+                    }
+
+                    // if the uuid has changed this is old data which should also be removed
+                    if ($data['uuid'] != $this->broken_message_uuid) {
+                        ZLog::Write(LOGLEVEL_DEBUG, sprintf("LoopDetection->GetSyncedButBeforeIgnoredMessages('%s'): stored message id '%s' for uuid '%s' is obsolete", $folderid, $id, $data['uuid']));
+                        $removeIds[] = $id;
+                    }
+                }
+
+                // remove data
+                foreach (array_merge($okIds,$removeIds) as $id) {
+                    unset($brokenmsgs[$id]);
+                }
+
+                if (empty($brokenmsgs) && isset($loopdata[self::$devid][self::$user][$brokenkey])) {
+                    ZLog::Write(LOGLEVEL_DEBUG, "LoopDetection->GetSyncedButBeforeIgnoredMessages: loopdata". print_r($loopdata[self::$devid][self::$user],1));
+                    unset($loopdata[self::$devid][self::$user][$brokenkey]);
+                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("LoopDetection->GetSyncedButBeforeIgnoredMessages('%s'): removed folder from tracking of ignored messages", $folderid));
+                }
+                else {
+                    // update data
+                    $loopdata[self::$devid][self::$user][$brokenkey] = $brokenmsgs;
+                }
+                $ok = $this->setData($loopdata);
+            }
+
+            $this->releaseMutex();
+        }
+        // end exclusive block
+
+        return $okIds;
+    }
 
     /**
      * MESSAGE LOOP DETECTION
@@ -332,6 +454,9 @@ class LoopDetection extends InterProcessData {
      * @return boolean      when returning true if a loop has been identified
      */
     public function Detect($folderid, $type, $uuid, $counter, $maxItems, $queuedMessages) {
+        $this->broken_message_uuid = $uuid;
+        $this->broken_message_counter = $counter;
+
         // if an incoming loop is already detected, do nothing
         if ($maxItems === 0 && $queuedMessages > 0) {
             ZPush::GetTopCollector()->AnnounceInformation("Incoming loop!", true);
@@ -523,6 +648,13 @@ class LoopDetection extends InterProcessData {
                 $this->ignore_messageid = false;
                 $current['ignored'] = $messageid;
                 $changedData = true;
+
+                // check if this message was broken before - here we know that it still is and remove it from the tracking
+                $brokenkey = self::BROKENMSGS ."-". $folderid;
+                if (isset($loopdata[self::$devid][self::$user][$brokenkey]) && isset($loopdata[self::$devid][self::$user][$brokenkey][$messageid])) {
+                    ZLog::Write(LOGLEVEL_DEBUG, sprintf("LoopDetection->IgnoreNextMessage(): previously broken message '%s' is still broken and will not be tracked anymore", $messageid));
+                    unset($loopdata[self::$devid][self::$user][$brokenkey][$messageid]);
+                }
             }
             // not the broken message yet
             else {
