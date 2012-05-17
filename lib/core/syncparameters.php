@@ -62,7 +62,7 @@ class SyncParameters extends StateObject {
                                     'contentclass' => false,
                                     'deletesasmoves' => false,
                                     'conversationmode' => false,
-                                    'windowsize' => false,
+                                    'windowsize' => 5,
                                     'contentparameters' => array()
                                 );
 
