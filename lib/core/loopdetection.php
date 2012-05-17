@@ -364,8 +364,6 @@ class LoopDetection extends InterProcessData {
      * @return array
      */
     public function GetSyncedButBeforeIgnoredMessages($folderid) {
-        ZLog::Write(LOGLEVEL_DEBUG, sprintf("GetSyncedButBeforeIgnoredMessages('%s')",$folderid));
-
         if ($folderid == false || !isset($this->broken_message_uuid) || !isset($this->broken_message_counter) || $this->broken_message_uuid == false || $this->broken_message_counter == false)
             return array();
 
