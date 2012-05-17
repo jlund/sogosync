@@ -395,7 +395,7 @@ class Sync extends RequestProcessor {
 
                             // TODO check if the failsyncstate applies for conflict detection as well
                             if ($status == SYNC_STATUS_SUCCESS && $nchanges == 0)
-                                $importer->LoadConflicts($spa, $sc->GetParameter($spa, "state"));
+                                $importer->LoadConflicts($spa->GetCPO(), $sc->GetParameter($spa, "state"));
 
                             if ($status == SYNC_STATUS_SUCCESS)
                                 $nchanges++;
