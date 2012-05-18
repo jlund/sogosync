@@ -971,8 +971,7 @@ class Sync extends RequestProcessor {
                         }
 
                         // save SyncParameters
-                        // TODO check if we need changed data in case of a StatusException
-                        if ($status == SYNC_STATUS_SUCCESS)
+                        if ($status == SYNC_STATUS_SUCCESS && empty($actiondata["fetchids"]))
                             $sc->SaveCollection($spa);
 
                     } // END foreach collection
