@@ -399,6 +399,14 @@ class BackendZarafa implements IBackend, ISearchProvider {
         foreach(preg_split("/((\r)?\n)/", $sm->mime) as $rfc822line)
             ZLog::Write(LOGLEVEL_WBXML, "RFC822: ". $rfc822line);
 
+        $mimeParams = array('decode_headers' => true,
+                            'decode_bodies' => true,
+                            'include_bodies' => true,
+                            'charset' => 'utf-8');
+
+        $mimeObject = new Mail_mimeDecode($sm->mime);
+        $message = $mimeObject->decode($mimeParams);
+
         $sendMailProps = MAPIMapping::GetSendMailProperties();
         $sendMailProps = getPropIdsFromStrings($this->store, $sendMailProps);
 
@@ -424,6 +432,9 @@ class BackendZarafa implements IBackend, ISearchProvider {
             mapi_inetmapi_imtomapi($this->session, $this->store, $ab, $mapimessage, $sm->mime, array());
             $mapiprops[$sendMailProps["sentmailentryid"]] = $storeprops[$sendMailProps["ipmsentmailentryid"]];
             mapi_setprops($mapimessage, $mapiprops);
+
+            $this->addRecipients($message->headers, $mapimessage);
+
             mapi_message_savechanges($mapimessage);
             mapi_message_submitmessage($mapimessage);
             $hr = mapi_last_hresult();
@@ -434,14 +445,6 @@ class BackendZarafa implements IBackend, ISearchProvider {
             ZLog::Write(LOGLEVEL_DEBUG, "ZarafaBackend->SendMail(): email submitted");
             return true;
         }
-
-        $mimeParams = array(    'decode_headers' => true,
-                                'decode_bodies' => true,
-                                'include_bodies' => true,
-                                'charset' => 'utf-8');
-
-        $mimeObject = new Mail_mimeDecode($sm->mime);
-        $message = $mimeObject->decode($mimeParams);
 
         //message properties to be set
         $mapiprops = array();
