@@ -412,6 +412,9 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
         $mapimessage = mapi_folder_createmessage($outbox);
 
+        //message properties to be set
+        $mapiprops = array();
+
         // Check if imtomapi function is available and use it to send the mime message.
         // It is available since ZCP 7.0.6
         // @see http://jira.zarafa.com/browse/ZCP-9508
@@ -419,6 +422,8 @@ class BackendZarafa implements IBackend, ISearchProvider {
             ZLog::Write(LOGLEVEL_DEBUG, "Use the mapi_inetmapi_imtomapi function");
             $ab = mapi_openaddressbook($this->session);
             mapi_inetmapi_imtomapi($this->session, $this->store, $ab, $mapimessage, $sm->mime, array());
+            $mapiprops[$sendMailProps["sentmailentryid"]] = $storeprops[$sendMailProps["ipmsentmailentryid"]];
+            mapi_setprops($mapimessage, $mapiprops);
             mapi_message_savechanges($mapimessage);
             mapi_message_submitmessage($mapimessage);
             $hr = mapi_last_hresult();
@@ -426,6 +431,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
             if ($hr)
                 throw new StatusException(sprintf("ZarafaBackend->SendMail(): Error saving/submitting the message to the Outbox: 0x%X", mapi_last_hresult()), SYNC_COMMONSTATUS_MAILSUBMISSIONFAILED);
 
+            ZLog::Write(LOGLEVEL_DEBUG, "ZarafaBackend->SendMail(): email submitted");
             return true;
         }
 
