@@ -422,6 +422,8 @@ class BackendZarafa implements IBackend, ISearchProvider {
 
         //message properties to be set
         $mapiprops = array();
+        // only save the outgoing in sent items folder if the mobile requests it
+        $mapiprops[$sendMailProps["sentmailentryid"]] = $storeprops[$sendMailProps["ipmsentmailentryid"]];
 
         // Check if imtomapi function is available and use it to send the mime message.
         // It is available since ZCP 7.0.6
@@ -430,10 +432,19 @@ class BackendZarafa implements IBackend, ISearchProvider {
             ZLog::Write(LOGLEVEL_DEBUG, "Use the mapi_inetmapi_imtomapi function");
             $ab = mapi_openaddressbook($this->session);
             mapi_inetmapi_imtomapi($this->session, $this->store, $ab, $mapimessage, $sm->mime, array());
-            $mapiprops[$sendMailProps["sentmailentryid"]] = $storeprops[$sendMailProps["ipmsentmailentryid"]];
+
             mapi_setprops($mapimessage, $mapiprops);
 
             $this->addRecipients($message->headers, $mapimessage);
+
+            // Delete the PR_SENT_REPRESENTING_* properties because some android devices
+            // do not send neither From nor Sender header causing empty PR_SENT_REPRESENTING_NAME and
+            // PR_SENT_REPRESENTING_EMAIL_ADDRESS properties and "broken" PR_SENT_REPRESENTING_ENTRYID
+            // which results in spooler not being able to send the message.
+            // @see http://jira.zarafa.com/browse/ZP-85
+            mapi_deleteprops($mapimessage,
+                array(  $sendMailProps["sentrepresentingname"], $sendMailProps["sentrepresentingemail"], $sendMailProps["representingentryid"],
+                        $sendMailProps["sentrepresentingaddt"], $sendMailProps["sentrepresentinsrchk"]));
 
             mapi_message_savechanges($mapimessage);
             mapi_message_submitmessage($mapimessage);
@@ -446,11 +457,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
             return true;
         }
 
-        //message properties to be set
-        $mapiprops = array();
         $mapiprops[$sendMailProps["subject"]] = u2wi(isset($message->headers["subject"])?$message->headers["subject"]:"");
-        // only save the outgoing in sent items folder if the mobile requests it
-        $mapiprops[$sendMailProps["sentmailentryid"]] = $storeprops[$sendMailProps["ipmsentmailentryid"]];
         $mapiprops[$sendMailProps["messageclass"]] = "IPM.Note";
         $mapiprops[$sendMailProps["deliverytime"]] = time();
 
