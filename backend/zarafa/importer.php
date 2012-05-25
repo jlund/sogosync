@@ -459,13 +459,21 @@ class ImportChangesICS implements IImportChanges {
 
         // create a new folder if $id is not set
         if (!$id) {
-            $parentfentryid = mapi_msgstore_entryidfromsourcekey($this->store, hex2bin($parent));
+            // the root folder is "0" - get IPM_SUBTREE
+            if ($parent == "0") {
+                $parentprops = mapi_getprops($this->store, array(PR_IPM_SUBTREE_ENTRYID));
+                if (isset($parentprops[PR_IPM_SUBTREE_ENTRYID]))
+                    $parentfentryid = $parentprops[PR_IPM_SUBTREE_ENTRYID];
+            }
+            else
+                $parentfentryid = mapi_msgstore_entryidfromsourcekey($this->store, hex2bin($parent));
+
             if (!$parentfentryid)
-                throw new StatusException(sprintf("ImportChangesICS->ImportFolderChange('%s','%s','%s'): Error, unable to open parent folder", Utils::PrintAsString(false), $folder->parentid, $displayname), SYNC_FSSTATUS_PARENTNOTFOUND);
+                throw new StatusException(sprintf("ImportChangesICS->ImportFolderChange('%s','%s','%s'): Error, unable to open parent folder (no entry id)", Utils::PrintAsString(false), $folder->parentid, $displayname), SYNC_FSSTATUS_PARENTNOTFOUND);
 
             $parentfolder = mapi_msgstore_openentry($this->store, $parentfentryid);
             if (!$parentfolder)
-                throw new StatusException(sprintf("ImportChangesICS->ImportFolderChange('%s','%s','%s'): Error, unable to open parent folder", Utils::PrintAsString(false), $folder->parentid, $displayname), SYNC_FSSTATUS_PARENTNOTFOUND);
+                throw new StatusException(sprintf("ImportChangesICS->ImportFolderChange('%s','%s','%s'): Error, unable to open parent folder (open entry)", Utils::PrintAsString(false), $folder->parentid, $displayname), SYNC_FSSTATUS_PARENTNOTFOUND);
 
             //  mapi_folder_createfolder() fails if a folder with this name already exists -> MAPI_E_COLLISION
             $newfolder = mapi_folder_createfolder($parentfolder, $displayname, "");
