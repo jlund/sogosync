@@ -43,7 +43,7 @@
 * Consult LICENSE file for details
 ************************************************/
 
-ob_start(false, 1048576);
+ob_start(null, 1048576);
 
 include_once('lib/exceptions/exceptions.php');
 include_once('lib/utils/utils.php');
