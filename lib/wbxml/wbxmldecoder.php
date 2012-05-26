@@ -149,7 +149,7 @@ class WBXMLDecoder extends WBXMLDefs {
         if($element[EN_TYPE] == EN_TYPE_STARTTAG && $element[EN_TAG] == $tag)
             return $element;
         else {
-            ZLog::Write(LOGLEVEL_WBXMLSTACK, sprintf("WBXMLDecoder->getElementStartTag(): unmatched WBXML tag: '%s' type '%s' flags '%s'", $element[EN_TAG], $element[EN_TYPE], $element[EN_FLAGS]));
+            ZLog::Write(LOGLEVEL_WBXMLSTACK, sprintf("WBXMLDecoder->getElementStartTag(): unmatched WBXML tag: '%s' type '%s' flags '%s'", ((isset($element[EN_TAG]))?$element[EN_TAG]:""), ((isset($element[EN_TYPE]))?$element[EN_TYPE]:""), ((isset($element[EN_FLAGS]))?$element[EN_FLAGS]:"")));
             $this->ungetElement($element);
         }
 
@@ -168,7 +168,7 @@ class WBXMLDecoder extends WBXMLDefs {
         if($element[EN_TYPE] == EN_TYPE_ENDTAG)
             return $element;
         else {
-            ZLog::Write(LOGLEVEL_WBXMLSTACK, sprintf("WBXMLDecoder->getElementEndTag(): unmatched WBXML tag: '%s' type '%s' flags '%s'", $element[EN_TAG], $element[EN_TYPE], $element[EN_FLAGS]));
+            ZLog::Write(LOGLEVEL_WBXMLSTACK, sprintf("WBXMLDecoder->getElementEndTag(): unmatched WBXML tag: '%s' type '%s' flags '%s'", ((isset($element[EN_TAG]))?$element[EN_TAG]:""), ((isset($element[EN_TYPE]))?$element[EN_TYPE]:""), ((isset($element[EN_FLAGS]))?$element[EN_FLAGS]:"")));
 
             $bt = debug_backtrace();
             ZLog::Write(LOGLEVEL_ERROR, sprintf("WBXMLDecoder->getElementEndTag(): could not read end tag in '%s'. Please enable the LOGLEVEL_WBXML and send the log to the Z-Push dev team.", $bt[0]["file"] . ":" . $bt[0]["line"]));
@@ -194,7 +194,7 @@ class WBXMLDecoder extends WBXMLDefs {
             return $element[EN_CONTENT];
         }
         else {
-            ZLog::Write(LOGLEVEL_WBXMLSTACK, sprintf("WBXMLDecoder->getElementContent(): unmatched WBXML content: '%s' type '%s' flags '%s'", $element[EN_TAG], $element[EN_TYPE], $element[EN_FLAGS]));
+            ZLog::Write(LOGLEVEL_WBXMLSTACK, sprintf("WBXMLDecoder->getElementContent(): unmatched WBXML content: '%s' type '%s' flags '%s'", ((isset($element[EN_TAG]))?$element[EN_TAG]:""), ((isset($element[EN_TYPE]))?$element[EN_TYPE]:""), ((isset($element[EN_FLAGS]))?$element[EN_FLAGS]:"")));
             $this->ungetElement($element);
         }
 
@@ -211,7 +211,7 @@ class WBXMLDecoder extends WBXMLDefs {
      */
     public function ungetElement($element) {
         if($this->ungetbuffer)
-            ZLog::Write(LOGLEVEL_ERROR,sprintf("WBXMLDecoder->ungetElement(): WBXML double unget on tag: '%s' type '%s' flags '%s'", $element[EN_TAG], $element[EN_TYPE], $element[EN_FLAGS]));
+            ZLog::Write(LOGLEVEL_ERROR,sprintf("WBXMLDecoder->ungetElement(): WBXML double unget on tag: '%s' type '%s' flags '%s'", ((isset($element[EN_TAG]))?$element[EN_TAG]:""), ((isset($element[EN_TYPE]))?$element[EN_TYPE]:""), ((isset($element[EN_FLAGS]))?$element[EN_FLAGS]:"")));
 
         $this->ungetbuffer = $element;
     }
