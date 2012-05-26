@@ -806,7 +806,7 @@ class BackendZarafa implements IBackend, ISearchProvider {
             throw new StatusException(sprintf("BackendZarafa->EmptyFolder('%s','%s'): Error, unable to open folder (no entry id)", $folderid, Utils::PrintAsString($includeSubfolders)), SYNC_ITEMOPERATIONSSTATUS_SERVERERROR);
         $folder = mapi_msgstore_openentry($this->store, $folderentryid);
 
-        if (!folder)
+        if (!$folder)
             throw new StatusException(sprintf("BackendZarafa->EmptyFolder('%s','%s'): Error, unable to open parent folder (open entry)", $folderid, Utils::PrintAsString($includeSubfolders)), SYNC_ITEMOPERATIONSSTATUS_SERVERERROR);
 
         $flags = 0;
