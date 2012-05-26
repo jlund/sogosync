@@ -247,6 +247,11 @@ include_once('version.php');
                 ZLog::Write(LOGLEVEL_WARN, sprintf("IP: %s failed to authenticate user '%s'",  Request::GetRemoteAddr(), Request::GetAuthUser()? Request::GetAuthUser(): Request::GetGETUser() ));
         }
 
+        // This could be a WBXML problem.. try to get the complete request
+        else if ($ex instanceof WBXMLException) {
+            ZLog::Write(LOGLEVEL_FATAL, "Request could not be processed correctly due to a WBXMLException. Please report this.");
+        }
+
         // Try to output some kind of error information. This is only possible if
         // the output had not started yet. If it has started already, we can't show the user the error, and
         // the device will give its own (useless) error message.
