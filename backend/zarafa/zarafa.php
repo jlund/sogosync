@@ -787,6 +787,42 @@ class BackendZarafa implements IBackend, ISearchProvider {
         return $attachment;
     }
 
+
+    /**
+     * Deletes all contents of the specified folder.
+     * This is generally used to empty the trash (wastebasked), but could also be used on any
+     * other folder.
+     *
+     * @param string        $folderid
+     * @param boolean       $includeSubfolders      (opt) also delete sub folders, default true
+     *
+     * @access public
+     * @return boolean
+     * @throws StatusException
+     */
+    public function EmptyFolder($folderid, $includeSubfolders = true) {
+        $folderentryid = mapi_msgstore_entryidfromsourcekey($this->store, hex2bin($folderid));
+        if (!$folderentryid)
+            throw new StatusException(sprintf("BackendZarafa->EmptyFolder('%s','%s'): Error, unable to open folder (no entry id)", $folderid, Utils::PrintAsString($includeSubfolders)), SYNC_ITEMOPERATIONSSTATUS_SERVERERROR);
+        $folder = mapi_msgstore_openentry($this->store, $folderentryid);
+
+        if (!folder)
+            throw new StatusException(sprintf("BackendZarafa->EmptyFolder('%s','%s'): Error, unable to open parent folder (open entry)", $folderid, Utils::PrintAsString($includeSubfolders)), SYNC_ITEMOPERATIONSSTATUS_SERVERERROR);
+
+        $flags = 0;
+        if ($includeSubfolders)
+            $flags = DEL_ASSOCIATED;
+
+        ZLog::Write(LOGLEVEL_DEBUG, sprintf("BackendZarafa->EmptyFolder('%s','%s'): emptying folder",$folderid, Utils::PrintAsString($includeSubfolders)));
+
+        // empty folder!
+        mapi_folder_emptyfolder($folder, $flags);
+        if (mapi_last_hresult())
+            throw new StatusException(sprintf("BackendZarafa->EmptyFolder('%s','%s'): Error, mapi_folder_emptyfolder() failed: 0x%X", $folderid, Utils::PrintAsString($includeSubfolders), mapi_last_hresult()), SYNC_ITEMOPERATIONSSTATUS_SERVERERROR);
+
+        return true;
+    }
+
     /**
      * Processes a response to a meeting request.
      * CalendarID is a reference and has to be set if a new calendar item is created
