@@ -128,7 +128,7 @@ class ZLog {
      * @return string
      */
     static public function GetWBXMLDebugInfo() {
-        return self::$wbxmlDebug;
+        return trim(self::$wbxmlDebug);
     }
 
     /**
