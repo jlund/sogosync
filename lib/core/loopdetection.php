@@ -86,6 +86,21 @@ class LoopDetection extends InterProcessData {
     }
 
     /**
+     * Marks the process entry as termineted successfully on the process stack
+     *
+     * @access public
+     * @return boolean
+     */
+    public function ProcessLoopDetectionTerminate() {
+        // just to be sure that the entry is there
+        self::GetProcessEntry();
+
+        self::$processentry['end'] = time();
+        ZLog::Write(LOGLEVEL_DEBUG, "LoopDetection->ProcessLoopDetectionTerminate()");
+        return $this->updateProcessStack();
+    }
+
+    /**
      * Returns a unique identifier for the internal process tracking
      *
      * @access public
@@ -108,6 +123,7 @@ class LoopDetection extends InterProcessData {
         if (!isset(self::$processentry)) {
             self::$processentry = array();
             self::$processentry['id'] = self::GetProcessIdentifier();
+            self::$processentry['pid'] = self::$pid;
             self::$processentry['time'] = self::$start;
             self::$processentry['cc'] = Request::GetCommandCode();
         }
@@ -224,6 +240,28 @@ class LoopDetection extends InterProcessData {
         }
 
         return false;
+    }
+
+    /**
+     * Indicates if a previous process could not be terminated
+     *
+     * Checks if there is an end time for the last entry on the stack
+     *
+     * @access public
+     * @return boolean
+     *
+     */
+    public function ProcessLoopDetectionPreviousConnectionFailed() {
+        $stack = $this->getProcessStack();
+        if (count($stack) > 1) {
+            $se = $stack[count($stack)-2];
+            if (!isset($se['end']) && $se['cc'] != ZPush::COMMAND_PING) {
+                // there is no end time
+                ZLog::Write(LOGLEVEL_ERROR, sprintf("LoopDetection->ProcessLoopDetectionPreviousConnectionFailed() the last request of this user, " .
+                                                    "command '%s' at %s with pid '%d' was terminated unexpectadly. Please check your logs for this PID and possible fatal errors, " .
+                                                    "like e.g. segmentation faults. Please report your results to the Z-Push dev team.", Utils::GetCommandFromCode($se['cc']), Utils::GetFormattedTime($se['time']), $se['pid']));
+            }
+        }
     }
 
     /**

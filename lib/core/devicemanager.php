@@ -92,6 +92,7 @@ class DeviceManager {
 
         $this->loopdetection = new LoopDetection();
         $this->loopdetection->ProcessLoopDetectionInit();
+        $this->loopdetection->ProcessLoopDetectionPreviousConnectionFailed();
 
         $this->stateManager = new StateManager();
         $this->stateManager->SetDevice($this->device);
@@ -165,6 +166,10 @@ class DeviceManager {
                 ZLog::Write(LOGLEVEL_ERROR, "DeviceManager->Save(): Exception: ". $snfex->getMessage());
             }
         }
+
+        // we terminated this process
+        if ($this->loopdetection)
+            $this->loopdetection->ProcessLoopDetectionTerminate();
 
         return true;
     }
