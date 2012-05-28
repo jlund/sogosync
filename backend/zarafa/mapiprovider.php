@@ -677,18 +677,20 @@ class MAPIProvider {
         $message->cc = array();
 
         $reciptable = mapi_message_getrecipienttable($mapimessage);
-        $rows = mapi_table_queryallrows($reciptable, array(PR_RECIPIENT_TYPE, PR_DISPLAY_NAME, PR_ADDRTYPE, PR_EMAIL_ADDRESS, PR_SMTP_ADDRESS));
+        $rows = mapi_table_queryallrows($reciptable, array(PR_RECIPIENT_TYPE, PR_DISPLAY_NAME, PR_ADDRTYPE, PR_EMAIL_ADDRESS, PR_SMTP_ADDRESS, PR_ENTRYID));
 
-        foreach($rows as $row) {
+        foreach ($rows as $row) {
             $address = "";
             $fulladdr = "";
 
             $addrtype = isset($row[PR_ADDRTYPE]) ? $row[PR_ADDRTYPE] : "";
 
-            if(isset($row[PR_SMTP_ADDRESS]))
+            if (isset($row[PR_SMTP_ADDRESS]))
                 $address = $row[PR_SMTP_ADDRESS];
-            else if($addrtype == "SMTP" && isset($row[PR_EMAIL_ADDRESS]))
+            elseif ($addrtype == "SMTP" && isset($row[PR_EMAIL_ADDRESS]))
                 $address = $row[PR_EMAIL_ADDRESS];
+            elseif ($addrtype == "ZARAFA" && isset($row[PR_ENTRYID]))
+                $address = $this->getSMTPAddressFromEntryID($row[PR_ENTRYID]);
 
             $name = isset($row[PR_DISPLAY_NAME]) ? $row[PR_DISPLAY_NAME] : "";
 
@@ -709,6 +711,9 @@ class MAPIProvider {
                 array_push($message->cc, $fulladdr);
             }
         }
+
+        if (is_array($message->to) && !empty($message->to)) $message->to = implode(", ", $message->to);
+        if (is_array($message->cc) && !empty($message->cc)) $message->cc = implode(", ", $message->cc);
 
         // without importance some mobiles assume "0" (low) - Mantis #439
         if (!isset($message->importance))
