@@ -258,7 +258,7 @@ class LoopDetection extends InterProcessData {
             if (!isset($se['end']) && $se['cc'] != ZPush::COMMAND_PING) {
                 // there is no end time
                 ZLog::Write(LOGLEVEL_ERROR, sprintf("LoopDetection->ProcessLoopDetectionPreviousConnectionFailed() the last request of this user, " .
-                                                    "command '%s' at %s with pid '%d' was terminated unexpectadly. Please check your logs for this PID and possible fatal errors, " .
+                                                    "command '%s' at %s with pid '%d' was terminated unexpectedly. Please check your logs for this PID and possible fatal errors, " .
                                                     "like e.g. segmentation faults. Please report your results to the Z-Push dev team.", Utils::GetCommandFromCode($se['cc']), Utils::GetFormattedTime($se['time']), $se['pid']));
             }
         }
