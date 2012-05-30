@@ -158,7 +158,7 @@
     define('CALDAV_PATH', '/SOGo/dav/%u/');
     define('CALDAV_PERSONAL', 'personal');
     define('CALDAV_URL', 'http://sogo-demo.inverse.ca/SOGo/dav/%u/');
-    define('CALDAV_READONLY', 'true');
+    define('CALDAV_READONLY', true);
 
     // ******************************
     //  BackendCalDAV settings
@@ -167,6 +167,6 @@
     // Using HTTPS is recommended
     define('CARDDAV_PERSONAL', 'personal');
     define('CARDDAV_URL', 'http://sogo-demo.inverse.ca/SOGo/dav/%u/Contacts/');
-    define('CARDDAV_READONLY', 'true');
+    define('CARDDAV_READONLY', true);
 
 ?>
