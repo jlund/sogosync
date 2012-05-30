@@ -760,7 +760,7 @@ class MAPIProvider {
     public function GetFolder($mapifolder) {
         $folder = new SyncFolder();
 
-        $folderprops = mapi_getprops($mapifolder, array(PR_DISPLAY_NAME, PR_PARENT_ENTRYID, PR_SOURCE_KEY, PR_PARENT_SOURCE_KEY, PR_ENTRYID, PR_CONTAINER_CLASS));
+        $folderprops = mapi_getprops($mapifolder, array(PR_DISPLAY_NAME, PR_PARENT_ENTRYID, PR_SOURCE_KEY, PR_PARENT_SOURCE_KEY, PR_ENTRYID, PR_CONTAINER_CLASS, PR_ATTR_HIDDEN));
         $storeprops = mapi_getprops($this->store, array(PR_IPM_SUBTREE_ENTRYID));
 
         if(!isset($folderprops[PR_DISPLAY_NAME]) ||
@@ -770,6 +770,11 @@ class MAPIProvider {
            !isset($folderprops[PR_PARENT_SOURCE_KEY]) ||
            !isset($storeprops[PR_IPM_SUBTREE_ENTRYID])) {
             ZLog::Write(LOGLEVEL_ERROR, "Missing properties on folder");
+            return false;
+        }
+
+        // ignore hidden folders
+        if (isset($folderprops[PR_ATTR_HIDDEN]) && $folderprops[PR_ATTR_HIDDEN] != false) {
             return false;
         }
 
