@@ -112,6 +112,8 @@ You need to see a webpage "Z-Push - Open Source ActiveSync" with "GET not suppor
 
 If so, congratulations!
 
+If not please READ the FAQ on [the wiki](https://github.com/xbgmsharp/sogosync/wiki)
+
 You can now configure your smartphone.
 
 
