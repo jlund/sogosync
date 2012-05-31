@@ -161,7 +161,7 @@
     define('CALDAV_READONLY', true);
 
     // ******************************
-    //  BackendCalDAV settings
+    //  BackendCardDAV settings
     // ******************************
     // %u is replaced by the username
     // Using HTTPS is recommended

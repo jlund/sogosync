@@ -1,56 +1,56 @@
 Changes from v0.2.0 to v0.3.0
-- z-push 1.5.10
-- Fixed: PHP Parse error in carddav
-- Added: carddav/caldav Body truncate
+- Z-Push 1.5.10
+- Fixed: PHP Parse error in CardDAV
+- Added: CardDAV/CalDAV Body truncate
 - Fixed: vCard.php Parse Error (issue #18)
 - Updated: vCard parser to version 0.4.5
-- Added: carddav/caldav readonly feature (issue #13)
-- Fixed: caldav tunck body description
-- Fixed: caldav event reminder (issue #7)
+- Added: CardDAV/CalDAV readonly feature (issue #13)
+- Fixed: CalDAV trunk body description
+- Fixed: CalDAV event reminder (issue #7)
 - Changed: Added version
-- Fixed: carddav duplicate contact create (issue #12)
+- Fixed: CardDAV duplicate contact create (issue #12)
 - Changed: Reformat with tab
 - Updated: vCard parser to version 0.4.4
 - Fixed: Remove pgsql dependency (issue #10)
 - Updated: vCard parser to version 0.4.2
 
 Changes from v0.1.0 to v0.2.0
-- z-push 1.5.9
-- Added: new parameter for carddav
-- Updated: improved algo
+- Z-Push 1.5.9
+- Added: new parameter for CardDAV
+- Updated: improved algorithm
 - Fixed: start to work with Android
 - Fixed: looping due to missing casting
 - Added: Make personal addressbook as SYNC_FOLDER_TYPE_USER_CONTACT
-- Added: new caldav dependencies
-- Removed: ical parser, now use default one includein libawl
-- Added: new parameter for caldav
-- Added: delete and write method for caldav
+- Added: new CalDAV dependencies
+- Removed: iCal parser, now using the default one included in libawl
+- Added: new parameter for CalDAV
+- Added: delete and write method for CalDAV
 - Added: delete and write method
 - Fixed: Fixed a missing parameter in preg_match_all. Third parameter in preg_match_all is mandatory for PHP <5.4
 - Added: easy access to data object
-- Added: update autor to change a line to commit (issue #6)
+- Added: update author to change a line to commit (issue #6)
 - Added: support for HTTP Digest authentication
-- Fixed: Comment all printf's in the caldav-client. Else this causes sync issues
-- Fixed: Fix bug in caldav-client code
+- Fixed: Comment all printf's in the CalDAV-client. This causes sync issues otherwise.
+- Fixed: Fix bug in CalDAV-client code
 - Fixed: Fix delimiters
 - Fixed: response headers
-- Changed: update carddav client library from 0.5.1 to 0.5.2
+- Changed: update CardDAV client library from 0.5.1 to 0.5.2
 - Fixed: remove password from debug log (issue #3)
 - Changed: User Agent string to avoid warning log in SOGo
 - Updated: version number
 - Added: RedHat OS dependancy list
-- Changed: sync code to new carddav client library
-- Changed: update carddav client library from 0.4.8 to 0.5.1
+- Changed: sync code to new CardDAV client library
+- Changed: update CardDAV client library from 0.4.8 to 0.5.1
 
 Initial Release v0.0.1
-- zpush 1.5.8
-- Fixed: initial realease with CalDAV/CardDAV (Issue #2)
+- Z-Push 1.5.8
+- Fixed: initial release with CalDAV/CardDAV (Issue #2)
 - Change: include_path, no more submodule
 - Added: CardDAV client library
 - Deleted: remove submodule
 - Changed: Remove all submodule
-- Add: initial support cardav
-- Fixed: messing up with git , reverting
+- Add: initial support for CardDAV
+- Fixed: messing up with git, reverting
 - Fixed: fix the URL schema to clone URL
 - Added: AddressBook listing
 - Changed: registered the submodule with the public clone URL
@@ -59,6 +59,6 @@ Initial Release v0.0.1
 - Fixed: caldav url is now base on configuration (not static)
 - Added: SOGOSYNC_VERSION
 - Fixed: correct package list to be install
-- Add Carddav include path
+- Add CardDAV include path
 - Fixed: Missing include awl path (Issue #1)
 - Initial documentation

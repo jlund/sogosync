@@ -78,14 +78,14 @@
     //  BackendCalDAV settings
     // ******************************
     $BackendCalDAV_config = array(
-	'CALDAV_URL' => CALDAV_URL,
+        'CALDAV_URL' => CALDAV_URL,
      );
 
     // ******************************
     //  BackendCardDAV settings
     // ******************************
     $BackendCardDAV_config = array(
-	'CARDDAV_URL' => CARDDAV_URL,
+        'CARDDAV_URL' => CARDDAV_URL,
     );
 
     // ************************
